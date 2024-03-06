@@ -188,7 +188,7 @@ You can add your own model type referring to files under ``llmc/llmc/models/*.py
 
 ## Supported Algorithm List
 
-## Quantization
+### Quantization
 
 - [x] Naive
 
