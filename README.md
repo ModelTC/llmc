@@ -226,7 +226,7 @@ This part is coming soon🚀.
 
 ### Pruning
 
-- [ ] SparsGPT
+- [ ] SparseGPT
 
 - [ ] Wanda
 
