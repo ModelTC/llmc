@@ -10,12 +10,12 @@ This tool is implemented in Pytorch by the following main contributors:
 
 ## News
 
-* **Mar 7:** 🚀 We release the quantization part of a powerful and efficient LLM compression tool. Notably, our benchmark paper is coming soon😊.
+* **Mar 7, 2024:** 🚀 We release the quantization part of a powerful and efficient LLM compression tool. Notably, our benchmark paper is coming soon😊.
 
 ## Highlight Feature
 
-*  Quantize LLMs, e.g., Llama2-70B, OPT-175B,  and evaluate their PPL on only one A100/H100/H800 GPU💥.
-* SOTA compression algorithms for users to choose, and users can squentially employ multiple algorithms on one LLM💥.
+* Quantize LLMs, e.g., Llama2-70B, OPT-175B,  and evaluate their PPL on only one A100/H100/H800 GPU💥.
+* SOTA compression algorithms for users to choose from, and users can sequentially employ multiple algorithms on one LLM💥.
 * Transformed model (``save_fp``  mode in ``quant`` part in [Configuration](#configuration)) exported by our tool with a specifical compression algorithm can go through naive quantization by multiple backends, e.g., [Lightllm](https://github.com/ModelTC/lightllm), [TensorRT-LLM](https://github.com/NVIDIA/TensorRT-LLM) to get a specifical-compression-algorithm-optimized model, which can be inferred by the corresponding backend💥.
 * Our compressed model (``save_quant``  mode in ``quant`` part in [Configuration](#configuration)) with a very low memory footprint can be directly inferred by [Lightllm](https://github.com/ModelTC/lightllm)💥.
 
@@ -45,13 +45,13 @@ This tool is implemented in Pytorch by the following main contributors:
    cd scripts
    # Modify the path of llmc, ``llmc_path``, in the bash file. You can also choose one config 
    # placed in ``llmc/configs/quantization/Awq/`` to quantize your model, or your own
-   # config referring to those we provide by changing ``--config`` argument in run_awq_llama.sh.
+   # config referring to those we provide by changing the ``--config`` argument in run_awq_llama.sh.
    bash run_awq_llama.sh
    ```
 
 ## Configuration
 
-In order to help users to design their own configs, we now explain some universal configuration in all configs we provide under ``llmc/configs/``:
+To help users design their own configs, we now explain some universal configurations in all configs we provide under ``llmc/configs/``:
 
 * ``model``:
 
@@ -69,10 +69,10 @@ In order to help users to design their own configs, we now explain some universa
   ```yaml
   # Note: some algorithms do not need ``calib``, like naive... So, you can remove this part.
   calib:
-      # Replace by the calib data name, e.g., pileval, c4, wikitext2 or ptb, downloaded before.
+      # Replace by the calibration data name, e.g., pileval, c4, wikitext2, or ptb, downloaded before.
       name: pileval
       download: False
-      # Replace by the path of one of the calib data, e.g., pileval, c4, wikitext2 or ptb, 
+      # Replace by the path of one of the calibration data, e.g., pileval, c4, wikitext2, or ptb, 
       # downloaded before.
       path: calib data path
       n_samples: 128
@@ -88,7 +88,7 @@ In order to help users to design their own configs, we now explain some universa
   ```yaml
   # If you want to evaluate PPL of your pretrained/transformed/fake_quant model.
   eval:
-      # You can evaluate pretrain, transformed, fake_quant model, and set the position 
+      # You can evaluate the pretrain, transformed, fake_quant model, and set the position 
       # you want to evaluate.
       eval_pos: [pretrain, transformed, fake_quant]
       # Replace by the name of the eval data, e.g., c4, wikitext2, ptb or [c4, wikitext2],
@@ -107,12 +107,12 @@ In order to help users to design their own configs, we now explain some universa
 
   ```yaml
   save:
-      # ``save_fp`` is True means you want to export transformed model, e.g., parameter-modified
-      # model, whose performance and structure is the same as the original model, and users can 
+      # ``save_fp`` is True means you want to export the transformed model, e.g., parameter-modified
+      # model, whose performance and structure are the same as the original model, and users can 
       # utilize naive quantization to the transformed model to obtain the same performance as 
       # the specifical-algorithm-quantized model.
       save_fp: False
-      # ``save_quant`` is True means you want to export real quant model, e.g.,
+      # ``save_quant`` is True means you want to export a real quant model, e.g.,
       # low-bit weights with weight and activation quantization parameters.
       save_quant: False
       # ``save_quant`` is True means you want to export fake_quant model, e.g.,
@@ -136,7 +136,7 @@ In order to help users to design their own configs, we now explain some universa
           # Quantization granularity: per_channel, per_tensor, per_head (not recommanded).
           granularity: per_channel
           group_size: -1
-          # Calibration algorithms: learnble, mse and minmax (default).
+          # Calibration algorithms: learnble, mse, and minmax (default).
           calib_algo: learnable
           # Utilize Stright-Through Estimation, which is necessary for learnable
           # calibration algorithms.
@@ -150,7 +150,7 @@ In order to help users to design their own configs, we now explain some universa
           # Static quantization (quantization during calibration)or dynamic 
           # quantization (quantization during inference).
           static: True
-      # This part is designed for specifical algorithms, users can refer to
+      # This part is designed for specific algorithms, users can refer to
       # those we provide to design their own.
       special:
           let: True 
@@ -222,7 +222,7 @@ This part is coming soon🚀.
 - [ ] QuIP#
 - [ ] AQLM
 
-**Note:** Some specific algorithms like QUIK, SpQR, needing special hardware or kernel support can not go through naive quantization by multiple backends, and then utilize these backends to infer. But users can still use our tool to evaluate the performance of these algorithms in their research.
+**Note:** Some specific algorithms like QUIK, SpQR, needing special hardware or kernel support can not go through naive quantization by multiple backends, and then utilize these backends to infer. However, users can still use our tool to evaluate the performance of these algorithms in their research.
 
 ### Pruning
 
@@ -232,17 +232,15 @@ This part is coming soon🚀.
 
 - [ ] LLM-Pruner
 
-  ...
-
 This part is coming soon🚀.
 
 ### Docs
 
-- [ ] End-to-end examples of compressing a model and then utilizing multiple backends , e.g., [Lightllm](https://github.com/ModelTC/lightllm), [TensorRT-LLM](https://github.com/NVIDIA/TensorRT-LLM), to infer.
+- [ ] End-to-end examples of compressing a model and then utilizing multiple backends, e.g., [Lightllm](https://github.com/ModelTC/lightllm), [TensorRT-LLM](https://github.com/NVIDIA/TensorRT-LLM), to infer.
 - [ ] Docs about ``special``  in ``quant`` part in [Configuration](#configuration) for different algorithms.
 - [ ] Docs about adding new algorithms by users themselves.
 
-More detailed Docs is coming soon🚀.
+More detailed Docs are coming soon🚀.
 
 ## Acknowledgments
 
