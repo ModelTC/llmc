@@ -15,9 +15,9 @@ This tool is implemented in Pytorch by the following main contributors:
 ## Highlight Feature
 
 *  Quantize LLMs, e.g., Llama2-70B, OPT-175B,  and evaluate their PPL on only one A100/H100/H800 GPU💥.
-* SOTA compression algorithms for users to choose, and users can squentially employ multiple algorithms on one LLM.💥
-* Transformed model (``save_fp``  mode in ``quant`` part in [Configuration](#configuration)) exported by our tool with a specifical compression algorithm can go through naive quantization by multiple backends, e.g., [Lightllm](https://github.com/ModelTC/lightllm), [TensorRT-LLM](https://github.com/NVIDIA/TensorRT-LLM) to get a specifical-compression-algorithm-optimized model, which can be inferred by the corresponding backend.💥
-* Our compressed model (``save_quant``  mode in ``quant`` part in [Configuration](#configuration)) with a very low memory footprint can be directly inferred by [Lightllm](https://github.com/ModelTC/lightllm).💥
+* SOTA compression algorithms for users to choose, and users can squentially employ multiple algorithms on one LLM💥.
+* Transformed model (``save_fp``  mode in ``quant`` part in [Configuration](#configuration)) exported by our tool with a specifical compression algorithm can go through naive quantization by multiple backends, e.g., [Lightllm](https://github.com/ModelTC/lightllm), [TensorRT-LLM](https://github.com/NVIDIA/TensorRT-LLM) to get a specifical-compression-algorithm-optimized model, which can be inferred by the corresponding backend💥.
+* Our compressed model (``save_quant``  mode in ``quant`` part in [Configuration](#configuration)) with a very low memory footprint can be directly inferred by [Lightllm](https://github.com/ModelTC/lightllm)💥.
 
 ## Usage
 
@@ -59,7 +59,7 @@ In order to help users to design their own configs, we now explain some universa
   model:
       # Replace by the name of the class in ``llmc/llmc/models/*.py``.
       type: Llama
-      # # replace by the path of your model.
+      # Replace by the path of your model.
       path: model path 
       torch_dtype: auto
   ```
@@ -67,7 +67,7 @@ In order to help users to design their own configs, we now explain some universa
 * ``calib``: 
 
   ```yaml
-  # Note: some algorithms do not need 	``calib``, like naive... So, you can remove this part.
+  # Note: some algorithms do not need ``calib``, like naive... So, you can remove this part.
   calib:
       # Replace by the calib data name, e.g., pileval, c4, wikitext2 or ptb, downloaded before.
       name: pileval
@@ -206,13 +206,13 @@ You can add your own model type referring to files under ``llmc/llmc/models/*.py
 - [x] [LLM.int8()](https://arxiv.org/abs/2208.07339)
 - [x] [HQQ](https://mobiusml.github.io/hqq_blog/)
 
-We provide an overview table of the quantization algorithms in this tools above as follows (We split algorithms in their original paper into a finer granularity as ``algorithm``):
+We provide an overview table of the quantization algorithms in this tool as follows (We split algorithms in their original paper into a finer granularity as ``Algorithm`` in the table):
 
 ![quant](./imgs/quant.png)
 
 ### Pruning
 
-This part is coming soon.🚀 
+This part is coming soon🚀. 
 
 ## TODO List
 
@@ -222,7 +222,7 @@ This part is coming soon.🚀
 - [ ] QuIP#
 - [ ] AQLM
 
-**Note:** Some specific algorithms like QUIK, SpQR, needing special hardware or kernel support can not go through naive quantization by multiple backends, and then utilize these backends to infer. But users can still use our tool to evaluate the performance these algorithms in their research.
+**Note:** Some specific algorithms like QUIK, SpQR, needing special hardware or kernel support can not go through naive quantization by multiple backends, and then utilize these backends to infer. But users can still use our tool to evaluate the performance of these algorithms in their research.
 
 ### Pruning
 
@@ -234,15 +234,15 @@ This part is coming soon.🚀
 
   ...
 
-This part is coming soon.🚀 
+This part is coming soon🚀.
 
 ### Docs
 
-- [ ] End-to-end examples of compressing a model and then utilizing multiple backend , e.g., [Lightllm](https://github.com/ModelTC/lightllm), [TensorRT-LLM](https://github.com/NVIDIA/TensorRT-LLM), to infer.
+- [ ] End-to-end examples of compressing a model and then utilizing multiple backends , e.g., [Lightllm](https://github.com/ModelTC/lightllm), [TensorRT-LLM](https://github.com/NVIDIA/TensorRT-LLM), to infer.
 - [ ] Docs about ``special``  in ``quant`` part in [Configuration](#configuration) for different algorithms.
 - [ ] Docs about adding new algorithms by users themselves.
 
-More detailed Docs is coming soon.🚀
+More detailed Docs is coming soon🚀.
 
 ## Acknowledgments
 
