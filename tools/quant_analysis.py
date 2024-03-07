@@ -156,10 +156,57 @@ def block_forward(block, input_data, input_kwargs):
             device=next(block.parameters()).device,
             dtype=next(block.parameters()).dtype,
         )
+        if "attention_mask" in input_kwargs[i]:
+            input_kwargs[i]["attention_mask"] = input_kwargs[i]["attention_mask"].cuda()
         with torch.no_grad():
             out = block(input_data[i], **input_kwargs[i])[0]
             output.append(out)
     return output
+
+
+class analysis_quanter(Quantizer):
+    def __init__(self, bit, symmetric, granularity, **kwargs):
+        super().__init__(bit, symmetric, granularity, **kwargs)
+
+    def fake_quant_weight_dynamic(self, module, args={}):
+        weight = module.weight
+        if "int_indices" in args:
+            if self.granularity == "per_group":
+                assert len(args["int_indices"]) % self.group_size == 0
+            q_weight = weight[:, args["int_indices"]]
+            fp_weight = weight[:, args["fp_indices"]]
+
+        elif "dim" in args and "ic" in args["dim"]:
+            q_weight = weight.T
+        else:
+            q_weight = weight
+
+        if "current_bit" in args:
+            org_bit = self.bit
+            self.bit = args["current_bit"]
+
+        org_w_shape = q_weight.shape
+        org_w_dtype = q_weight.dtype
+        q_weight, scales, zeros, max_int, min_int = self.get_tensor_qparams(
+            q_weight, args
+        )
+
+        q_weight = self.quant_dequant(q_weight, scales, zeros, max_int, min_int)
+        q_weight = self.restore_tensor(q_weight, org_w_shape).to(org_w_dtype)
+
+        if "current_bit" in args:
+            self.bit = org_bit
+
+        if "int_indices" in args:
+            mix_weight = torch.zeros_like(weight)
+            mix_weight[:, args["int_indices"]] = q_weight
+            mix_weight[:, args["fp_indices"]] = fp_weight
+            return mix_weight
+
+        elif "dim" in args and "ic" in args["dim"]:
+            q_weight = q_weight.T
+
+        return q_weight
 
 
 if __name__ == "__main__":
@@ -229,16 +276,18 @@ if __name__ == "__main__":
     t_res = {}
 
     if args.cosine:
-        wquanter = Quantizer(
+        wquanter = analysis_quanter(
             bit=args.wbit,
             symmetric=args.wsym,
             granularity=args.wgra,
             group_size=args.group_size,
         )
+
         if not args.w_only:
             aquanter = Quantizer(
                 bit=args.abit, symmetric=args.asym, granularity=args.agra
             )
+
         params_dict = {}
         params_dict["w_qdq"] = wquanter.fake_quant_weight_dynamic
         params_dict["a_qdq"] = None if args.w_only else aquanter.fake_quant_act_dynamic
