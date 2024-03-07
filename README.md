@@ -239,7 +239,7 @@ This part is coming soon.🚀
 ### Docs
 
 - [ ] End-to-end examples of compressing a model and then utilizing multiple backend , e.g., [Lightllm](https://github.com/ModelTC/lightllm), [TensorRT-LLM](https://github.com/NVIDIA/TensorRT-LLM), to infer.
-- [ ] Docs about ``special``  in ``quant`` part in [Configuration](# Configuration) for different algorithms.
+- [ ] Docs about ``special``  in ``quant`` part in [Configuration](#configuration) for different algorithms.
 - [ ] Docs about adding new algorithms by users themselves.
 
 More detailed Docs is coming soon.🚀
