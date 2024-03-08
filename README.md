@@ -170,21 +170,21 @@ To help users design their own configs, we now explain some universal configurat
 
 ## Supported Model List
 
-- [x] [BLOOM](https://huggingface.co/bigscience/bloom)
+✅ [BLOOM](https://huggingface.co/bigscience/bloom)
 
-- [x] [LLaMA](https://github.com/facebookresearch/llama)
+✅ [LLaMA](https://github.com/facebookresearch/llama)
 
-- [x] [LLaMA V2](https://huggingface.co/meta-llama)
+✅ [LLaMA V2](https://huggingface.co/meta-llama)
 
-- [x] [StarCoder](https://github.com/bigcode-project/starcoder)
+✅ [StarCoder](https://github.com/bigcode-project/starcoder)
 
-- [x] [OPT](https://huggingface.co/docs/transformers/model_doc/opt)
+✅ [OPT](https://huggingface.co/docs/transformers/model_doc/opt)
 
-- [x] [Falcon](https://huggingface.co/docs/transformers/model_doc/falcon)
+✅ [Falcon](https://huggingface.co/docs/transformers/model_doc/falcon)
 
-- [x] [InternLM2](https://huggingface.co/internlm)
+✅ [InternLM2](https://huggingface.co/internlm)
 
-- [x] [Mistral](https://huggingface.co/docs/transformers/model_doc/mistral)
+✅ [Mistral](https://huggingface.co/docs/transformers/model_doc/mistral)
 
 You can add your own model type referring to files under ``llmc/llmc/models/*.py``.
 
@@ -192,21 +192,33 @@ You can add your own model type referring to files under ``llmc/llmc/models/*.py
 
 ### Quantization
 
-- [x] Naive
+✅ Naive
 
-- [x] [AWQ](https://arxiv.org/abs/2306.00978)
-- [x] [GPTQ](https://arxiv.org/abs/2210.17323)
-- [x] [SmoothQuant](https://arxiv.org/abs/2211.10438)
-- [x] [OS+](https://arxiv.org/abs/2304.09145)
-- [x] [OmniQuant](https://arxiv.org/abs/2308.13137)
-- [x] [NormTweaking](https://arxiv.org/abs/2309.02784)
-- [x] [AdaDim](https://arxiv.org/pdf/2309.15531.pdf)
-- [x] [QUIK](https://arxiv.org/abs/2310.09259)
-- [x] [SpQR](https://arxiv.org/abs/2306.03078)
-- [x] [DGQ](https://arxiv.org/abs/2310.04836)
-- [x] [OWQ](https://arxiv.org/abs/2306.02272)
-- [x] [LLM.int8()](https://arxiv.org/abs/2208.07339)
-- [x] [HQQ](https://mobiusml.github.io/hqq_blog/)
+✅ [AWQ](https://arxiv.org/abs/2306.00978)
+
+✅ [GPTQ](https://arxiv.org/abs/2210.17323)
+
+✅ [SmoothQuant](https://arxiv.org/abs/2211.10438)
+
+✅ [OS+](https://arxiv.org/abs/2304.09145)
+
+✅ [OmniQuant](https://arxiv.org/abs/2308.13137)
+
+✅ [NormTweaking](https://arxiv.org/abs/2309.02784)
+
+✅ [AdaDim](https://arxiv.org/pdf/2309.15531.pdf)
+
+✅ [QUIK](https://arxiv.org/abs/2310.09259)
+
+✅ [SpQR](https://arxiv.org/abs/2306.03078)
+
+✅ [DGQ](https://arxiv.org/abs/2310.04836)
+
+✅ [OWQ](https://arxiv.org/abs/2306.02272)
+
+✅ [LLM.int8()](https://arxiv.org/abs/2208.07339)
+
+✅ [HQQ](https://mobiusml.github.io/hqq_blog/)
 
 We provide an overview table of the quantization algorithms in this tool as follows (We split algorithms in their original paper into a finer granularity as ``Algorithm`` in the table):
 
@@ -221,7 +233,9 @@ This part is coming soon🚀.
 ### Quantization
 
 - [ ] QuIP
+
 - [ ] QuIP#
+
 - [ ] AQLM
 
 **Note:** Some specific algorithms like QUIK, SpQR, needing special hardware or kernel support can not go through naive quantization by multiple backends, and then utilize these backends to infer. However, users can still use our tool to evaluate the performance of these algorithms in their research.
@@ -239,7 +253,9 @@ This part is coming soon🚀.
 ### Docs
 
 - [ ] End-to-end examples of compressing a model and then utilizing multiple backends, e.g., [Lightllm](https://github.com/ModelTC/lightllm), [TensorRT-LLM](https://github.com/NVIDIA/TensorRT-LLM), to infer.
+
 - [ ] Docs about ``special``  in ``quant`` part in [Configuration](#configuration) for different algorithms.
+
 - [ ] Docs about adding new algorithms by users themselves.
 
 More detailed Docs are coming soon🚀.
