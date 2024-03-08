@@ -1,0 +1,13 @@
+# editor
+*.idea
+.vscode
+
+# model
+*.pth
+*.pt
+
+# log
+*.log
+
+# macOS
+*.DS_Store
