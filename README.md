@@ -1,5 +1,7 @@
 # llmc: Towards Accurate and Efficient LLM Compression
 
+<img src="./imgs/llmc.png" alt="llmc" style="zoom:35%;" />
+
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0) 
 
 llmc is a sophisticated tool designed for compressing LLM, leveraging state-of-the-art compression algorithms to enhance efficiency and reduce model size without compromising performance. 
