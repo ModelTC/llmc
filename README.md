@@ -5,7 +5,7 @@
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0) 
 [![GitHub Stars](https://img.shields.io/github/stars/ModelTC/llmc.svg?style=social&label=Star&maxAge=60)](https://github.com/ModelTC/llmc)
 
-llmc is a sophisticated tool designed for compressing LLM, leveraging state-of-the-art compression algorithms to enhance efficiency and reduce model size without compromising performance. 
+**llmc** is an off-the-shell tool designed for compressing LLM, leveraging state-of-the-art compression algorithms to enhance efficiency and reduce model size without compromising performance. 
 
 This tool is implemented in Pytorch by the following main contributors:
 
@@ -19,8 +19,8 @@ This tool is implemented in Pytorch by the following main contributors:
 
 * Quantize LLMs, e.g., Llama2-70B, OPT-175B,  and evaluate their PPL on only one A100/H100/H800 GPU💥.
 * SOTA compression algorithms for users to choose from, and users can sequentially employ multiple algorithms on one LLM💥.
-* Transformed model (``save_fp``  mode in ``quant`` part in [Configuration](#configuration)) exported by our tool with a specifical compression algorithm can go through naive quantization by multiple backends, e.g., [Lightllm](https://github.com/ModelTC/lightllm), [TensorRT-LLM](https://github.com/NVIDIA/TensorRT-LLM) to get a specifical-compression-algorithm-optimized model, which can be inferred by the corresponding backend💥.
-* Our compressed model (``save_quant``  mode in ``quant`` part in [Configuration](#configuration)) with a very low memory footprint can be directly inferred by [Lightllm](https://github.com/ModelTC/lightllm)💥.
+* Transformed model (``save_fp``  mode in ``quant`` part in [Configuration](#configuration)) exported by our tool with a specifical compression algorithm can go through naive quantization by multiple backends, e.g., [Lightllm](https://github.com/ModelTC/lightllm), [TensorRT-LLM](https://github.com/NVIDIA/TensorRT-LLM) to get a specifical-compression-algorithm-optimized model, which the corresponding backend can infer 💥.
+* Our compressed model (``save_quant``  mode in ``quant`` part in [Configuration](#configuration)) with a shallow memory footprint can be directly inferred by [Lightllm](https://github.com/ModelTC/lightllm)💥.
 
 ## Usage
 
@@ -54,13 +54,13 @@ This tool is implemented in Pytorch by the following main contributors:
 
 ## Configuration
 
-To help users design their own configs, we now explain some universal configurations in all configs we provide under ``llmc/configs/``:
+To help users design their configs, we now explain some universal configurations in all configs we provide under ``llmc/configs/``:
 
 * ``model``:
 
   ```yaml
   model:
-      # Replace by the name of the class in ``llmc/llmc/models/*.py``.
+      # Replace by the name of the class in ``llmc/models/*.py``.
       type: Llama
       # Replace by the path of your model.
       path: model path 
@@ -81,7 +81,7 @@ To help users design their own configs, we now explain some universal configurat
       n_samples: 128
       bs: -1
       seq_len: 512
-      # Replace by the function name in ``llmc/llmc/data/dataset/specified_preproc.py``.
+      # Replace by the function name in ``llmc/data/dataset/specified_preproc.py``.
       preproc: general  
       seed: *seed
   ```
@@ -110,12 +110,12 @@ To help users design their own configs, we now explain some universal configurat
 
   ```yaml
   save:
-      # ``save_fp`` is True means you want to export the transformed model, e.g., parameter-modified
+      # ``save_fp`` is True, which means you want to export the transformed model, e.g., parameter-modified
       # model, whose performance and structure are the same as the original model, and users can 
       # utilize naive quantization to the transformed model to obtain the same performance as 
       # the specifical-algorithm-quantized model.
       save_fp: False
-      # ``save_quant`` is True means you want to export a real quant model, e.g.,
+      # ``save_quant`` is True, which means you want to export a real quant model, e.g.,
       # low-bit weights with weight and activation quantization parameters.
       save_quant: False
       # ``save_quant`` is True means you want to export fake_quant model, e.g.,
@@ -187,7 +187,7 @@ To help users design their own configs, we now explain some universal configurat
 
 ✅ [Mistral](https://huggingface.co/docs/transformers/model_doc/mistral)
 
-You can add your own model type referring to files under ``llmc/llmc/models/*.py``.
+You can add your own model type referring to files under ``llmc/models/*.py``.
 
 ## Supported Algorithm List
 
@@ -281,10 +281,12 @@ We develop our code referring to the following repos:
 
 ```
 @misc{huang2024llmc,
-    author = {Huang, Yushi and Yong, Yang and Gu, Shiqiao and Gong, Ruihao}
-    year = {2024},
-    publisher = {GitHub},
-    howpublished = {\url{https://github.com/ModelTC/llmc}} 
+   author = {Yushi Huang and Yang Yong and Shiqiao Gu and Ruihao Gong},
+   title = {llmc: Towards Accurate and Efficient LLM Compression},
+   year = {2024},
+   publisher = {GitHub},
+   journal = {GitHub repository},
+   howpublished = {\url{https://github.com/ModelTC/llmc}},
 }
 ```
 
