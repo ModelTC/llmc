@@ -193,7 +193,6 @@ class OsPlus(BaseBlockwiseQuantization):
                 cnt += 1
                 st -= step
                 inspect_module.load_state_dict(org_sd)
-                break
 
             best_min_range = torch.tensor(best_min_range, dtype=x_shift.dtype).to(
                 x_shift.device
