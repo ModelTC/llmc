@@ -186,6 +186,7 @@ class BaseModel(metaclass=ABCMeta):
             elif len(name_tmp) == 1:
                 parent = block
                 child_name = name_tmp[0]
+                
             setattr(parent, child_name, M)
 
     def convert_dtype(self, dtype="torch.float16"):
