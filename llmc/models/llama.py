@@ -45,13 +45,13 @@ class Llama(BaseModel):
                 "inspect": block.self_attn,
                 "has_kwargs": True,
             },
-            {
-                "layers": {"self_attn.o_proj": block.self_attn.o_proj},
-                "prev_op": [block.self_attn.v_proj],
-                "input": ["self_attn.o_proj"],
-                "inspect": block.self_attn.o_proj,
-                "has_kwargs": False,
-            },
+            # {
+            #     "layers": {"self_attn.o_proj": block.self_attn.o_proj},
+            #     "prev_op": [block.self_attn.v_proj],
+            #     "input": ["self_attn.o_proj"],
+            #     "inspect": block.self_attn.o_proj,
+            #     "has_kwargs": False,
+            # },
             {
                 "layers": {
                     "mlp.gate_proj": block.mlp.gate_proj,

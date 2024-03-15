@@ -72,6 +72,7 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
     def block_opt(self, block, idx):
         block = block.cuda()
         named_linears = self.model.get_block_linears(block)
+        lns = self.model.get_layernorms_in_block(block)
         logger.info(f"named_linears: {named_linears}")
         input_feat = defaultdict(list)
         handles = []
@@ -94,6 +95,25 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
         for h in handles:
             h.remove()
         torch.cuda.empty_cache()
+
+        # add bias for llama
+        if hasattr(self, 'use_shift') and self.use_shift:
+            for name in named_linears:
+                device = named_linears[name].weight.device
+                dtype = named_linears[name].weight.dtype
+                named_linears[name].register_parameter(
+                    'bias', nn.Parameter(
+                        torch.zeros(named_linears[name].out_features).to(device=device, dtype=dtype)
+                    )
+                )
+            for name in lns:
+                device = lns[name].weight.device
+                dtype = lns[name].weight.dtype
+                lns[name].register_parameter(
+                    'bias', nn.Parameter(
+                        torch.zeros_like(lns[name].weight).to(device=device, dtype=dtype)
+                    )
+                )
 
         self.block_transform(block, input_feat, idx, self.input["kwargs"])
 
@@ -243,7 +263,6 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
 
             if hasattr(fc1, "bias") and fc1.bias is not None:
                 fc1.bias.sub_(shifts)
-
         if hasattr(fc2, "bias") and fc2.bias is not None:
             fc2.bias.add_(fc2.weight @ shifts)
         else:
@@ -256,11 +275,11 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
         if not isinstance(fcs, list):
             fcs = [fcs]
 
-        if self.model.has_bias():
+        if self.model.has_bias() or (hasattr(self, 'use_shift') and self.use_shift):
             ln.bias.sub_(shifts)
 
         for fc in fcs:
-            if self.model.has_bias():
+            if self.model.has_bias() or (hasattr(self, 'use_shift') and self.use_shift):
                 fc.bias.add_(fc.weight @ shifts)
             else:
                 if hasattr(self, "use_shift") and self.use_shift:
@@ -319,6 +338,8 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
         else:
             raise NotImplementedError
         self.model.replace_module_all(module, params_dict)
+        if hasattr(self, 'use_shift') and self.use_shift:
+            self.model.replace_module_all(LlmcLlamaRMSNorm, {})
         logger.info(f"-- deploy_{quant_format}_model done --")
 
     @torch.no_grad()

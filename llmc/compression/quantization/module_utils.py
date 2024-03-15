@@ -49,10 +49,13 @@ class LlmcLayerNorm(nn.Module):
 
 
 class LlmcLlamaRMSNorm(nn.Module):
-    def __init__(self, weight, eps=1e-6):
+    def __init__(self, weight, bias, eps=1e-6):
         super().__init__()
         self.register_buffer("weight", weight)
-        self.bias = None
+        if bias is not None:
+            self.register_buffer("bias", bias)
+        else:
+            self.bias = None
         self.variance_epsilon = eps
         self.use_tmp_parameter = False
 
@@ -66,7 +69,6 @@ class LlmcLlamaRMSNorm(nn.Module):
         else:
             weight = self.weight
             bias = self.bias if hasattr(self, "bias") else None
-
         return (
             (weight * hidden_states + bias).to(input_dtype)
             if bias is not None
@@ -77,8 +79,12 @@ class LlmcLlamaRMSNorm(nn.Module):
     @torch.no_grad()
     def new(cls, module):
         weight = module.weight.data
+        if module.bias is not None:
+            bias = module.bias.data
+        else:
+            bias = None
         eps = module.variance_epsilon
-        new_module = cls(weight, eps)
+        new_module = cls(weight, bias, eps)
         return new_module
 
     def __repr__(self):

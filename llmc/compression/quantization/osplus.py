@@ -16,14 +16,22 @@ class OsPlus(BaseBlockwiseQuantization):
     def __init__(self, model, quant_config, input, config):
         torch.set_grad_enabled(False)
         super().__init__(model, quant_config, input, config)
+        self.add_quant_config()
+
+    def add_quant_config(self):
+        if hasattr(self.quant_config, 'special'):
+            special_config = self.quant_config['special']
+            for key, value in special_config.items():
+                setattr(self, key, value)
 
     @torch.no_grad()
     def filter_subset(self, subset):
-        prev_op = subset["prev_op"]
-        if isinstance(prev_op[0], (nn.LayerNorm, LlamaRMSNorm, MistralRMSNorm)):
-            return True
-        else:
-            return False
+        # prev_op = subset["prev_op"]
+        # if isinstance(prev_op[0], (nn.LayerNorm, LlamaRMSNorm, MistralRMSNorm)):
+        #     return True
+        # else:
+        #     return False
+        return True
 
     def block_transform(self, block, input_feat, idx, block_kwargs):
         logger.info(f"Start transform the {idx+1}-th block")
@@ -90,7 +98,7 @@ class OsPlus(BaseBlockwiseQuantization):
             input_feats[i] = input_feats[i].to(next(inspect_module.parameters()).device)
             x = input_feats[i]
 
-            if self.model.has_bias():
+            if self.model.has_bias() or self.use_shift:
                 if x.dim() == 3:
                     cmx = torch.amax(x, dim=(0, 1))
                     cmn = torch.amin(x, dim=(0, 1))
@@ -115,7 +123,7 @@ class OsPlus(BaseBlockwiseQuantization):
                     org_out = self.get_original_out(x, inspect_module, kwargs)
                     org_out_dict[i] = org_out
 
-            if self.model.has_bias():
+            if self.model.has_bias() or self.use_shift:
                 x_shift = x - shift
             else:
                 x_shift = x.clone()
@@ -160,7 +168,7 @@ class OsPlus(BaseBlockwiseQuantization):
                 cur_scale = torch.max(mx_scale, mn_scale)
 
                 for fc in layers:
-                    if self.model.has_bias():
+                    if self.model.has_bias() or self.use_shift:
                         fc.bias.data += shift @ fc.weight.data.T
 
                     fc.weight.mul_(cur_scale.view(1, -1))
@@ -185,6 +193,7 @@ class OsPlus(BaseBlockwiseQuantization):
                 cnt += 1
                 st -= step
                 inspect_module.load_state_dict(org_sd)
+                break
 
             best_min_range = torch.tensor(best_min_range, dtype=x_shift.dtype).to(
                 x_shift.device
@@ -224,12 +233,12 @@ class OsPlus(BaseBlockwiseQuantization):
         assert (
             len(prev_op) == 1
         ), "Only support single prev_op. If multi prev_ops, code need to be updated."
-        if isinstance(prev_op[0], (nn.LayerNorm, LlamaRMSNorm, MistralRMSNorm)):
-            layers = list(layers_dict.values())
-            scale, shift = self.search_scale_shift_subset(
-                layers, input_feat[input_name], inspect_module, subset_kwargs
-            )
-            self.apply_shift(shift, prev_op, layers)
-            self.apply_scale(scale, prev_op, layers)
-        else:
-            logger.info("Do not transform this subset.")
+        # if isinstance(prev_op[0], (nn.LayerNorm, LlamaRMSNorm, MistralRMSNorm)):
+        layers = list(layers_dict.values())
+        scale, shift = self.search_scale_shift_subset(
+            layers, input_feat[input_name], inspect_module, subset_kwargs
+        )
+        self.apply_shift(shift, prev_op, layers)
+        self.apply_scale(scale, prev_op, layers)
+        # else:
+        #     logger.info("Do not transform this subset.")
