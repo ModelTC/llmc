@@ -3,8 +3,15 @@ from transformers import AutoTokenizer
 
 
 class BaseTokenizer(metaclass=ABCMeta):
-    def __init__(self, tokenizer_path):
+    def __init__(self, tokenizer_path, tokenizer_mode):
         self.tokenizer_path = tokenizer_path
+        self.tokenizer_mode = tokenizer_mode
+        if self.tokenizer_mode == "slow":
+            self.use_fast = False
+        elif self.tokenizer_mode == "fast":
+            self.use_fast = True
+        else:
+            raise Exception(f"Not support tokenizer_mode: {self.tokenizer_mode}")
         self.build_tokenizer()
 
     def __str__(self):
@@ -12,7 +19,7 @@ class BaseTokenizer(metaclass=ABCMeta):
 
     def build_tokenizer(self):
         self.tokenizer = AutoTokenizer.from_pretrained(
-            self.tokenizer_path, use_fast=False, trust_remote_code=True
+            self.tokenizer_path, use_fast=self.use_fast, trust_remote_code=True
         )
 
     def get_tokenizer(self):

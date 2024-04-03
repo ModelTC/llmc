@@ -17,6 +17,7 @@ from .module_utils import (
     LlmcMistralRMSNorm,
 )
 from .quant import Quantizer
+from llmc.utils import copy_files
 
 
 class BaseBlockwiseQuantization(BlockwiseOpt):
@@ -322,5 +323,13 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
         logger.info(f"-- deploy_{quant_format}_model done --")
 
     @torch.no_grad()
+    def copy_tokenizer(self, path):
+        for substring in self.config.save.get("tokenizer_file_substring", ["token"]):
+            copy_files(self.config.model.path, path, substring)
+        logger.info(f"copy tokenizer done --")
+
+    @torch.no_grad()
     def save_model(self, path):
         self.model.get_model().save_pretrained(path)
+        logger.info(f"save model done --")
+        self.copy_tokenizer(path)

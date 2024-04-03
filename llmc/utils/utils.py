@@ -2,6 +2,8 @@ import torch
 import os
 import random
 import numpy as np
+from loguru import logger
+import shutil
 
 
 def seed_all(seed):
@@ -40,6 +42,15 @@ def check_config(config):
                 config.save.get("save_fake", False)
                 and config.save.get("save_quant", False)
             ), "Saving fake quant and saving real quant conflict now."
+    if config.model.get("tokenizer_mode", False):
+        assert (
+            config.model.tokenizer_mode == "slow"
+            or config.model.tokenizer_mode == "fast"
+        ), "Tokenizer_mode should be slow or fast."
+        logger.info(f"Tokenizer_mode is set to {config.model.tokenizer_mode}.")
+    else:
+        config.model.tokenizer_mode = "slow"
+        logger.info("Tokenizer_mode is set to slow.")
 
 
 def mkdirs(path):
@@ -47,3 +58,11 @@ def mkdirs(path):
         os.makedirs(path)
     else:
         raise Exception(f"{path} existed before. Need check.")
+
+def copy_files(source_dir, target_dir, substring):    
+    for filename in os.listdir(source_dir):
+        if substring in filename:
+            source_file = os.path.join(source_dir, filename)
+            target_file = os.path.join(target_dir, filename)
+            shutil.copy(source_file, target_file)
+            logger.info(f"Copied {filename} to {target_dir}")

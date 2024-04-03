@@ -1,13 +1,25 @@
-# editor
-*.idea
-.vscode
-
-# model
 *.pth
 *.pt
-
-# log
+*.onnx
+*.pk
+*.model
+*.zip
+*.tar
+*.pyc
 *.log
+*.o
+*.so
+*.a
+*.exe
+*.out
+.idea
+**.DS_Store**
+**/__pycache__/**
+**.swp
+.vscode/
+.env
+save*
+*log*
+*pid*
+*.ipynb*
 
-# macOS
-*.DS_Store
