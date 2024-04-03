@@ -15,7 +15,7 @@ import copy
 
 
 def main(config):
-    tokenizer = BaseTokenizer(config.model.path)
+    tokenizer = BaseTokenizer(config.model.path, config.model.tokenizer_mode)
     model = MODEL_REGISTRY[config.model.type](
         config.model.path, config.model.torch_dtype
     )
@@ -44,7 +44,9 @@ def main(config):
             logger.info(f"{ppl_eval.dataset} ppl : {ppl}")
 
     if not config.get("calib", False):
-        blockwise_opt = ALGO_REGISTRY[config.quant.method](model, config.quant)
+        blockwise_opt = ALGO_REGISTRY[config.quant.method](
+            model, quant_config=config.quant, config=config
+        )
         blockwise_opt.run_block_loop()
     else:
         dataset = BaseDataset(tokenizer.get_tokenizer(), config.calib)

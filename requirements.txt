@@ -1,8 +1,8 @@
 torch
 loguru
 transformers==4.34.0
-datasets==2.16.1
-huggingface-hub==0.20.2
+datasets
+huggingface-hub
 sentencepiece
 protobuf
 accelerate
