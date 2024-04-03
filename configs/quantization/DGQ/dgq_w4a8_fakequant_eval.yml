@@ -2,12 +2,12 @@ base:
     seed: &seed 0
 model:
     type: Llama
-    path: /mnt/nvme1/yongyang/llm_weights/llama2/llama2-7b
+    path: model path
     torch_dtype: auto
 calib:
     name: wikitext2
     download: False
-    path: /mnt/nvme1/yongyang/llm_datasets/llmc/calib/wikitext2
+    path: calib data path
     n_samples: 1
     bs: 1
     seq_len: 2048
