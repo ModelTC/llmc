@@ -7,7 +7,7 @@ from transformers.models.llama.modeling_llama import LlamaRMSNorm
 from transformers.models.mistral.modeling_mistral import MistralRMSNorm
 from .base_blockwise_quantization import BaseBlockwiseQuantization
 from llmc.utils.registry_factory import ALGO_REGISTRY
-from .module_utils import FakeQuantLinear
+from .module_utils import FakeQuantLinear, OriginFloatLinear
 from collections import defaultdict
 
 
@@ -18,12 +18,18 @@ class OsPlus(BaseBlockwiseQuantization):
         super().__init__(model, quant_config, input, config)
 
     @torch.no_grad()
-    def filter_subset(self, subset):
-        prev_op = subset["prev_op"]
-        if isinstance(prev_op[0], (nn.LayerNorm, LlamaRMSNorm, MistralRMSNorm)):
-            return True
+    def filter_subset(self, subset, idx, len):
+        if self.weight_clip:
+            if idx == len - 1:
+                return False
+            else:
+                return True
         else:
-            return False
+            prev_op = subset["prev_op"]
+            if isinstance(prev_op[0], (nn.LayerNorm, LlamaRMSNorm, MistralRMSNorm)):
+                return True
+            else:
+                return False
 
     def block_transform(self, block, input_feat, idx, block_kwargs):
         logger.info(f"Start transform the {idx+1}-th block")
@@ -54,20 +60,55 @@ class OsPlus(BaseBlockwiseQuantization):
             inspect_module = subset["inspect"]
             inspect_has_kwargs = subset["has_kwargs"]
             subset_kwargs = block_kwargs if inspect_has_kwargs else {}
-            self.subset_transform(
-                layers_dict,
-                input_feat_subset,
-                prev_op,
-                input_name,
-                inspect_module,
-                subset_kwargs,
-            )
+
+            if self.filter_subset(subset, index, len(subsets)):
+                self.subset_transform(
+                    layers_dict,
+                    input_feat_subset,
+                    prev_op,
+                    input_name,
+                    inspect_module,
+                    idx,
+                    subset_kwargs,
+                )
             params_dict = {}
             params_dict["a_qdq"] = self.a_qdq if not self.w_only else None
             params_dict["w_qdq"] = self.w_qdq
             self.model.replace_module_subset(
                 FakeQuantLinear, block, subset, idx, params_dict
             )
+
+        if self.weight_clip:
+            params_dict = {}
+            self.model.replace_module_block(OriginFloatLinear, block, idx, params_dict)
+
+            clip_input_feat = defaultdict(list)
+            for name in name_list:
+                handles.append(
+                    block.get_submodule(name).register_forward_hook(
+                        functools.partial(
+                            self.cache_input_hook,
+                            name=name,
+                            feat_dict=clip_input_feat,
+                        )
+                    )
+                )
+            self.block_forward(block)
+            for h in handles:
+                h.remove()
+            logger.info(f"auto_clip start")
+
+            params_dict = {}
+            params_dict["a_qdq"] = self.a_qdq
+            params_dict["w_qdq"] = self.w_qdq
+            self.model.replace_module_block(FakeQuantLinear, block, idx, params_dict)
+            self.auto_clip(
+                block, idx, clip_input_feat, n_sample_token=self.config.calib.seq_len, eps=3e-1
+            )
+            logger.info(f"auto_clip finished")
+        else:
+            logger.info(f"disable weight clip")
+
         torch.cuda.empty_cache()
         logger.info(f"End transform the {idx+1}-th block")
 
@@ -219,17 +260,30 @@ class OsPlus(BaseBlockwiseQuantization):
         prev_op,
         input_name,
         inspect_module,
+        idx,
         subset_kwargs,
     ):
         assert (
             len(prev_op) == 1
         ), "Only support single prev_op. If multi prev_ops, code need to be updated."
-        if isinstance(prev_op[0], (nn.LayerNorm, LlamaRMSNorm, MistralRMSNorm)):
-            layers = list(layers_dict.values())
-            scale, shift = self.search_scale_shift_subset(
-                layers, input_feat[input_name], inspect_module, subset_kwargs
-            )
-            self.apply_shift(shift, prev_op, layers)
-            self.apply_scale(scale, prev_op, layers)
-        else:
-            logger.info("Do not transform this subset.")
+
+        layers = list(layers_dict.values())
+        logger.info(layers_dict)
+        if (
+            isinstance(prev_op[0], (nn.Linear, FakeQuantLinear, OriginFloatLinear))
+            and prev_op[0].out_features != layers[0].in_features * 3
+            and prev_op[0].out_features != layers[0].in_features
+        ):
+            logger.info("Cannot apply scale. Do not transform this subset.")
+            return
+
+        scale, shift = self.search_scale_shift_subset(
+            layers, input_feat[input_name], inspect_module, subset_kwargs
+        )
+        self.apply_shift(shift, prev_op, layers)
+        self.apply_scale(scale, prev_op, layers)
+
+        if self.save_scale:
+            for n in layers_dict:
+                layer_name = f"{self.model.block_name_prefix}.{idx}.{n}"
+                self.act_scales[layer_name] = scale

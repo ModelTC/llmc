@@ -30,7 +30,10 @@ class OmniQuant(BaseBlockwiseQuantization):
         super().__init__(model, quant_config, input, config)
         self.add_quant_config()
 
-        if self.config["model"]["type"] not in ["Llama", "Opt", "Falcon", "Mistral"] and self.let:
+        if (
+            self.config["model"]["type"] not in ["Llama", "Opt", "Falcon", "Mistral"]
+            and self.let
+        ):
             raise ValueError("Only support for opt/llama/Llama-2/falcon/Mistral now")
         elif self.config["model"]["type"] in ("Llama", "Mistral"):
             self.attention_mask = self.input["kwargs"][0]["attention_mask"]
@@ -45,7 +48,7 @@ class OmniQuant(BaseBlockwiseQuantization):
             ).cuda()
         else:
             self.batch_mask = (
-                self.attention_mask.repeat(self.input["data"][i].shape[0], 1, 1, 1)
+                self.attention_mask.repeat(self.input["data"][0].shape[0], 1, 1, 1)
                 .float()
                 .cuda()
             )
@@ -69,6 +72,24 @@ class OmniQuant(BaseBlockwiseQuantization):
         self.aug_loss = self.quant_config["special"]["aug_loss"]
 
         self.lwc = self.quant_config["special"]["lwc"]
+
+        if "search_clip_init" in self.quant_config["special"]:
+            self.search_clip_init = self.quant_config["special"]["search_clip_init"]
+        else:
+            self.search_clip_init = False
+
+        if self.search_clip_init:
+            self.clip_version = "v2"
+            if "load_clip" in self.quant_config["special"]:
+                self.load_clip = self.quant_config["special"]["load_clip"]
+            else:
+                self.load_clip = False
+
+        if self.load_clip:
+            assert "clip_path" in self.quant_config["special"]
+            self.clip_path = self.quant_config["special"]["clip_path"]
+            self.weight_clips = torch.load(self.clip_path)
+
         if self.lwc:
             self.lwc_lr = self.quant_config["special"]["lwc_lr"]
 
@@ -84,7 +105,23 @@ class OmniQuant(BaseBlockwiseQuantization):
                 raise ValueError("Don't support no bias model use shift")
 
             self.alpha = self.quant_config["special"]["alpha"]
-            self.act_scales = self.get_act_scale_shift(stat="scales")
+
+            if "search_scale_init" in self.quant_config["special"]:
+                self.search_scale_init = self.quant_config["special"][
+                    "search_scale_init"
+                ]
+            else:
+                self.search_scale_init = False
+
+            if self.search_scale_init:
+                assert "scale_path" in self.quant_config["special"]
+                self.scale_path = self.quant_config["special"]["scale_path"]
+                self.act_scales = torch.load(self.scale_path)
+                for k in self.act_scales:
+                    self.act_scales[k] = self.act_scales[k].to(torch.float32)
+            else:
+                self.act_scales = self.get_act_scale_shift(stat="scales")
+
             if self.use_shift:
                 self.act_shifts = self.get_act_scale_shift(stat="shifts")
         else:
@@ -131,7 +168,8 @@ class OmniQuant(BaseBlockwiseQuantization):
             self.input["data"][i] = self.input["data"][i].to(self.dtype)
 
         self.get_original_out(block, idx)
-        self.register_omni_parameters(block, idx)
+
+        self.register_omni_parameters(block, input_feat, idx)
         self.omni_train(block, idx)
 
         if self.let:
@@ -245,43 +283,54 @@ class OmniQuant(BaseBlockwiseQuantization):
                             shift.append(module)
         return scale, shift
 
-    def register_omni_parameters(self, block, idx):
+    def register_omni_parameters(self, block, input_feat, idx):
         params_dict = {}
         module = FakeQuantLinear
         params_dict["a_qdq"] = self.a_qdq if not self.w_only else None
         params_dict["w_qdq"] = self.w_qdq
         self.model.replace_module_block(module, block, idx, params_dict)
         if self.lwc:
-            self.register_lwc_parameters(block)
+            self.register_lwc_parameters(block, input_feat, idx)
         if self.let:
             self.register_let_parameters(block, idx)
 
-    def register_lwc_parameters(self, block, init_value=4.0):
+    def register_lwc_parameters(self, block, input_feat, idx, init_value=4.0):
         for n, m in block.named_modules():
             if isinstance(m, FakeQuantLinear):
-                if self.wquantizer.granularity == "per_group":
-                    dim = int(
-                        m.weight.data.shape[0]
-                        * math.ceil(m.weight.data.shape[1] / self.wquantizer.group_size)
+                if self.search_clip_init:
+                    low_param, up_param = self.get_clip_parameters(
+                        input_feat, idx, n, m
                     )
                 else:
-                    dim = m.weight.data.shape[0]
-                up_param = nn.Parameter(
-                    torch.ones(
-                        (dim, 1),
-                        device=self.dev,
-                        dtype=self.dtype,
+                    if self.wquantizer.granularity == "per_group":
+                        dim = int(
+                            m.weight.data.shape[0]
+                            * math.ceil(
+                                m.weight.data.shape[1] / self.wquantizer.group_size
+                            )
+                        )
+                    else:
+                        dim = m.weight.data.shape[0]
+                    if self.wquantizer.sym:
+                        low_param = None
+                    else:
+                        low_param = nn.Parameter(
+                            torch.ones(
+                                (dim, 1),
+                                device=self.dev,
+                                dtype=self.dtype,
+                            )
+                            * init_value
+                        )
+                    up_param = nn.Parameter(
+                        torch.ones(
+                            (dim, 1),
+                            device=self.dev,
+                            dtype=self.dtype,
+                        )
+                        * init_value
                     )
-                    * init_value
-                )
-                low_param = nn.Parameter(
-                    torch.ones(
-                        (dim, 1),
-                        device=self.dev,
-                        dtype=self.dtype,
-                    )
-                    * init_value
-                )
+
                 m.register_parameter("buf_upbound_factor", up_param)
                 m.register_parameter("buf_lowbound_factor", low_param)
                 m.dynamic_quant_weight = True
@@ -319,6 +368,44 @@ class OmniQuant(BaseBlockwiseQuantization):
 
                 m.dynamic_quant_weight = False
                 m.dynamic_quant_tmp_weight = True
+
+    def get_clip_parameters(self, input_feat, idx, n, m):
+
+        if any([_ in n for _ in ["q_", "k_", "query", "key", "Wqkv"]]):
+            up_param = None
+            low_param = None
+            return low_param, up_param
+
+        if self.load_clip:
+            logger.info("Load Searched clip...")
+            logger.info(f"clip layer {n}")
+            layer_name = f"{self.model.block_name_prefix}.{idx}.{n}"
+            logger.info(layer_name)
+            up_factor = self.weight_clips[layer_name]["up_factor"].float().cuda()
+
+            low_factor = self.weight_clips[layer_name]["low_factor"]
+            if low_factor is not None:
+                low_factor = low_factor.float().cuda()
+
+        else:
+            logger.info("Search clip ...")
+            if len(input_feat[n]) != 1:
+                inputs = [torch.cat(input_feat[n])]
+            else:
+                inputs = input_feat[n]
+
+            max_val, min_val = self.auto_clip_layer(
+                m.weight.data,
+                inputs,
+                n_sample_token=self.config.calib.seq_len,
+            )
+
+            up_factor, low_factor = self.get_clip_factor(m, min_val, max_val)
+
+        up_param = nn.Parameter(up_factor)
+        low_param = nn.Parameter(low_factor)
+
+        return low_param, up_param
 
     def replace_layer_norms(self, block, idx):
         if self.config["model"]["type"] == "Mistral":
@@ -420,19 +507,24 @@ class OmniQuant(BaseBlockwiseQuantization):
         return act_stat
 
     def get_weight_scale_shift(self, layer, layer_idx, name):
-        act = (
-            self.act_scales[f"{self.prefix}.{layer_idx}.{name}"]
-            .to(
-                device=self.dev,
-                dtype=self.dtype,
+        if f"{self.prefix}.{layer_idx}.{name}" not in self.act_scales:
+            act = None
+        else:
+            act = (
+                self.act_scales[f"{self.prefix}.{layer_idx}.{name}"]
+                .to(
+                    device=self.dev,
+                    dtype=self.dtype,
+                )
+                .clamp(min=1e-5)
             )
-            .clamp(min=1e-5)
-        )
 
         weight = layer.weight.data.max(dim=0)[0].clamp(min=1e-5)
-        scale = (act.pow(self.alpha) / weight.half().pow(1 - self.alpha)).clamp(
-            min=1e-5
-        )
+
+        if act is not None:
+            scale = (act.pow(self.alpha) / weight.half().pow(1 - self.alpha)).clamp(
+                min=1e-5
+            )
 
         if self.use_shift:
             shift = self.act_shifts[f"{self.prefix}.{layer_idx}.{name}"].to(
@@ -442,7 +534,10 @@ class OmniQuant(BaseBlockwiseQuantization):
         else:
             shift = None
 
-        return scale, shift
+        if self.search_scale_init:
+            return act, shift
+        else:
+            return scale, shift
 
     def truncate(self, num, thre=1e-2):
         return TruncateFunction.apply(num, thre)
@@ -455,8 +550,9 @@ class OmniQuant(BaseBlockwiseQuantization):
                 m.dynamic_quant_weight = False
                 m.dynamic_quant_tmp_weight = False
                 if self.lwc:
-                    m.buf_upbound_factor.requires_grad = False
-                    m.buf_lowbound_factor.requires_grad = False
+                    if m.buf_lowbound_factor is not None:
+                        m.buf_upbound_factor.requires_grad = False
+                        m.buf_lowbound_factor.requires_grad = False
 
     def smooth_weight_tmp(self, block):
         subsets = self.model.get_subsets_in_block(block)
@@ -571,9 +667,10 @@ class OmniQuant(BaseBlockwiseQuantization):
                 module.use_tmp_parameter = False
 
     def w_qdq(self, module):
-        args = {}
-        if hasattr(module, "buf_upbound_factor"):
+        args = {"lowbound_factor": None, "upbound_factor": None}
+        if hasattr(module, "buf_lowbound_factor"):
             args["lowbound_factor"] = module.buf_lowbound_factor
+        if hasattr(module, "buf_upbound_factor"):
             args["upbound_factor"] = module.buf_upbound_factor
 
         if module.dynamic_quant_weight:
@@ -591,29 +688,3 @@ class OmniQuant(BaseBlockwiseQuantization):
     def save_model(self, path):
         self.model.convert_dtype(self.model_dtype)
         super().save_model(path)
-
-    def block_cvt(self, block, idx):
-        for n, m in block.named_modules():
-            if isinstance(m, FakeQuantLinear):
-                tensor = self.wquantizer.reshape_tensor(m.weight.data)
-                shape = m.weight.data.shape
-                min_val, max_val = self.wquantizer.get_learnable_range(
-                    tensor,
-                    m.buf_lowbound_factor,
-                    m.buf_upbound_factor,
-                )
-                if self.wquantizer.sym:
-                    max_val = torch.max(max_val.abs(), min_val.abs())
-                    min_val = -max_val
-
-                clip_range_min = min_val
-                clip_range_max = max_val
-
-                tensor = tensor.clamp(
-                    clip_range_min.to(m.weight.data.device),
-                    clip_range_max.to(m.weight.data.device),
-                )
-                m.weight.data = self.wquantizer.restore_tensor(tensor, shape)
-
-                del m.buf_upbound_factor
-                del m.buf_lowbound_factor

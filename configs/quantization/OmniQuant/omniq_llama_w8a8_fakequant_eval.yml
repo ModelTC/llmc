@@ -48,11 +48,5 @@ quant:
     quant_out: True
 save:
     save_fp: False
-    save_quant: False
+    save_lightllm: False
     save_path: ./save
-cvt: False
-
-# 三个绑定
-# lwc=False calib_algo=minamx
-# lwc=True calib_algo=learnable
-# save_fp=True cvt=True (gptq, omniquant)

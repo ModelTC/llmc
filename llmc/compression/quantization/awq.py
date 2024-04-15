@@ -13,14 +13,18 @@ from .module_utils import FakeQuantLinear
 class Awq(BaseBlockwiseQuantization):
     def __init__(self, model, quant_config, input, config):
         super().__init__(model, quant_config, input, config)
-        if "special" in self.quant_config and "version" in self.quant_config["special"]:
-            self.version = self.quant_config["special"]["version"]
+        if "special" in self.quant_config and "trans" in self.quant_config["special"]:
+            self.trans = self.quant_config["special"]["trans"]
         else:
-            self.version = "v2"
-        if "special" in self.quant_config and "weight_clip" in self.quant_config["special"]:
-            self.weight_clip = self.quant_config["special"]["weight_clip"]
+            self.trans = True
+
+        if (
+            "special" in self.quant_config
+            and "trans_version" in self.quant_config["special"]
+        ):
+            self.trans_version = self.quant_config["special"]["trans_version"]
         else:
-            self.weight_clip = True
+            self.trans_version = "v2"
 
     @torch.no_grad()
     def get_weight_scale(self, layers):
@@ -76,13 +80,13 @@ class Awq(BaseBlockwiseQuantization):
                 x_max = self.get_act_scale(x)
 
                 ratio = n * 1 / n_grid
-                if self.version == "v1":
+                if self.trans_version == "v1":
                     scales = (
                         (x_max.pow(ratio) / w_max.pow(1 - ratio))
                         .clamp(min=1e-4)
                         .view(-1)
                     )
-                elif self.version == "v2":
+                elif self.trans_version == "v2":
                     scales = x_max.pow(ratio).clamp(min=1e-4).view(-1)
                 scales = scales / (scales.max() * scales.min()).sqrt()
                 for fc in layers:
@@ -123,106 +127,19 @@ class Awq(BaseBlockwiseQuantization):
                 inp.div_(scale.view(1, -1).to(inp.device))
 
     @torch.no_grad()
-    def auto_clip_layer(
-        self,
-        w,
-        input,
-        n_grid=20,
-        max_shrink=0.5,
-        n_sample_token=512,
-    ):
-        assert w.dim() == 2
-
-        if self.wquantizer.granularity == "per_group":
-            group_size = self.wquantizer.group_size
-        else:
-            group_size = w.shape[1]
-
-        w = w.reshape(w.shape[0], 1, -1, group_size)
-        oc_batch_size = 256 if w.shape[0] % 256 == 0 else 64  # prevent OOM
-        assert w.shape[0] % oc_batch_size == 0
-
-        w_all = w
-        best_max_val_all = []
-
-        for i_b in range(w.shape[0] // oc_batch_size):
-            w = w_all[i_b * oc_batch_size : (i_b + 1) * oc_batch_size]
-            org_max_val = w.abs().amax(dim=-1, keepdim=True)  # co, 1, n_group, 1
-
-            best_max_val = org_max_val.clone()
-            min_errs = torch.ones_like(org_max_val) * 1e9
-            org_out_dict = {}
-            for i_s in range(int(max_shrink * n_grid)):
-                err_mean = 0
-                for i in range(len(input)):
-                    input[i] = input[i].to(w.device)
-                    x = input[i]
-                    x = x.view(-1, x.shape[-1])
-                    x = x.reshape(1, x.shape[0], -1, group_size)
-                    x = x[:, 0 :: x.shape[1] // n_sample_token]
-                    if i in org_out_dict:
-                        org_out = org_out_dict[i]
-                    else:
-                        org_out = (x * w).sum(dim=-1)  # co, n_token, n_group
-                        org_out_dict[i] = org_out
-                    max_val = org_max_val * (1 - i_s / n_grid)
-                    min_val = -max_val
-                    cur_w = torch.clamp(w, min_val, max_val)
-
-                    q_w = self.wquantizer.fake_quant_weight_dynamic(cur_w)
-
-                    cur_out = (x * q_w).sum(dim=-1)
-
-                    # co, 1, n_group, 1
-                    err = (cur_out - org_out).pow(2).mean(dim=1).view(min_errs.shape)
-                    err_mean += err
-                    del cur_w
-                    del cur_out
-                err_mean /= len(input)
-                cur_best_idx = err_mean < min_errs
-                min_errs[cur_best_idx] = err_mean[cur_best_idx]
-                best_max_val[cur_best_idx] = max_val[cur_best_idx]
-            best_max_val_all.append(best_max_val)
-        best_max_val = torch.cat(best_max_val_all, dim=0)
-
-        del org_out
-        del org_out_dict
-        gc.collect()
-        torch.cuda.empty_cache()
-        return best_max_val.squeeze(1)
-
-    @torch.no_grad()
     def block_transform(self, block, input_feat, idx, block_kwargs):
-        super().block_transform(block, input_feat, idx, block_kwargs)
+        if self.trans:
+            super().block_transform(block, input_feat, idx, block_kwargs)
+
         if self.weight_clip:
             logger.info(f"auto_clip start")
-            self.auto_clip(block, input_feat, n_sample_token=self.config.calib.seq_len)
+            logger.info(f"clip version: {self.clip_version}")
+            self.auto_clip(
+                block, idx, input_feat, n_sample_token=self.config.calib.seq_len
+            )
             logger.info(f"auto_clip finished")
         else:
             logger.info(f"disable weight clip")
-
-    @torch.no_grad()
-    def auto_clip(self, block, input_feat, n_sample_token):
-        # auto clip
-        named_linears = self.model.get_block_linears(block)
-        for name in named_linears:
-            if any([_ in name for _ in ["q_", "k_", "query", "key", "Wqkv"]]):
-                continue
-            logger.info(f"clip layer: {name}")
-            named_linears[name].cuda()
-            max_val = self.auto_clip_layer(
-                named_linears[name].weight,
-                input_feat[name],
-                n_sample_token=n_sample_token,
-            )
-            self.apply_clip(named_linears[name], max_val)
-
-    def apply_clip(self, layer, max_val):
-        max_val = max_val.to(layer.weight.device)
-        org_shape = layer.weight.shape
-        layer.weight.data = layer.weight.data.reshape(*max_val.shape[:2], -1)
-        layer.weight.data = torch.clamp(layer.weight.data, -max_val, max_val)
-        layer.weight.data = layer.weight.data.reshape(org_shape)
 
     @torch.no_grad()
     def subset_transform(
@@ -233,9 +150,9 @@ class Awq(BaseBlockwiseQuantization):
         input_name,
         inspect_module,
         subset_kwargs,
+        idx,
     ):
-
-        if self.config["model"]["type"] == 'Starcoder':
+        if self.config["model"]["type"] == "Starcoder":
             if isinstance(prev_op[0], (nn.Linear, FakeQuantLinear)):
                 logger.info("Do not transform this subset.")
                 return
@@ -258,7 +175,13 @@ class Awq(BaseBlockwiseQuantization):
             scale = self.search_scale_subset(
                 layers, input_feat[input_name], inspect_module, subset_kwargs
             )
+
             self.apply_scale(scale, prev_op, layers)
             self.update_input_feat(scale, input_feat, layers_dict)
+
+            if self.save_scale:
+                for n in layers_dict:
+                    layer_name = f"{self.model.block_name_prefix}.{idx}.{n}"
+                    self.act_scales[layer_name] = scale
         else:
             logger.info("Do not transform this subset.")

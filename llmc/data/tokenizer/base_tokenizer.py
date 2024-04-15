@@ -6,12 +6,10 @@ class BaseTokenizer(metaclass=ABCMeta):
     def __init__(self, tokenizer_path, tokenizer_mode):
         self.tokenizer_path = tokenizer_path
         self.tokenizer_mode = tokenizer_mode
-        if self.tokenizer_mode == "slow":
-            self.use_fast = False
-        elif self.tokenizer_mode == "fast":
+        if self.tokenizer_mode == "fast":
             self.use_fast = True
         else:
-            raise Exception(f"Not support tokenizer_mode: {self.tokenizer_mode}")
+            self.use_fast = False
         self.build_tokenizer()
 
     def __str__(self):

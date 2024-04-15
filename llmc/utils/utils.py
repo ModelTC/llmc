@@ -52,7 +52,6 @@ def check_config(config):
         config.model.tokenizer_mode = "slow"
         logger.info("Tokenizer_mode is set to slow.")
 
-
 def mkdirs(path):
     if not os.path.exists(path):
         os.makedirs(path)

@@ -503,25 +503,3 @@ class GPTQ(BaseBlockwiseQuantization):
         if "scale" not in self.qparams:
             return False
         return torch.all(self.qparams["scale"] != 0)
-
-    @torch.no_grad()
-    def block_cvt(self, block, idx):
-        for n, m in block.named_modules():
-            if isinstance(m, FakeQuantLinear):
-                if not hasattr(m, "buf_zeros"):
-                    clip_range_min = self.wquantizer.min_int * m.buf_scales
-                    clip_range_max = self.wquantizer.max_int * m.buf_scales
-                else:
-                    clip_range_min = (
-                        self.wquantizer.min_int - m.buf_zeros
-                    ) * m.buf_scales
-                    clip_range_max = (
-                        self.wquantizer.max_int - m.buf_zeros
-                    ) * m.buf_scales
-                org_w_shape = m.weight.shape
-                tensor = self.wquantizer.reshape_tensor(m.weight.data)
-                tensor = tensor.clamp(
-                    clip_range_min.to(m.weight.data.device),
-                    clip_range_max.to(m.weight.data.device),
-                )
-                m.weight.data = self.wquantizer.restore_tensor(tensor, org_w_shape)
