@@ -26,13 +26,16 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
         self.set_quant_config()
 
     def w_qdq(self, module):
-        return self.wquantizer.fake_quant_weight_dynamic(module.weight.data)
+        args = {"lowbound_factor": None, "upbound_factor": None}
+        if hasattr(module, "buf_lowbound_factor"):
+            args["lowbound_factor"] = module.buf_lowbound_factor
+        if hasattr(module, "buf_upbound_factor"):
+            args["upbound_factor"] = module.buf_upbound_factor
 
-    def w_qdq_naive(self, module):
-        return self.wquantizer.fake_quant_weight_dynamic(module.weight.data)
+        return self.wquantizer.fake_quant_weight_dynamic(module.weight, args)
 
     def w_q(self, module):
-        return self.wquantizer.fake_quant_weight_dynamic(module.weight.data)
+        return self.wquantizer.real_quant_weight_dynamic(module.weight.data)
 
     def a_qdq(self, act, module=None):
         return self.aquantizer.fake_quant_act_dynamic(act)
@@ -52,6 +55,47 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
             self.aquantizer = Quantizer(**self.quant_config["act"])
         else:
             self.w_only = True
+
+        # set special quant config
+        if "special" in self.quant_config:
+            if "weight_clip" in self.quant_config["special"]:
+                self.weight_clip = self.quant_config["special"]["weight_clip"]
+            else:
+                self.weight_clip = True
+
+            if (
+                "save_scale" in self.quant_config["special"]
+                and self.quant_config["special"]["save_scale"]
+            ):
+                self.save_scale = self.quant_config["special"]["save_scale"]
+                self.scale_path = self.quant_config["special"]["scale_path"]
+                self.act_scales = {}
+            else:
+                self.save_scale = False
+
+            if (
+                "save_clip" in self.quant_config["special"]
+                and self.quant_config["special"]["save_clip"]
+            ):
+                self.save_clip = self.quant_config["special"]["save_clip"]
+                self.clip_path = self.quant_config["special"]["clip_path"]
+                self.weight_clips = {}
+            else:
+                self.save_clip = False
+
+            if (
+                "clip_version" in self.quant_config["special"]
+                and self.quant_config["special"]["clip_version"]
+            ):
+                self.clip_version = self.quant_config["special"]["clip_version"]
+            else:
+                self.clip_version = "v1"
+
+            if self.clip_version == "v2":
+                assert self.wquantizer.calib_algo == "learnable"
+
+    def logit(self, x):
+        return torch.log(x / (1 - x))
 
     def block_forward(self, block, input_data=None):
         output = []
@@ -130,6 +174,7 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
                 input_name,
                 inspect_module,
                 subset_kwargs,
+                idx,
             )
         logger.info(f"End transform the {idx+1}-th block")
 
@@ -294,22 +339,201 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
                 assert torch.isnan(p).sum() == 0
 
     @torch.no_grad()
+    def auto_clip(self, block, idx, input_feat, n_sample_token):
+        # auto clip
+        for n, m in block.named_modules():
+            if isinstance(m, (nn.Linear, FakeQuantLinear)):
+                m = m.cuda()
+                if any([_ in n for _ in ["q_", "k_", "query", "key", "Wqkv"]]):
+                    if self.clip_version == "v2":
+                        m.register_buffer("buf_upbound_factor", None)
+                        m.register_buffer("buf_lowbound_factor", None)
+                    continue
+                logger.info(f"clip layer: {n}")
+
+                if len(input_feat[n]) != 1:
+                    inputs = [torch.cat(input_feat[n])]
+                else:
+                    inputs = input_feat[n]
+
+                max_val, min_val = self.auto_clip_layer(
+                    m.weight,
+                    inputs,
+                    n_sample_token=n_sample_token,
+                )
+
+                self.apply_clip(m, min_val, max_val, idx, n)
+
+    @torch.no_grad()
+    def apply_clip(self, layer, min_val, max_val, idx, n):
+        if self.clip_version == "v1":
+            max_val = max_val.to(layer.weight.device)
+            org_shape = layer.weight.shape
+            layer.weight.data = layer.weight.data.reshape(*max_val.shape[:2], -1)
+            if self.wquantizer.sym:
+                min_val = -max_val
+
+            layer.weight.data = torch.clamp(layer.weight.data, min_val, max_val)
+            layer.weight.data = layer.weight.data.reshape(org_shape)
+        elif self.clip_version == "v2":
+            up_factor, low_factor = self.get_clip_factor(layer, min_val, max_val)
+            layer.register_buffer("buf_upbound_factor", up_factor)
+            layer.register_buffer("buf_lowbound_factor", low_factor)
+            if self.save_clip:
+                layer_name = f"{self.model.block_name_prefix}.{idx}.{n}"
+                self.weight_clips[layer_name] = {"up_factor": None, "low_factor": None}
+                self.weight_clips[layer_name]["up_factor"] = up_factor.cpu()
+                if low_factor is not None:
+                    self.weight_clips[layer_name]["low_factor"] = low_factor.cpu()
+        else:
+            raise Exception(f"Not support other clip version")
+
+    def get_clip_factor(self, layer, min_val, max_val):
+        org_min_val, org_max_val = self.wquantizer.get_minmax_range(
+            self.wquantizer.reshape_tensor(layer.weight.data)
+        )
+        org_val_shape = org_max_val.shape
+
+        if self.wquantizer.sym:
+            abs_max_val = torch.max(org_max_val.abs(), org_min_val.abs())
+            abs_max_val = abs_max_val.clamp(min=1e-5)
+            abs_max_val = abs_max_val.reshape(*max_val.shape[:2], -1)
+            up_factor = self.logit((max_val / abs_max_val))
+            up_factor = up_factor.reshape(org_val_shape)
+            low_factor = None
+        else:
+            org_max_val = org_max_val.reshape(*max_val.shape[:2], -1)
+
+            up_factor = self.logit((max_val / org_max_val))
+            up_factor = up_factor.reshape(org_val_shape)
+
+            org_min_val = org_min_val.reshape(*min_val.shape[:2], -1)
+            low_factor = self.logit((min_val / org_min_val))
+            low_factor = low_factor.reshape(org_val_shape)
+
+        return up_factor, low_factor
+
+    @torch.no_grad()
+    def auto_clip_layer(self, w, input, n_grid=20, max_shrink=0.5, n_sample_token=512, eps=0.0):
+        assert w.dim() == 2
+
+        if self.wquantizer.granularity == "per_group":
+            group_size = self.wquantizer.group_size
+        else:
+            group_size = w.shape[1]
+
+        w = w.reshape(w.shape[0], 1, -1, group_size)
+        oc_batch_size = 256 if w.shape[0] % 256 == 0 else 64  # prevent OOM
+        assert w.shape[0] % oc_batch_size == 0
+
+        w_all = w
+        best_max_val_all = []
+        best_min_val_all = []
+
+        for i_b in range(w.shape[0] // oc_batch_size):
+            w = w_all[i_b * oc_batch_size : (i_b + 1) * oc_batch_size]
+
+            if self.wquantizer.sym:
+                org_max_val = w.abs().amax(dim=-1, keepdim=True)
+            else:
+                org_max_val = w.amax(dim=-1, keepdim=True)
+
+            org_min_val = w.amin(dim=-1, keepdim=True)
+
+            best_max_val = org_max_val.clone()
+            best_min_val = org_min_val.clone()
+            min_errs = torch.ones_like(org_max_val) * 1e9
+            org_out_dict = {}
+            for i_s in range(int(max_shrink * n_grid)):
+                if i_s == 0:
+                    if self.clip_version=='v2' and not self.w_only:
+                        i_s += eps
+                err_mean = 0
+                for i in range(len(input)):
+                    input[i] = input[i].to(w.device)
+                    x = input[i]
+                    x = x.view(-1, x.shape[-1])
+                    x = x.reshape(1, x.shape[0], -1, group_size)
+                    x = x[:, 0 :: x.shape[1] // n_sample_token]
+                    if i in org_out_dict:
+                        org_out = org_out_dict[i]
+                    else:
+                        org_out = (x * w).sum(dim=-1)
+                        org_out_dict[i] = org_out
+
+                    max_val = org_max_val * (1 - i_s / n_grid)
+
+                    if self.wquantizer.sym:
+                        min_val = -max_val
+                    else:
+                        min_val = org_min_val * (1 - i_s / n_grid)
+
+                    if self.clip_version == "v1":
+                        cur_w = torch.clamp(w, min_val, max_val)
+                        q_w = self.wquantizer.fake_quant_weight_dynamic(cur_w)
+                    elif self.clip_version == "v2":
+
+                        low_factor = self.logit((min_val / org_min_val))
+                        up_factor = self.logit((max_val / org_max_val))
+                        tensor_range = self.wquantizer.get_learnable_range(
+                            w, low_factor, up_factor
+                        )
+
+                        scales, zeros, max_int, min_int = self.wquantizer.get_qparams(
+                            tensor_range, w.device
+                        )
+                        args = {}
+                        args["scales"] = scales
+                        args["zeros"] = zeros
+                        args["max_int"] = max_int
+                        args["min_int"] = min_int
+                        q_w = self.wquantizer.fake_quant_weight_static(w, args)
+                    else:
+                        raise Exception(f"Not support other clip version")
+
+                    if not self.w_only:
+                        q_x = self.aquantizer.fake_quant_act_dynamic(x)
+                    else:
+                        q_x = x
+
+                    cur_out = (q_x * q_w).sum(dim=-1)
+
+                    # co, 1, n_group, 1
+                    err = (cur_out - org_out).pow(2).mean(dim=1).view(min_errs.shape)
+                    err_mean += err
+
+                    if self.clip_version == "v1":
+                        del cur_w
+                    del cur_out
+
+                err_mean /= len(input)
+                cur_best_idx = err_mean < min_errs
+
+                min_errs[cur_best_idx] = err_mean[cur_best_idx]
+                best_max_val[cur_best_idx] = max_val[cur_best_idx]
+                best_min_val[cur_best_idx] = min_val[cur_best_idx]
+
+            best_max_val_all.append(best_max_val)
+            best_min_val_all.append(best_min_val)
+
+        best_max_val = torch.cat(best_max_val_all, dim=0)
+        best_min_val = torch.cat(best_min_val_all, dim=0)
+
+        del org_out
+        del org_out_dict
+        gc.collect()
+        torch.cuda.empty_cache()
+        return best_max_val.squeeze(1), best_min_val.squeeze(1)
+
+    @torch.no_grad()
     def deploy(self, quant_format):
         logger.info(f"-- deploy_{quant_format}_model start --")
         logger.info(f"quant_config : {self.quant_config}")
-
         params_dict = {}
-
         if quant_format == "fake_quant":
             module = EffcientFakeQuantLinear
             params_dict["a_qdq"] = self.a_qdq if not self.w_only else None
-            if self.config is not None:
-                if "cvt" in self.config and self.config.get("cvt", True):
-                    params_dict["w_qdq"] = self.w_qdq_naive
-                else:
-                    params_dict["w_qdq"] = self.w_qdq
-            else:
-                params_dict["w_qdq"] = self.w_qdq
+            params_dict["w_qdq"] = self.w_qdq
         elif quant_format == "real_quant":
             module = RealQuantLinear
             params_dict["w_q"] = self.w_q
@@ -327,7 +551,7 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
         for substring in self.config.save.get("tokenizer_file_substring", ["token"]):
             copy_files(self.config.model.path, path, substring)
         logger.info(f"copy tokenizer done --")
-
+        
     @torch.no_grad()
     def save_model(self, path):
         self.model.get_model().save_pretrained(path)

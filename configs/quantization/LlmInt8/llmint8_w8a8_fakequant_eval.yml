@@ -35,5 +35,5 @@ quant:
         threshold: 6.0
 save:
     save_fp: False
-    save_quant: False
+    save_lightllm: False
     save_path: ./save

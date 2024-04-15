@@ -83,7 +83,7 @@ def main(config):
         blockwise_opt.deploy("fake_quant")
         blockwise_opt.save_model(save_fake_path)
 
-    if "save" in config and config.save.get("save_quant", False):
+    if "save" in config and config.save.get("save_lightllm", False):
         blockwise_opt.deploy("real_quant")
         blockwise_opt.save_model(save_quant_path)
 
@@ -109,7 +109,7 @@ if __name__ == "__main__":
         if config.save.get("save_fp", False):
             save_fp_path = os.path.join(config.save.save_path, "transformed_model")
             mkdirs(save_fp_path)
-        if config.save.get("save_quant", False):
+        if config.save.get("save_lightllm", False):
             save_quant_path = os.path.join(config.save.save_path, "real_quant_model")
             mkdirs(save_quant_path)
         if config.save.get("save_fake", False):

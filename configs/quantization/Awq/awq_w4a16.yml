@@ -30,5 +30,5 @@ quant:
         group_size: 128
 save:
     save_fp: True
-    save_quant: True
+    save_lightllm: True
     save_path: ./save

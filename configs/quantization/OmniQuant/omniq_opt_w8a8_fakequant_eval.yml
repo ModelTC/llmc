@@ -46,5 +46,5 @@ quant:
     quant_out: True
 save:
     save_fp: False
-    save_quant: False
+    save_lightllm: False
     save_path: ./save

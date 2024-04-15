@@ -1,3 +1,4 @@
+import torch
 from loguru import logger
 from abc import abstractmethod, ABCMeta
 
@@ -22,16 +23,13 @@ class BlockwiseOpt(metaclass=ABCMeta):
             logger.info(f"\nindex: {i+1}/{len(self.blocks)} \nblock: {self.blocks[i]}")
             self.block_opt(self.blocks[i], i)
 
-    def run_block_cvt(self):
-        for i in range(len(self.blocks)):
-            logger.info(f"Convert block index: {i+1}/{len(self.blocks)}")
-            self.block_cvt(self.blocks[i], i)
+        if hasattr(self, "save_scale") and self.save_scale:
+            torch.save(self.act_scales, self.scale_path)
+        if hasattr(self, "save_clip") and self.save_clip:
+            torch.save(self.weight_clips, self.clip_path)
 
     @abstractmethod
     def block_opt(self, block, idx):
-        pass
-
-    def block_cvt(self, block, idx):
         pass
 
     def cache_input_hook(self, m, x, y, name, feat_dict):

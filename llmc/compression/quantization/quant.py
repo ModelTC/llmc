@@ -103,9 +103,17 @@ class Quantizer:
 
     def get_learnable_range(self, tensor, lowbound_factor=None, upbound_factor=None):
         min_val, max_val = self.get_minmax_range(tensor)
-        if lowbound_factor is not None:
-            min_val = self.sigmoid(lowbound_factor) * min_val
-            max_val = self.sigmoid(upbound_factor) * max_val
+        if self.sym:
+            if upbound_factor is not None:
+                abs_max = torch.max(max_val.abs(), min_val.abs())
+                abs_max = abs_max.clamp(min=1e-5)
+                abs_max = self.sigmoid(upbound_factor) * abs_max
+                min_val = -abs_max
+                max_val = abs_max
+        else:
+            if upbound_factor is not None and lowbound_factor is not None:
+                min_val = self.sigmoid(lowbound_factor) * min_val
+                max_val = self.sigmoid(upbound_factor) * max_val
 
         return (min_val, max_val)
 
