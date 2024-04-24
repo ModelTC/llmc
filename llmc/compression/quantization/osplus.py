@@ -16,6 +16,13 @@ class OsPlus(BaseBlockwiseQuantization):
     def __init__(self, model, quant_config, input, config):
         torch.set_grad_enabled(False)
         super().__init__(model, quant_config, input, config)
+        if (
+            "special" in self.quant_config
+            and "weight_clip" in self.quant_config["special"]
+        ):
+            self.weight_clip = self.quant_config["special"]["weight_clip"]
+        else:
+            self.weight_clip = False
 
     @torch.no_grad()
     def filter_subset(self, subset, idx, len):
