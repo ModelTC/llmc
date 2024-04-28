@@ -23,6 +23,13 @@ class OsPlus(BaseBlockwiseQuantization):
             self.weight_clip = self.quant_config["special"]["weight_clip"]
         else:
             self.weight_clip = False
+        if (
+            "special" in self.quant_config
+            and "save_scale" in self.quant_config["special"]
+        ):
+            self.save_scale = self.quant_config["special"]["save_scale"]
+        else:
+            self.save_scale = False
 
     @torch.no_grad()
     def filter_subset(self, subset, idx, len):
