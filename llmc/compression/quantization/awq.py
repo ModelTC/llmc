@@ -25,6 +25,13 @@ class Awq(BaseBlockwiseQuantization):
             self.trans_version = self.quant_config["special"]["trans_version"]
         else:
             self.trans_version = "v2"
+        if (
+            "special" in self.quant_config
+            and "save_scale" in self.quant_config["special"]
+        ):
+            self.save_scale = self.quant_config["special"]["save_scale"]
+        else:
+            self.save_scale = False
 
     @torch.no_grad()
     def get_weight_scale(self, layers):
