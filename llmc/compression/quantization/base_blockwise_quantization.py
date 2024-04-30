@@ -57,42 +57,32 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
             self.w_only = True
 
         # set special quant config
-        if "special" in self.quant_config:
-            if "weight_clip" in self.quant_config["special"]:
-                self.weight_clip = self.quant_config["special"]["weight_clip"]
-            else:
-                self.weight_clip = True
+        if "special" in self.quant_config and "weight_clip" in self.quant_config["special"]:
+            self.weight_clip = self.quant_config["special"]["weight_clip"]
+        else:
+            self.weight_clip = True
 
-            if (
-                "save_scale" in self.quant_config["special"]
-                and self.quant_config["special"]["save_scale"]
-            ):
-                self.save_scale = self.quant_config["special"]["save_scale"]
-                self.scale_path = self.quant_config["special"]["scale_path"]
-                self.act_scales = {}
-            else:
-                self.save_scale = False
+        if "special" in self.quant_config and "save_scale" in self.quant_config["special"]:
+            self.save_scale = self.quant_config["special"]["save_scale"]
+            self.scale_path = self.quant_config["special"]["scale_path"]
+            self.act_scales = {}
+        else:
+            self.save_scale = False
 
-            if (
-                "save_clip" in self.quant_config["special"]
-                and self.quant_config["special"]["save_clip"]
-            ):
-                self.save_clip = self.quant_config["special"]["save_clip"]
-                self.clip_path = self.quant_config["special"]["clip_path"]
-                self.weight_clips = {}
-            else:
-                self.save_clip = False
+        if "special" in self.quant_config and "save_clip" in self.quant_config["special"]:
+            self.save_clip = self.quant_config["special"]["save_clip"]
+            self.clip_path = self.quant_config["special"]["clip_path"]
+            self.weight_clips = {}
+        else:
+            self.save_clip = False
 
-            if (
-                "clip_version" in self.quant_config["special"]
-                and self.quant_config["special"]["clip_version"]
-            ):
-                self.clip_version = self.quant_config["special"]["clip_version"]
-            else:
-                self.clip_version = "v1"
+        if "special" in self.quant_config and "clip_version" in self.quant_config["special"]:
+            self.clip_version = self.quant_config["special"]["clip_version"]
+        else:
+            self.clip_version = "v1"
 
-            if self.clip_version == "v2":
-                assert self.wquantizer.calib_algo == "learnable"
+        if self.clip_version == "v2":
+            assert self.wquantizer.calib_algo == "learnable"
 
     def logit(self, x):
         return torch.log(x / (1 - x))
