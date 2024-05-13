@@ -3,15 +3,33 @@
 <img src="./imgs/llmc.png" alt="llmc" style="zoom:35%;" />
 
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0) 
+[![arXiv](https://img.shields.io/badge/LLM--QBench-2405.06001-b31b1b)](https://arxiv.org/abs/2405.06001)
 [![GitHub Stars](https://img.shields.io/github/stars/ModelTC/llmc.svg?style=social&label=Star&maxAge=60)](https://github.com/ModelTC/llmc)
 
 **llmc** is an off-the-shell tool designed for compressing LLM, leveraging state-of-the-art compression algorithms to enhance efficiency and reduce model size without compromising performance. 
 
 This tool is implemented in Pytorch by the following main contributors:
 
-[Yushi Huang](https://github.com/Harahan/), [Yang Yong](https://github.com/helloyongyang), [Shiqiao Gu](https://github.com/gushiqiao), [Ruihao Gong](https://xhplus.github.io/)
+[Yushi Huang](https://github.com/Harahan/), [Yang Yong](https://github.com/helloyongyang), [Shiqiao Gu](https://github.com/gushiqiao), [Ruihao Gong](https://xhplus.github.io/),
 
 ## News
+
+* **May 13, 2024:** 🍺🍺🍺 We release our quantization benchmark paper:
+
+  [**LLM-QBench: A Benchmark Towards the Best Practice for Post-training Quantization of Large Language Models**](https://arxiv.org/abs/2405.06001).
+  
+  [Ruihao Gong*](https://xhplus.github.io/), [Yang Yong*](https://github.com/helloyongyang), [Shiqiao Gu*](https://github.com/gushiqiao), [Yushi Huang*](https://github.com/Harahan), [Yunchen Zhang](https://scholar.google.com/citations?user=glkWFyUAAAAJ&hl=en), [Xianglong Liu📧](https://xlliu-beihang.github.io/), [Tacheng Tao](https://scholar.google.com/citations?user=RwlJNLcAAAAJ&hl=en)
+
+  (* denotes equal contribution, 📧 denotes corresponding author.)
+  
+  <div align=center>
+   <img src="./imgs/best_practice.png" alt="comp" width="800" />
+  </div>
+
+  We modularly and fairly benchmark the quantization techniques considering calibration cost, inference efficiency, quantized accuracy. Near 600 experiments on diverse models and datasets provide three insightful takeaways 
+  on the calibration data, algorithm pipeline and quantization configuration selection. Based on the takeaways, a best practice of LLM PTQ pipeline is designed, achieving the best accuracy and efficiency performance balance 
+  under various scenarios.
+  
 
 * **Mar 7, 2024:** 🚀 We release the quantization part of a powerful and efficient LLM compression tool. Notably, our benchmark paper is coming soon😊.
 
@@ -279,7 +297,18 @@ We develop our code referring to the following repos:
 
 ## Citation
 
+If you find our LLM-QBench paper/llmc toolkit useful or relevant to your research, please kindly cite our paper:
+
 ```
+@misc{gong2024llmqbench,
+      title={LLM-QBench: A Benchmark Towards the Best Practice for Post-training Quantization of Large Language Models}, 
+      author={Ruihao Gong and Yang Yong and Shiqiao Gu and Yushi Huang and Yunchen Zhang and Xianglong Liu and Dacheng Tao},
+      year={2024},
+      eprint={2405.06001},
+      archivePrefix={arXiv},
+      primaryClass={cs.LG}
+}
+
 @misc{huang2024llmc,
    author = {Yushi Huang and Yang Yong and Shiqiao Gu and Ruihao Gong},
    title = {llmc: Towards Accurate and Efficient LLM Compression},
