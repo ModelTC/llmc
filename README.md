@@ -18,7 +18,7 @@ This tool is implemented in Pytorch by the following main contributors:
 
   [**LLM-QBench: A Benchmark Towards the Best Practice for Post-training Quantization of Large Language Models**](https://arxiv.org/abs/2405.06001).
   
-  [Ruihao Gong*](https://xhplus.github.io/), [Yang Yong*](https://github.com/helloyongyang), [Shiqiao Gu*](https://github.com/gushiqiao), [Yushi Huang*](https://github.com/Harahan), [Yunchen Zhang](https://scholar.google.com/citations?user=glkWFyUAAAAJ&hl=en), [Xianglong Liu📧](https://xlliu-beihang.github.io/), [Tacheng Tao](https://scholar.google.com/citations?user=RwlJNLcAAAAJ&hl=en)
+  [Ruihao Gong*](https://xhplus.github.io/), [Yang Yong*](https://github.com/helloyongyang), [Shiqiao Gu*](https://github.com/gushiqiao), [Yushi Huang*](https://github.com/Harahan), [Yunchen Zhang](https://scholar.google.com/citations?user=glkWFyUAAAAJ&hl=en), [Xianglong Liu📧](https://xlliu-beihang.github.io/), [Dacheng Tao](https://scholar.google.com/citations?user=RwlJNLcAAAAJ&hl=en)
 
   (* denotes equal contribution, 📧 denotes corresponding author.)
   
