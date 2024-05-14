@@ -85,10 +85,10 @@ class OmniQuant(BaseBlockwiseQuantization):
             else:
                 self.load_clip = False
 
-        if self.load_clip:
-            assert "clip_path" in self.quant_config["special"]
-            self.clip_path = self.quant_config["special"]["clip_path"]
-            self.weight_clips = torch.load(self.clip_path)
+            if self.load_clip:
+                assert "clip_path" in self.quant_config["special"]
+                self.clip_path = self.quant_config["special"]["clip_path"]
+                self.weight_clips = torch.load(self.clip_path)
 
         if self.lwc:
             self.lwc_lr = self.quant_config["special"]["lwc_lr"]
