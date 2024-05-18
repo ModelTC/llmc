@@ -205,6 +205,8 @@ To help users design their configs, we now explain some universal configurations
 
 ✅ [Mistral](https://huggingface.co/docs/transformers/model_doc/mistral)
 
+✅ [LLaMA V3](https://huggingface.co/meta-llama)
+
 You can add your own model type referring to files under ``llmc/models/*.py``.
 
 ## Supported Algorithm List
