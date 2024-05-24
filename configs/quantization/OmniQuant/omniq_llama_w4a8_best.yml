@@ -2,7 +2,7 @@ base:
     seed: &seed 42
 model:
     type: Llama
-    path: transformed model path
+    path: model path
     torch_dtype: auto
 calib:
     name: pileval
