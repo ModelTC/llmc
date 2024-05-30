@@ -1,6 +1,6 @@
 ## Alignment with the Original Paper
 
-### The conda environment is consistent with the requirements.txt file
+### The conda environment is consistent with the requirements.txt file and the model is LLama2-7b
 ### All other configurations are aligned with the original paper/code:
 
 |             | calib_data | seq_len | num_data | seed |
