@@ -33,7 +33,7 @@
 
 #### Weight-Activation Symmetric Quantization Results
 
-|               | w8A8  |
+|               | w8a8  |
 |---------------|-------|
 | SmoothQuant   |       |
 | SmoothQuant-LLMC |    |
