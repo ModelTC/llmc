@@ -25,7 +25,10 @@ class Awq(BaseBlockwiseQuantization):
             self.trans_version = self.quant_config["special"]["trans_version"]
         else:
             self.trans_version = "v2"
-        if "special" in self.quant_config and "weight_clip" in self.quant_config["special"]:
+        if (
+            "special" in self.quant_config
+            and "weight_clip" in self.quant_config["special"]
+        ):
             self.weight_clip = self.quant_config["special"]["weight_clip"]
         else:
             self.weight_clip = True
@@ -183,6 +186,7 @@ class Awq(BaseBlockwiseQuantization):
             ):
                 logger.info("Cannot apply scale. Do not transform this subset.")
                 return
+
             scale = self.search_scale_subset(
                 layers, input_feat[input_name], inspect_module, subset_kwargs
             )

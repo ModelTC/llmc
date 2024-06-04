@@ -15,12 +15,20 @@ class Quantizer:
         else:
             self.calib_algo = "minmax"
 
-        if self.sym:
-            self.max_int = 2 ** (self.bit - 1) - 1
-            self.min_int = -(2 ** (self.bit - 1))
+        if "qmax_to_tensor" in self.kwargs and self.kwargs["qmax_to_tensor"]:
+            if self.sym:
+                self.max_int = torch.tensor(2 ** (self.bit - 1) - 1).cuda()
+                self.min_int = torch.tensor(-(2 ** (self.bit - 1))).cuda()
+            else:
+                self.max_int = torch.tensor(2**self.bit - 1).cuda()
+                self.min_int = torch.tensor(0.0).cuda()
         else:
-            self.max_int = 2**self.bit - 1
-            self.min_int = 0.0
+            if self.sym:
+                self.max_int = 2 ** (self.bit - 1) - 1
+                self.min_int = -(2 ** (self.bit - 1))
+            else:
+                self.max_int = 2**self.bit - 1
+                self.min_int = 0.0
 
         if self.granularity == "per_group":
             self.group_size = self.kwargs["group_size"]
@@ -173,7 +181,7 @@ class Quantizer:
             else:
                 t = tensor
         elif self.granularity == "per_head":
-            t = tensor.reshape(self.head_num, -1)
+            t = tensor.reshape(self.heda_num, -1)
         else:
             t = tensor
         return t

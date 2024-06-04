@@ -65,7 +65,7 @@ class OmniQuant(BaseBlockwiseQuantization):
             self.dtype = torch.float
             self.traincast = nullcontext
         else:
-            self.dtype = self.model_dtype
+            self.dtype = torch.float16
             self.traincast = torch.cuda.amp.autocast
 
         self.epochs = self.quant_config["special"]["epochs"]
@@ -318,7 +318,7 @@ class OmniQuant(BaseBlockwiseQuantization):
                             torch.ones(
                                 (dim, 1),
                                 device=self.dev,
-                                dtype=self.dtype,
+                                # dtype=self.dtype,
                             )
                             * init_value
                         )
@@ -326,7 +326,7 @@ class OmniQuant(BaseBlockwiseQuantization):
                         torch.ones(
                             (dim, 1),
                             device=self.dev,
-                            dtype=self.dtype,
+                            # dtype=self.dtype,
                         )
                         * init_value
                     )
@@ -649,6 +649,13 @@ class OmniQuant(BaseBlockwiseQuantization):
             k_proj.tmp_bias = k_proj.tmp_bias * scales.view(-1)
 
     def smooth_q_k_inplace(self, block):
+
+        for name, module in block.named_modules():
+            if isinstance(
+                module, (LlmcLayerNorm, LlmcLlamaRMSNorm, LlmcMistralRMSNorm)
+            ):
+                module.use_tmp_parameter = False
+
         if block.self_attn.q_proj.weight.shape != block.self_attn.k_proj.weight.shape:
             return
 
@@ -660,11 +667,6 @@ class OmniQuant(BaseBlockwiseQuantization):
         block.self_attn.k_proj.weight.mul_(scales.view(-1, 1))
         if block.self_attn.k_proj.bias is not None:
             block.self_attn.k_proj.bias.mul_(scales.view(-1))
-        for name, module in block.named_modules():
-            if isinstance(
-                module, (LlmcLayerNorm, LlmcLlamaRMSNorm, LlmcMistralRMSNorm)
-            ):
-                module.use_tmp_parameter = False
 
     def w_qdq(self, module):
         args = {"lowbound_factor": None, "upbound_factor": None}

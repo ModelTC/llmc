@@ -57,29 +57,49 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
             self.w_only = True
 
         # set special quant config
-        if "special" in self.quant_config and "weight_clip" in self.quant_config["special"]:
+        if (
+            "special" in self.quant_config
+            and "weight_clip" in self.quant_config["special"]
+        ):
             self.weight_clip = self.quant_config["special"]["weight_clip"]
         else:
             self.weight_clip = True
 
-        if "special" in self.quant_config and "save_scale" in self.quant_config["special"]:
+        if (
+            "special" in self.quant_config
+            and "save_scale" in self.quant_config["special"]
+        ):
             self.save_scale = self.quant_config["special"]["save_scale"]
             self.scale_path = self.quant_config["special"]["scale_path"]
             self.act_scales = {}
         else:
             self.save_scale = False
 
-        if "special" in self.quant_config and "save_clip" in self.quant_config["special"]:
+        if (
+            "special" in self.quant_config
+            and "save_clip" in self.quant_config["special"]
+        ):
             self.save_clip = self.quant_config["special"]["save_clip"]
             self.clip_path = self.quant_config["special"]["clip_path"]
             self.weight_clips = {}
         else:
             self.save_clip = False
 
-        if "special" in self.quant_config and "clip_version" in self.quant_config["special"]:
+        if (
+            "special" in self.quant_config
+            and "clip_version" in self.quant_config["special"]
+        ):
             self.clip_version = self.quant_config["special"]["clip_version"]
         else:
             self.clip_version = "v1"
+
+        if (
+            "special" in self.quant_config
+            and "clip_sym" in self.quant_config["special"]
+        ):
+            self.clip_sym = self.quant_config["special"]["clip_sym"]
+        else:
+            self.clip_sym = self.wquantizer.sym
 
         if self.clip_version == "v2":
             assert self.wquantizer.calib_algo == "learnable"
@@ -360,7 +380,7 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
             max_val = max_val.to(layer.weight.device)
             org_shape = layer.weight.shape
             layer.weight.data = layer.weight.data.reshape(*max_val.shape[:2], -1)
-            if self.wquantizer.sym:
+            if self.clip_sym:
                 min_val = -max_val
 
             layer.weight.data = torch.clamp(layer.weight.data, min_val, max_val)
@@ -384,7 +404,7 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
         )
         org_val_shape = org_max_val.shape
 
-        if self.wquantizer.sym:
+        if self.clip_sym:
             abs_max_val = torch.max(org_max_val.abs(), org_min_val.abs())
             abs_max_val = abs_max_val.clamp(min=1e-5)
             abs_max_val = abs_max_val.reshape(*max_val.shape[:2], -1)
@@ -404,7 +424,9 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
         return up_factor, low_factor
 
     @torch.no_grad()
-    def auto_clip_layer(self, w, input, n_grid=20, max_shrink=0.5, n_sample_token=512, eps=0.0):
+    def auto_clip_layer(
+        self, w, input, n_grid=20, max_shrink=0.5, n_sample_token=512, eps=0.0
+    ):
         assert w.dim() == 2
 
         if self.wquantizer.granularity == "per_group":
@@ -423,7 +445,7 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
         for i_b in range(w.shape[0] // oc_batch_size):
             w = w_all[i_b * oc_batch_size : (i_b + 1) * oc_batch_size]
 
-            if self.wquantizer.sym:
+            if self.clip_sym:
                 org_max_val = w.abs().amax(dim=-1, keepdim=True)
             else:
                 org_max_val = w.amax(dim=-1, keepdim=True)
@@ -436,7 +458,7 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
             org_out_dict = {}
             for i_s in range(int(max_shrink * n_grid)):
                 if i_s == 0:
-                    if self.clip_version=='v2' and not self.w_only:
+                    if self.clip_version == "v2" and not self.w_only:
                         i_s += eps
                 err_mean = 0
                 for i in range(len(input)):
@@ -453,7 +475,7 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
 
                     max_val = org_max_val * (1 - i_s / n_grid)
 
-                    if self.wquantizer.sym:
+                    if self.clip_sym:
                         min_val = -max_val
                     else:
                         min_val = org_min_val * (1 - i_s / n_grid)
@@ -541,7 +563,7 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
         for substring in self.config.save.get("tokenizer_file_substring", ["token"]):
             copy_files(self.config.model.path, path, substring)
         logger.info(f"copy tokenizer done --")
-        
+
     @torch.no_grad()
     def save_model(self, path):
         self.model.get_model().save_pretrained(path)

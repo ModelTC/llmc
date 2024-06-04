@@ -117,7 +117,11 @@ class OsPlus(BaseBlockwiseQuantization):
             params_dict["w_qdq"] = self.w_qdq
             self.model.replace_module_block(FakeQuantLinear, block, idx, params_dict)
             self.auto_clip(
-                block, idx, clip_input_feat, n_sample_token=self.config.calib.seq_len, eps=3e-1
+                block,
+                idx,
+                clip_input_feat,
+                n_sample_token=self.config.calib.seq_len,
+                eps=3e-1,
             )
             logger.info(f"auto_clip finished")
         else:
