@@ -181,7 +181,7 @@ class Quantizer:
             else:
                 t = tensor
         elif self.granularity == "per_head":
-            t = tensor.reshape(self.heda_num, -1)
+            t = tensor.reshape(self.head_num, -1)
         else:
             t = tensor
         return t
