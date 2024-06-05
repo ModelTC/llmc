@@ -115,7 +115,7 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
 
         for i in range(len(input_data)):
             input_data[i] = input_data[i].to(device=next(block.parameters()).device)
-            if "attention_mask" in self.input["kwargs"][i]:
+            if "attention_mask" in self.input["kwargs"][i] and self.input["kwargs"][i]["attention_mask"] is not None:
                 self.input["kwargs"][i]["attention_mask"] = self.input["kwargs"][i][
                     "attention_mask"
                 ].cuda()
