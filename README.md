@@ -28,8 +28,8 @@ This tool is implemented in Pytorch by the following main contributors:
    <img src="./imgs/best_practice.png" alt="comp" width="800" />
   </div>
 
-  We modularly and fairly benchmark the quantization techniques considering calibration cost, inference efficiency, quantized accuracy. Near 600 experiments on diverse models and datasets provide three insightful takeaways 
-  on the calibration data, algorithm pipeline and quantization configuration selection. Based on the takeaways, a best practice of LLM PTQ pipeline is designed, achieving the best accuracy and efficiency performance balance 
+  We modularly and fairly benchmark the quantization techniques considering calibration cost, inference efficiency, and quantized accuracy. Near 600 experiments on diverse models and datasets provide three insightful takeaways 
+  on the calibration data, algorithm pipeline, and quantization configuration selection. Based on the takeaways, a best practice of LLM PTQ pipeline is designed, achieving the best accuracy and efficiency performance balance 
   under various scenarios.
   
 * **Mar 7, 2024:** 🚀 We release the quantization part of a powerful and efficient LLM compression tool. Notably, our benchmark paper is coming soon😊.
@@ -37,7 +37,7 @@ This tool is implemented in Pytorch by the following main contributors:
 ## Highlight Feature
 
 * Quantize LLMs, e.g., Llama2-70B, OPT-175B,  and evaluate their PPL on only one A100/H100/H800 GPU💥.
-* SOTA compression algorithms for users to choose from, and users can sequentially employ multiple algorithms on one LLM💥.
+* SOTA compression algorithms [align with the origin repos](benchmark/align.md), for users to choose from, and users can sequentially employ multiple algorithms on one LLM💥.
 * Transformed model (``save_fp``  mode in ``quant`` part in [Configuration](#configuration)) exported by our tool with a specifical compression algorithm can go through naive quantization by multiple backends, e.g., [Lightllm](https://github.com/ModelTC/lightllm), [TensorRT-LLM](https://github.com/NVIDIA/TensorRT-LLM) to get a specifical-compression-algorithm-optimized model, which the corresponding backend can infer 💥.
 * Our compressed model (``save_lightllm``  mode in ``quant`` part in [Configuration](#configuration)) with a shallow memory footprint can be directly inferred by [Lightllm](https://github.com/ModelTC/lightllm)💥.
 
