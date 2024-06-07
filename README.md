@@ -297,6 +297,10 @@ We develop our code referring to the following repos:
 * https://github.com/TimDettmers/bitsandbytes
 * https://github.com/mobiusml/hqq
 
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=ModelTC/llmc&type=Date)](https://star-history.com/#ModelTC/llmc&Date)
+
 ## Citation
 
 If you find our LLM-QBench paper/llmc toolkit useful or relevant to your research, please kindly cite our paper:
