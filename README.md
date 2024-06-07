@@ -6,6 +6,8 @@
 [![arXiv](https://img.shields.io/badge/LLM--QBench-2405.06001-b31b1b)](https://arxiv.org/abs/2405.06001)
 [![GitHub Stars](https://img.shields.io/github/stars/ModelTC/llmc.svg?style=social&label=Star&maxAge=60)](https://github.com/ModelTC/llmc)
 
+**\[ English | [中文](README_zh.md) \]**
+
 **llmc** is an off-the-shell tool designed for compressing LLM, leveraging state-of-the-art compression algorithms to enhance efficiency and reduce model size without compromising performance. 
 
 This tool is implemented in Pytorch by the following main contributors:
@@ -30,7 +32,6 @@ This tool is implemented in Pytorch by the following main contributors:
   on the calibration data, algorithm pipeline and quantization configuration selection. Based on the takeaways, a best practice of LLM PTQ pipeline is designed, achieving the best accuracy and efficiency performance balance 
   under various scenarios.
   
-
 * **Mar 7, 2024:** 🚀 We release the quantization part of a powerful and efficient LLM compression tool. Notably, our benchmark paper is coming soon😊.
 
 ## Highlight Feature
