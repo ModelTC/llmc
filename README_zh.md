@@ -6,7 +6,7 @@
 [![arXiv](https://img.shields.io/badge/LLM--QBench-2405.06001-b31b1b)](https://arxiv.org/abs/2405.06001)
 [![GitHub 星标](https://img.shields.io/github/stars/ModelTC/llmc.svg?style=social&label=Star&maxAge=60)](https://github.com/ModelTC/llmc)
 
-**\[ [English](README.md)|中文\]**
+**\[ [English](https://github.com/ModelTC/llmc/edit/main)|中文\]**
 
 **llmc** 是一个即插即用的工具，旨在通过最先进的压缩算法进行大型语言模型的压缩，以提高效率并减小模型大小，同时不牺牲性能。
 
