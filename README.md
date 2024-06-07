@@ -299,7 +299,7 @@ We develop our code referring to the following repos:
 
 ## Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=ModelTC/llmc&type=Date)](https://star-history.com/#ModelTC/llmc&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=ModelTC/llmc&type=Timeline)](https://star-history.com/#ModelTC/llmc&Timeline)
 
 ## Citation
 
