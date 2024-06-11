@@ -1,6 +1,6 @@
 torch
 loguru
-transformers==4.34.0
+transformers==4.41.2
 datasets
 huggingface-hub
 sentencepiece
