@@ -19,6 +19,7 @@ from .module_utils import (
     LlmcLayerNorm,
     LlmcLlamaRMSNorm,
     LlmcMistralRMSNorm,
+    LlmcQwen2RMSNorm
 )
 from .train_utils import NativeScalerWithGradNormCount, TruncateFunction, LossFunction
 from llmc.utils.registry_factory import ALGO_REGISTRY
@@ -31,11 +32,11 @@ class OmniQuant(BaseBlockwiseQuantization):
         self.add_quant_config()
 
         if (
-            self.config["model"]["type"] not in ["Llama", "Opt", "Falcon", "Mistral"]
+            self.config["model"]["type"] not in ["Llama", "Opt", "Falcon", "Mistral", "Qwen2"]
             and self.let
         ):
             raise ValueError("Only support for opt/llama/Llama-2/falcon/Mistral now")
-        elif self.config["model"]["type"] in ("Llama", "Mistral"):
+        elif self.config["model"]["type"] in ("Llama", "Mistral", "Qwen2"):
             self.attention_mask = self.input["kwargs"][0]["attention_mask"]
             self.position_ids = self.input["kwargs"][0]["position_ids"]
         else:
@@ -412,13 +413,15 @@ class OmniQuant(BaseBlockwiseQuantization):
             self.model.replace_module_block(LlmcMistralRMSNorm, block, idx, {})
         elif self.config["model"]["type"] == "Llama":
             self.model.replace_module_block(LlmcLlamaRMSNorm, block, idx, {})
+        elif self.config["model"]["type"] == "Qwen2":
+            self.model.replace_module_block(LlmcQwen2RMSNorm, block, idx, {})
         else:
             self.model.replace_module_block(LlmcLayerNorm, block, idx, {})
 
     def get_layer_norms(self, block):
         layer_norms = []
         for n, m in block.named_modules():
-            if isinstance(m, (LlmcLayerNorm, LlmcLlamaRMSNorm, LlmcMistralRMSNorm)):
+            if isinstance(m, (LlmcLayerNorm, LlmcLlamaRMSNorm, LlmcMistralRMSNorm, LlmcQwen2RMSNorm)):
                 layer_norms.append(m)
         return layer_norms
 
@@ -652,7 +655,7 @@ class OmniQuant(BaseBlockwiseQuantization):
 
         for name, module in block.named_modules():
             if isinstance(
-                module, (LlmcLayerNorm, LlmcLlamaRMSNorm, LlmcMistralRMSNorm)
+                module, (LlmcLayerNorm, LlmcLlamaRMSNorm, LlmcMistralRMSNorm, LlmcQwen2RMSNorm)
             ):
                 module.use_tmp_parameter = False
 

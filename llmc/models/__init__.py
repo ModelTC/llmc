@@ -5,3 +5,4 @@ from .falcon import Falcon
 from .mistral import Mistral
 from .starcoder import Starcoder
 from .internlm2 import InternLM2
+from .qwen2 import Qwen2

@@ -13,9 +13,8 @@ from llmc.compression.quantization.module_utils import (
     LlmcLayerNorm,
     LlmcLlamaRMSNorm,
     LlmcMistralRMSNorm,
+    LlmcQwen2RMSNorm
 )
-from transformers.models.llama.modeling_llama import LlamaRMSNorm
-from transformers.models.mistral.modeling_mistral import MistralRMSNorm
 
 
 class BaseModel(metaclass=ABCMeta):
@@ -145,7 +144,7 @@ class BaseModel(metaclass=ABCMeta):
         logger.info(f"The Replaced model: {self.model}")
 
     def replace_module_block(self, module, block, i, params_dict):
-        if module in [LlmcLayerNorm, LlmcLlamaRMSNorm, LlmcMistralRMSNorm]:
+        if module in [LlmcLayerNorm, LlmcLlamaRMSNorm, LlmcMistralRMSNorm, LlmcQwen2RMSNorm]:
             layer_norms = self.get_layernorms_in_block(block)
             self.replace_module_layernorm(module, block, layer_norms, i, params_dict)
         else:
