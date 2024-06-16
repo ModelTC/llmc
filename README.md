@@ -17,7 +17,7 @@ This tool is implemented in Pytorch by the following main contributors:
 
 ## News
 
-* **May 17, 2024:** 🚀 We support some advanced large models, e.g., LLaVA, Mixtral, and Qwen V2 now. Have a try!
+* **May 17, 2024:** 🚀 We support some advanced large models, e.g., LLaVA, Mixtral, LLaMA V3 and Qwen V2 now. Have a try!
 
 * **May 13, 2024:** 🍺🍺🍺 We release our quantization benchmark paper:
 
