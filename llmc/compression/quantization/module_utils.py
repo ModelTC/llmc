@@ -92,6 +92,12 @@ class LlmcQwen2RMSNorm(LlmcLlamaRMSNorm):
     def __repr__(self):
         return f"LlmcQwen2RMSNorm()"
 
+class LlmcMixtralRMSNorm(LlmcLlamaRMSNorm):
+    def __init__(self, weight, eps=1e-6):
+        super().__init__(weight, eps)
+
+    def __repr__(self):
+        return f"LlmcMixtralRMSNorm()"
 
 class LlmcMistralRMSNorm(LlmcLlamaRMSNorm):
     def __init__(self, weight, eps=1e-6):

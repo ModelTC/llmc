@@ -19,7 +19,8 @@ from .module_utils import (
     LlmcLayerNorm,
     LlmcLlamaRMSNorm,
     LlmcMistralRMSNorm,
-    LlmcQwen2RMSNorm
+    LlmcQwen2RMSNorm,
+    LlmcMixtralRMSNorm
 )
 from .train_utils import NativeScalerWithGradNormCount, TruncateFunction, LossFunction
 from llmc.utils.registry_factory import ALGO_REGISTRY
@@ -415,13 +416,15 @@ class OmniQuant(BaseBlockwiseQuantization):
             self.model.replace_module_block(LlmcLlamaRMSNorm, block, idx, {})
         elif self.config["model"]["type"] == "Qwen2":
             self.model.replace_module_block(LlmcQwen2RMSNorm, block, idx, {})
+        elif self.config["model"]["type"] == "Mixtral":
+            self.model.replace_module_block(LlmcMixtralRMSNorm, block, idx, {})
         else:
             self.model.replace_module_block(LlmcLayerNorm, block, idx, {})
 
     def get_layer_norms(self, block):
         layer_norms = []
         for n, m in block.named_modules():
-            if isinstance(m, (LlmcLayerNorm, LlmcLlamaRMSNorm, LlmcMistralRMSNorm, LlmcQwen2RMSNorm)):
+            if isinstance(m, (LlmcLayerNorm, LlmcLlamaRMSNorm, LlmcMistralRMSNorm, LlmcQwen2RMSNorm, LlmcMixtralRMSNorm)):
                 layer_norms.append(m)
         return layer_norms
 
@@ -655,7 +658,7 @@ class OmniQuant(BaseBlockwiseQuantization):
 
         for name, module in block.named_modules():
             if isinstance(
-                module, (LlmcLayerNorm, LlmcLlamaRMSNorm, LlmcMistralRMSNorm, LlmcQwen2RMSNorm)
+                module, (LlmcLayerNorm, LlmcLlamaRMSNorm, LlmcMistralRMSNorm, LlmcQwen2RMSNorm, LlmcMixtralRMSNorm)
             ):
                 module.use_tmp_parameter = False
 
