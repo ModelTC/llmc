@@ -7,3 +7,4 @@ from .starcoder import Starcoder
 from .internlm2 import InternLM2
 from .qwen2 import Qwen2
 from .mixtral import Mixtral
+from .llava import Llava

@@ -566,6 +566,13 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
 
     @torch.no_grad()
     def save_model(self, path):
-        self.model.get_model().save_pretrained(path)
-        logger.info(f"save model done --")
-        self.copy_tokenizer(path)
+        if self.config.model.type == "Llava":
+            self.model.llava_model.language_model = self.model.get_model()
+            self.model.llava_model.save_pretrained(path)
+            logger.info(f"save model done --")
+            self.copy_tokenizer(path)
+            copy_files(self.config.model.path, path, "preprocessor_config")
+        else:
+            self.model.get_model().save_pretrained(path)
+            logger.info(f"save model done --")
+            self.copy_tokenizer(path)
