@@ -17,6 +17,8 @@ This tool is implemented in Pytorch by the following main contributors:
 
 ## News
 
+* **May 17, 2024:** 🚀 We support some advanced large models, e.g., LLaVA, Mixtral, and Qwen V2 now. Have a try!
+
 * **May 13, 2024:** 🍺🍺🍺 We release our quantization benchmark paper:
 
   [**LLM-QBench: A Benchmark Towards the Best Practice for Post-training Quantization of Large Language Models**](https://arxiv.org/abs/2405.06001).
@@ -208,6 +210,12 @@ To help users design their configs, we now explain some universal configurations
 ✅ [Mistral](https://huggingface.co/docs/transformers/model_doc/mistral)
 
 ✅ [LLaMA V3](https://huggingface.co/meta-llama)
+
+✅ [Mixtral](https://huggingface.co/docs/transformers/model_doc/mixtral)
+
+✅ [Qwen V2](https://github.com/QwenLM/Qwen2)
+
+✅ [LLaVA](https://github.com/haotian-liu/LLaVA)
 
 You can add your own model type referring to files under ``llmc/models/*.py``.
 
