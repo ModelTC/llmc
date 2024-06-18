@@ -1,6 +1,14 @@
+from loguru import logger
 from .llama import Llama
 from llmc.utils.registry_factory import MODEL_REGISTRY
-from transformers import LlavaForConditionalGeneration, AutoConfig
+from transformers import AutoConfig
+
+try:
+    from transformers import LlavaForConditionalGeneration
+except:
+    logger.info(
+        "LlavaForConditionalGeneration is not supported in this version of transfomers. Update transfomers if you need."
+    )
 
 
 @MODEL_REGISTRY
