@@ -1,0 +1,10 @@
+torch
+loguru
+transformers==4.41.2
+datasets
+huggingface-hub
+sentencepiece
+protobuf
+accelerate
+zstandard
+easydict

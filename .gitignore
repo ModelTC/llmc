@@ -19,7 +19,7 @@
 .vscode/
 .env
 save*
-*log*
+.log
 *pid*
 *.ipynb*
 
