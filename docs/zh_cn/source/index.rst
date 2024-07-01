@@ -6,6 +6,12 @@
 欢迎使用大模型压缩工具llmc!
 ================================
 
+llmc是一个用于大模型压缩的工具，支持多种模型和多种压缩算法。
+
+github链接: https://github.com/ModelTC/llmc
+
+arxiv链接: https://arxiv.org/abs/2405.06001
+
 .. toctree::
    :maxdepth: 2
    :caption: 快速入门
