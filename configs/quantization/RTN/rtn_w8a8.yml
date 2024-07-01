@@ -17,5 +17,4 @@ quant:
         granularity: per_token
 save:
     save_fp: False
-    save_lightllm: True
     save_path: ./save_w8a8

@@ -55,6 +55,5 @@ quant:
     quant_out: True
 save:
     save_fp: False
-    save_quant: False
     save_fake: False
     save_path: ./save

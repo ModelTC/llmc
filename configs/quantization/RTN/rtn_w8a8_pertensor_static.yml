@@ -33,5 +33,4 @@ quant:
         static: True
 save:
     save_fp: False
-    save_lightllm: False
     save_path: ./save

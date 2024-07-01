@@ -68,7 +68,6 @@ quant:
         granularity: per_token
 save:
     save_fp: True # 设置为True，可以保存下调整之后的权重
-    save_lightllm: False
     save_path: ./save
 ```
 
@@ -138,5 +137,5 @@ Exception: ./save/transformed_model existed before. Need check.
 
 **<font color=green> 解决方法 </font>** 
 
-保存的路径下是一个已经存在的目录，需要换个不存在的保存目录
+保存的路径是一个已经存在的目录，需要换个不存在的保存目录
 
