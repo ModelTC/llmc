@@ -1,5 +1,7 @@
 # 模型精度测试
 
+## 精度测试流程
+
 llmc支持基础的ppl(perplexity，困惑度)评测，但是更多的下游任务评测，llmc本身并不支持。
 
 常见的做法使用评测工具直接对模型进行推理测试，目前已有的评测工具包括但不限于
@@ -26,3 +28,29 @@ llmc支持基础的ppl(perplexity，困惑度)评测，但是更多的下游任�
 
 3. opencompass，大模型评测工具，[[github](https://github.com/open-compass/opencompass),[文档](https://opencompass.readthedocs.io/zh-cn/latest/)]
 
+
+## lightllm推理引擎的使用
+
+[lightllm](https://github.com/ModelTC/llmc)官方仓库有着更详细的文档，这里仅给出一个简单快速入门的使用文档
+
+<font color=792ee5> 起一个float模型的服务 </font>
+
+xxx
+
+<font color=792ee5> 对服务进行简单测试 </font>
+
+xxx
+
+<font color=792ee5> 起一个量化模型的服务 </font>
+
+xxx
+
+
+## opencompass评测工具的使用
+
+[opencompass](https://github.com/open-compass/opencompass)官方仓库有着更详细的文档，这里仅给出一个简单快速入门的使用文档
+
+
+## 常见问题
+
+xxx
