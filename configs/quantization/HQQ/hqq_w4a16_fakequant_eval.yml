@@ -26,5 +26,5 @@ quant:
         kappa : 1.01
         iters : 20
 save:
-    save_fp: False
+    save_trans: False
     save_path: ./save

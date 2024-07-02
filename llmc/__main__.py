@@ -70,8 +70,8 @@ def main(config):
         if "cvt" in config and config.get("cvt", True):
             blockwise_opt.run_block_cvt()
 
-        if "save" in config and config.save.get("save_fp", False):
-            blockwise_opt.save_model(save_fp_path)
+        if "save" in config and config.save.get("save_trans", False):
+            blockwise_opt.save_model(save_trans_path)
 
     if "eval" in config and "fake_quant" in config.eval.eval_pos:
         blockwise_opt.deploy("fake_quant")
@@ -106,9 +106,9 @@ if __name__ == "__main__":
 
     # mkdirs
     if "save" in config:
-        if config.save.get("save_fp", False):
-            save_fp_path = os.path.join(config.save.save_path, "transformed_model")
-            mkdirs(save_fp_path)
+        if config.save.get("save_trans", False):
+            save_trans_path = os.path.join(config.save.save_path, "transformed_model")
+            mkdirs(save_trans_path)
         if config.save.get("save_lightllm", False):
             save_quant_path = os.path.join(config.save.save_path, "real_quant_model")
             mkdirs(save_quant_path)

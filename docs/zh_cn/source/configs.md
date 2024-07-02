@@ -39,7 +39,7 @@ quant:
         symmetric: True # 激活量化是否是对称量化
         granularity: per_token # 激活量化的粒度
 save:
-    save_fp: False # 是否保存调整之后的模型
+    save_trans: False # 是否保存调整之后的模型
     save_path: ./save # 保存路径
 ```
 
@@ -284,3 +284,80 @@ eval:
 如果直接使用llmc的[下载脚本](https://github.com/ModelTC/llmc/blob/main/tools/download_eval_dataset.py)，则共有上层目录就是`--save_path`所指定的数据集保存路径
 
 
+## quant
+
+<font color=792ee5> quant.method </font>
+
+使用的量化算法名，llmc支持的所有量化算法可以在[这里](https://github.com/ModelTC/llmc/blob/main/llmc/compression/quantization/__init__.py)查看
+
+<font color=792ee5> quant.weight </font>
+
+权重的量化设置
+
+<font color=792ee5> quant.weight.bit </font>
+
+权重的量化bit数
+
+<font color=792ee5> quant.weight.symmetric </font>
+
+权重的量化对称与否
+
+<font color=792ee5> quant.weight.granularity </font>
+
+权重的量化粒度，支持以下粒度
+
+1. per tensor
+
+2. per channel
+
+3. per group
+
+<font color=792ee5> quant.act </font>
+
+激活的量化设置
+
+<font color=792ee5> quant.act.bit </font>
+
+激活的量化bit数字
+
+<font color=792ee5> quant.act.symmetric </font>
+
+激活的量化对称与否
+
+<font color=792ee5> quant.act.granularity </font>
+
+激活的量化粒度，支持以下粒度
+
+1. per tensor
+
+2. per token
+
+3. per head
+
+其中如果quant.method设置的为RTN，激活量化可以支持静态per tensor设置，下面是一个W8A8，激活静态per tensor量化的配置
+
+```
+quant:
+    method: RTN
+    weight:
+        bit: 8
+        symmetric: True
+        granularity: per_channel
+    act:
+        bit: 8
+        symmetric: True
+        granularity: per_tensor
+        static: True
+```
+
+## save
+
+<font color=792ee5> save.save_trans </font>
+
+是否保存调整之后的模型权重
+
+保存的该权重，是经过调整之后的更适合量化的权重，它还是以fp16形式保存，在推理引擎中部署的时候，需要开启naive量化，即可实现量化推理
+
+<font color=792ee5> save.save_path </font>
+
+保存模型的路径，该路径需要是一个不存在的新的目录路径，否则llmc会终止运行，并发出相应的错误提示

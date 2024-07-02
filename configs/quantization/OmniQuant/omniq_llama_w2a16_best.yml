@@ -47,5 +47,5 @@ quant:
         search_scale_init: True
     quant_out: True
 save:
-    save_fp: False
+    save_trans: False
     save_path: ./save

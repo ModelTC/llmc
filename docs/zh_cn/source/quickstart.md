@@ -67,7 +67,7 @@ quant:
         symmetric: True
         granularity: per_token
 save:
-    save_fp: True # 设置为True，可以保存下调整之后的权重
+    save_trans: True # 设置为True，可以保存下调整之后的权重
     save_path: ./save
 ```
 

@@ -16,5 +16,5 @@ quant:
         symmetric: True
         granularity: per_token
 save:
-    save_fp: False
+    save_trans: False
     save_path: ./save_w8a8

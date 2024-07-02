@@ -31,5 +31,5 @@ quant:
         symmetric: True
         granularity: per_token
 save:
-    save_fp: True
+    save_trans: True
     save_path: ./save

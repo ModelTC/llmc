@@ -29,6 +29,6 @@ quant:
         granularity: per_group
         group_size: 128
 save:
-    save_fp: True
+    save_trans: True
     save_lightllm: True
     save_path: ./save

@@ -37,5 +37,5 @@ quant:
         fp_threshold: 0.0
         last_fc_bit: 8
 save:
-    save_fp: False
+    save_trans: False
     save_path: ./save

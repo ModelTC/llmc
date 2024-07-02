@@ -47,6 +47,6 @@ quant:
         save_clip: True
         clip_path: clip path
 save:
-    save_fp: False
+    save_trans: False
     save_quant: False
     save_path: ./save

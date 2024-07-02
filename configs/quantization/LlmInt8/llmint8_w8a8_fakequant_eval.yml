@@ -34,5 +34,5 @@ quant:
     special:
         threshold: 6.0
 save:
-    save_fp: False
+    save_trans: False
     save_path: ./save

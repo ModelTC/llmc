@@ -49,6 +49,6 @@ quant:
             round_zp: False
     quant_out: True
 save:
-    save_fp: False
+    save_trans: False
     save_fake: False
     save_path: ./save

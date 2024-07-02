@@ -42,5 +42,5 @@ quant:
         clip_version: v2
     quant_out: True
 save:
-    save_fp: False
+    save_trans: False
     save_path: ./save

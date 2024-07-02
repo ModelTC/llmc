@@ -35,5 +35,5 @@ quant:
         true_sequential: True
     quant_out: True
 save:
-    save_fp: False
+    save_trans: False
     save_path: ./save
