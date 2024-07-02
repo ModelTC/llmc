@@ -7,7 +7,7 @@
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = 'llmc'
-copyright = '2024, SenseTime-ToolChain'
+copyright = '2024, llmc contributors'
 author = 'ModelTC'
 release = '1.0.0'
 

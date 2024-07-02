@@ -11,9 +11,12 @@
 
 **llmc** is an off-the-shell tool designed for compressing LLM, leveraging state-of-the-art compression algorithms to enhance efficiency and reduce model size without compromising performance. 
 
-This tool is implemented in Pytorch by the following main contributors:
+For further information and discussion, join our community.
 
-[Yushi Huang](https://github.com/Harahan/), [Yang Yong](https://github.com/helloyongyang), [Shiqiao Gu](https://github.com/gushiqiao), [Ruihao Gong](https://xhplus.github.io/),
+1. Discord Server: https://discord.gg/qZKUDfhm
+
+2. Tencent QQ Group: 526192592
+
 
 ## News
 
@@ -316,6 +319,15 @@ We develop our code referring to the following repos:
 If you find our LLM-QBench paper/llmc toolkit useful or relevant to your research, please kindly cite our paper:
 
 ```
+@misc{llmc,
+   author = {llmc contributors},
+   title = {llmc: Towards Accurate and Efficient LLM Compression},
+   year = {2024},
+   publisher = {GitHub},
+   journal = {GitHub repository},
+   howpublished = {\url{https://github.com/ModelTC/llmc}},
+}
+
 @misc{gong2024llmqbench,
       title={LLM-QBench: A Benchmark Towards the Best Practice for Post-training Quantization of Large Language Models}, 
       author={Ruihao Gong and Yang Yong and Shiqiao Gu and Yushi Huang and Yunchen Zhang and Xianglong Liu and Dacheng Tao},
@@ -323,15 +335,6 @@ If you find our LLM-QBench paper/llmc toolkit useful or relevant to your researc
       eprint={2405.06001},
       archivePrefix={arXiv},
       primaryClass={cs.LG}
-}
-
-@misc{huang2024llmc,
-   author = {Yushi Huang and Yang Yong and Shiqiao Gu and Ruihao Gong},
-   title = {llmc: Towards Accurate and Efficient LLM Compression},
-   year = {2024},
-   publisher = {GitHub},
-   journal = {GitHub repository},
-   howpublished = {\url{https://github.com/ModelTC/llmc}},
 }
 ```
 

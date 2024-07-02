@@ -10,9 +10,12 @@
 
 **llmc** 是一个即插即用的工具，旨在通过最先进的压缩算法进行大型语言模型的压缩，以提高效率并减小模型大小，同时不牺牲性能。
 
-该工具由以下主要贡献者使用 Pytorch 实现：
+为了方便沟通交流，大家可以选择加入我们的社区。
 
-[Yushi Huang](https://github.com/Harahan/), [Yang Yong](https://github.com/helloyongyang), [Shiqiao Gu](https://github.com/gushiqiao), [Ruihao Gong](https://xhplus.github.io/),
+1. Discord Server: https://discord.gg/qZKUDfhm
+
+2. QQ群: 526192592
+
 
 ## 新闻
 
@@ -290,21 +293,21 @@
 如果您认为我们的 LLM-QBench 论文/llmc 工具对您的研究有用或相关，请务必引用我们的论文：
 
 ```
+@misc{llmc,
+   author = {llmc contributors},
+   title = {llmc: Towards Accurate and Efficient LLM Compression},
+   year = {2024},
+   publisher = {GitHub},
+   journal = {GitHub repository},
+   howpublished = {\url{https://github.com/ModelTC/llmc}},
+}
+
 @misc{gong2024llmqbench,
-      title={LLM-QBench: 大型语言模型训练后量化的最佳实践基准}, 
+      title={LLM-QBench: A Benchmark Towards the Best Practice for Post-training Quantization of Large Language Models}, 
       author={Ruihao Gong and Yang Yong and Shiqiao Gu and Yushi Huang and Yunchen Zhang and Xianglong Liu and Dacheng Tao},
       year={2024},
       eprint={2405.06001},
       archivePrefix={arXiv},
       primaryClass={cs.LG}
-}
-
-@misc{huang2024llmc,
-   author = {Yushi Huang and Yang Yong and Shiqiao Gu and Ruihao Gong},
-   title = {llmc: 向精确高效的大型语言模型压缩迈进},
-   year = {2024},
-   publisher = {GitHub},
-   journal = {GitHub repository},
-   howpublished = {\url{https://github.com/ModelTC/llmc}},
 }
 ```
