@@ -33,7 +33,7 @@ def main(config):
         for name in name_list:
             eval_config = copy.deepcopy(config.eval)
             eval_config.name = name
-            if len(name_list) != 1:
+            if len(name_list) != 1: # eval multi datasets
                 eval_config.path = os.path.join(config.eval.path, name)
             ppl_eval = PerplexityEval(tokenizer.get_tokenizer(), eval_config)
             eval_list.append(ppl_eval)

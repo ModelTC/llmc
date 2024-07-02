@@ -8,7 +8,7 @@
 
 project = 'llmc'
 copyright = '2024, SenseTime-ToolChain'
-author = 'SenseTime-ToolChain'
+author = 'ModelTC'
 release = '1.0.0'
 
 github_url = f'https://github.com/ModelTC/llmc'

@@ -25,3 +25,11 @@ arxiv链接: https://arxiv.org/abs/2405.06001
 
    configs.md
 
+
+.. toctree::
+   :maxdepth: 2
+   :caption: 进阶用法
+
+   advanced/model_test.md
+   advanced/custom_dataset.md
+
