@@ -126,11 +126,7 @@ pip install -v -e .
 
 **修改配置文件**
 
-配置文件在[这里](https://github.com/open-compass/opencompass/blob/main/configs/eval_lightllm.py)
-
-这个配置文件是用于opencompass来评测lightllm的api服务的精度
-
-需要注意的是里面的`url`里面的port，要和上述的lightllm的服务port保持一致
+配置文件在[这里](https://github.com/open-compass/opencompass/blob/main/configs/eval_lightllm.py)，这个配置文件是用于opencompass来评测lightllm的api服务的精度，需要注意的是里面的`url`里面的port，要和上述的lightllm的服务port保持一致
 
 评测的数据集选择，需要修改这部分代码
 
