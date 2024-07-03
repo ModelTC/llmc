@@ -112,6 +112,8 @@ python -m lightllm.server.api_server --model_dir 模型路径            \
 
 起完服务，同样需要验证一下服务是否正常
 
+上述的命令使用的模型路径是原始预训练的模型，并没有经过llmc调整。可以按照llmc的文档，打开save_trans，保存一个调整之后的模型，然后再运行上述的naive量化服务命令
+
 ## opencompass评测工具的使用
 
 [opencompass](https://github.com/open-compass/opencompass)官方仓库有着更详细的文档，这里仅给出一个简单快速入门的使用文档
