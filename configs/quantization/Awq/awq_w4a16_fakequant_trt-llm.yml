@@ -27,6 +27,13 @@ quant:
         symmetric: True
         granularity: per_group
         group_size: 128
+    special:
+        version: v2
+        weight_clip: False
 save:
-    save_trans: True
+    save_trans: False
+    save_trtllm: True
+    trtllm_cfg:
+        tp_size: 1
+        pp_size: 1
     save_path: ./save

@@ -73,6 +73,11 @@ def main(config):
         if "save" in config and config.save.get("save_trans", False):
             blockwise_opt.save_model(save_trans_path)
 
+        if "save" in config and config.save.get("save_trtllm", False):
+            blockwise_opt.save_model(save_trtllm_trans_path)
+            from llmc.utils.export_trtllm import cvt_trtllm_engine
+            cvt_trtllm_engine(save_trtllm_trans_path, save_trtllm_engine_path, config.save.get("trtllm_cfg"))
+
     if "eval" in config and "fake_quant" in config.eval.eval_pos:
         blockwise_opt.deploy("fake_quant")
         for ppl_eval in eval_list:
@@ -109,6 +114,11 @@ if __name__ == "__main__":
         if config.save.get("save_trans", False):
             save_trans_path = os.path.join(config.save.save_path, "transformed_model")
             mkdirs(save_trans_path)
+        if config.save.get("save_trtllm", False):
+            save_trtllm_trans_path = os.path.join(config.save.save_path, "trtllm_transformed_model")
+            mkdirs(save_trtllm_trans_path)
+            save_trtllm_engine_path = os.path.join(config.save.save_path, "trtllm_engine")
+            mkdirs(save_trtllm_engine_path)
         if config.save.get("save_lightllm", False):
             save_quant_path = os.path.join(config.save.save_path, "real_quant_model")
             mkdirs(save_quant_path)
