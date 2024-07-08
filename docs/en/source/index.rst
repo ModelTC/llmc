@@ -6,6 +6,12 @@
 Welcome to llmc's documentation!
 ================================
 
+llmc is a tool for large model compression, supporting a variety of models and a variety of compression algorithms.
+
+github: https://github.com/ModelTC/llmc
+
+arxiv: https://arxiv.org/abs/2405.06001
+
 .. toctree::
    :maxdepth: 2
    :caption: Quick Start
@@ -18,3 +24,10 @@ Welcome to llmc's documentation!
    :caption: Configs
 
    configs.md
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Advanced
+
+   advanced/model_test.md
+   advanced/custom_dataset.md
