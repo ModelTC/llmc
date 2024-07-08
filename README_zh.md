@@ -12,6 +12,9 @@
 
 **llmc** 是一个即插即用的工具，旨在通过最先进的压缩算法进行大型语言模型的压缩，以提高效率并减小模型大小，同时不牺牲性能。
 
+**英文文档**在[这里](https://llmc-en.readthedocs.io/en/latest/).
+
+**中文文档**在[这里](https://llmc-zhcn.readthedocs.io/en/latest/).
 
 ## 新闻
 

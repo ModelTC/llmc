@@ -13,6 +13,10 @@
 
 **llmc** is an off-the-shell tool designed for compressing LLM, leveraging state-of-the-art compression algorithms to enhance efficiency and reduce model size without compromising performance. 
 
+**English doc** is [here](https://llmc-en.readthedocs.io/en/latest/).
+
+**Chinese doc** is [here](https://llmc-zhcn.readthedocs.io/en/latest/).
+
 ## News
 
 * **July 4, 2024:** 📱 We open our discussion channel. If you have any question, please join our community:
