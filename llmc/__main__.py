@@ -12,6 +12,8 @@ import yaml
 from easydict import EasyDict
 from llmc.utils import seed_all, check_config, mkdirs
 import copy
+import time
+import json
 
 
 def main(config):
@@ -94,6 +96,7 @@ def main(config):
 
 
 if __name__ == "__main__":
+    llmc_start_time = time.time()
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=str, required=True)
     args = parser.parse_args()
@@ -105,7 +108,7 @@ if __name__ == "__main__":
     check_config(config)
 
     logger.info(f"args: {args}")
-    logger.info(f"config: {config}")
+    logger.info(f"config:\n{json.dumps(config, ensure_ascii=False, indent=4)}")
 
     seed_all(config.base.seed)
 
@@ -127,3 +130,8 @@ if __name__ == "__main__":
             mkdirs(save_fake_path)
 
     main(config)
+
+    llmc_end_time = time.time()
+    llmc_duration_time = llmc_end_time - llmc_start_time
+    logger.info(f"llmc_duration_time: {llmc_duration_time} s")
+    logger.info("--- llmc finished ---")
