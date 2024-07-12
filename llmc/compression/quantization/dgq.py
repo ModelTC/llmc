@@ -2,11 +2,10 @@ import torch
 import torch.nn as nn
 from loguru import logger
 import gc
-from transformers.models.llama.modeling_llama import LlamaRMSNorm
-from transformers.models.mistral.modeling_mistral import MistralRMSNorm
-from .base_blockwise_quantization import BaseBlockwiseQuantization
 from llmc.utils.registry_factory import ALGO_REGISTRY
-from .module_utils import FakeQuantLinear
+
+from .module_utils import _LLMC_LN_TYPES_, _TRANSFORMERS_LN_TYPES_
+from .base_blockwise_quantization import BaseBlockwiseQuantization
 from .quant import Quantizer
 
 
@@ -278,7 +277,7 @@ class DGQ(BaseBlockwiseQuantization):
         subset_kwargs,
     ):
         layers = list(layers_dict.values())
-        if isinstance(prev_op[0], (nn.LayerNorm, LlamaRMSNorm, MistralRMSNorm)):
+        if isinstance(prev_op[0], tuple(_LLMC_LN_TYPES_ + _TRANSFORMERS_LN_TYPES_)):
             self.smoothquant_transform(prev_op, layers, input_feat[input_name])
         # For llama model down proj
         if "mlp.down_proj" in layers_dict:

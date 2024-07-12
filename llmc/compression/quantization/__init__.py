@@ -12,5 +12,6 @@ from .spqr import SpQR
 from .llmint8 import LlmInt8
 from .hqq import HQQ
 from .rtn import RTN
+from .quarot import Quarot
 from .quant import Quantizer
 from .module_utils import FakeQuantLinear

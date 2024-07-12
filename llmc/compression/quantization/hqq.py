@@ -2,11 +2,8 @@ import torch
 import torch.nn as nn
 from loguru import logger
 import gc
-from transformers.models.llama.modeling_llama import LlamaRMSNorm
-from transformers.models.mistral.modeling_mistral import MistralRMSNorm
 from .base_blockwise_quantization import BaseBlockwiseQuantization
 from llmc.utils.registry_factory import ALGO_REGISTRY
-from .module_utils import FakeQuantLinear
 
 
 @ALGO_REGISTRY

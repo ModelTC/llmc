@@ -1,7 +1,11 @@
 import torch
 import torch.nn as nn
 import gc
+import fast_hadamard_transform
+import math
 from functools import partial
+from transformers.pytorch_utils import ALL_LAYERNORM_LAYERS
+from .hadamard_utils import get_hadK, matmul_hadU_cuda
 
 
 class LlmcLayerNorm(nn.Module):
@@ -85,12 +89,37 @@ class LlmcLlamaRMSNorm(nn.Module):
         return f"LlmcLlamaRMSNorm()"
 
 
+class LlmcRMSNorm(nn.Module):
+    def __init__(self, weight, eps=1e-6):
+        super().__init__()
+        self.variance_epsilon = eps
+        self.weight = nn.Parameter(torch.ones_like(weight))
+
+    def forward(self, hidden_states):
+        input_dtype = hidden_states.dtype
+        variance = hidden_states.to(torch.float32).pow(2).mean(-1, keepdim=True)
+        hidden_states = hidden_states * torch.rsqrt(variance + self.variance_epsilon)
+        return hidden_states.to(input_dtype)
+
+    @classmethod
+    @torch.no_grad()
+    def new(cls, module):
+        eps = module.variance_epsilon
+        weight = module.weight
+        new_module = cls(weight, eps)
+        return new_module
+
+    def __repr__(self):
+        return f"LlmcRMSNorm()"
+
+
 class LlmcQwen2RMSNorm(LlmcLlamaRMSNorm):
     def __init__(self, weight, eps=1e-6):
         super().__init__(weight, eps)
 
     def __repr__(self):
         return f"LlmcQwen2RMSNorm()"
+
 
 class LlmcMixtralRMSNorm(LlmcLlamaRMSNorm):
     def __init__(self, weight, eps=1e-6):
@@ -99,12 +128,21 @@ class LlmcMixtralRMSNorm(LlmcLlamaRMSNorm):
     def __repr__(self):
         return f"LlmcMixtralRMSNorm()"
 
+
 class LlmcMistralRMSNorm(LlmcLlamaRMSNorm):
     def __init__(self, weight, eps=1e-6):
         super().__init__(weight, eps)
 
     def __repr__(self):
         return f"LlmcMistralRMSNorm()"
+
+
+class LlmcInternLM2RMSNorm(LlmcLlamaRMSNorm):
+    def __init__(self, weight, eps=1e-6):
+        super().__init__(weight, eps)
+
+    def __repr__(self):
+        return f"LlmcInternLM2RMSNorm()"
 
 
 class OriginFloatLinear(nn.Module):
@@ -119,9 +157,14 @@ class OriginFloatLinear(nn.Module):
         for name, buf in ori_module.named_buffers():
             if name.startswith("buf_"):
                 self.register_buffer(name, buf.data)
+        if hasattr(self, "buf_rotate") and self.buf_rotate:
+            self.rotater = ori_module.rotater
 
     @torch.no_grad()
     def forward(self, x):
+
+        if hasattr(self, "buf_rotate") and self.buf_rotate:
+            x = self.rotater.rotate(x)
         x = torch.functional.F.linear(x, self.weight, self.bias)
         return x
 
@@ -147,6 +190,130 @@ class OriginFloatLinear(nn.Module):
         return f"OriginFloatLinear(in_features={self.in_features}, out_features={self.out_features}, bias={self.bias is not None})"
 
 
+class Rotater:
+    def __init__(
+        self, online_full_had, online_partial_had, fp32_had, K, had_K=None, had_dim=None
+    ):
+        self.online_full_had = online_full_had
+        self.online_partial_had = online_partial_had
+        self.fp32_had = fp32_had
+        self.K = K
+        self.had_K = had_K
+        self.had_dim = had_dim
+
+    def rotate(self, x):
+
+        x_dtype = x.dtype
+
+        if self.online_full_had:
+            if self.fp32_had:
+                x = matmul_hadU_cuda(x.float(), self.had_K, self.K).to(x_dtype)
+            else:
+                x = matmul_hadU_cuda(x, self.had_K, self.K)
+
+        elif self.online_partial_had:
+
+            if self.fp32_had:
+                x = x.float()
+            init_shape = x.shape
+            if self.K == 1:
+                x = fast_hadamard_transform.hadamard_transform(
+                    x.reshape(
+                        -1, init_shape[-1] // self.had_dim, self.had_dim
+                    ).transpose(1, 2),
+                    scale=1 / math.sqrt(init_shape[-1] // self.had_dim),
+                ).transpose(1, 2)
+            else:
+
+                self.had_K = self.had_K.to(x.device)
+
+                x = (
+                    self.had_K.to(x.dtype)
+                    @ x.reshape(-1, init_shape[-1] // self.had_dim, self.had_dim)
+                ) / math.sqrt(init_shape[-1] // self.had_dim)
+
+            if self.fp32_had:
+                x = x.to(x_dtype)
+            x = x.reshape(init_shape)
+
+        return x
+
+
+class RotateLinear(nn.Module):
+    def __init__(
+        self,
+        weight,
+        bias,
+        ori_module,
+        online_full_had,
+        online_partial_had,
+        fp32_had,
+        K,
+        had_K,
+        had_dim,
+    ):
+        super().__init__()
+        self.register_buffer("weight", weight)
+        if bias is not None:
+            self.register_buffer("bias", bias)
+        else:
+            self.bias = None
+
+        for name, buf in ori_module.named_buffers():
+            if name.startswith("buf_"):
+                self.register_buffer(name, buf.data)
+
+        self.rotater = Rotater(
+            online_full_had, online_partial_had, fp32_had, K, had_K, had_dim
+        )
+        self.register_buffer("buf_rotate", torch.tensor(True))
+
+    def forward(self, x):
+        x = self.rotater.rotate(x)
+        x = torch.functional.F.linear(x, self.weight, self.bias)
+
+        return x
+
+    @classmethod
+    @torch.no_grad()
+    def new(
+        cls, module, online_full_had, online_partial_had, fp32_had, K, had_K, had_dim
+    ):
+        weight = module.weight.data
+        if module.bias is not None:
+            bias = module.bias.data
+        else:
+            bias = None
+
+        new_module = cls(
+            weight,
+            bias,
+            ori_module=module,
+            online_full_had=online_full_had,
+            online_partial_had=online_partial_had,
+            fp32_had=fp32_had,
+            K=K,
+            had_K=had_K,
+            had_dim=had_dim,
+        )
+
+        new_module.in_features = module.in_features
+        new_module.out_features = module.out_features
+        return new_module
+
+    @classmethod
+    def get_func_name(cls, any_callable):
+        if isinstance(any_callable, partial):
+            return any_callable.func.__name__
+        return any_callable.__name__
+
+    def register_activation_parameters(self, named_parameters):
+        pass
+
+    def __repr__(self):
+        return f"RotateLinear(in_features={self.in_features}, out_features={self.out_features}, bias={self.bias is not None}, online_rotate={self.buf_rotate})"
+
+
 class FakeQuantLinear(nn.Module):
     def __init__(self, weight, bias, ori_module, w_qdq, a_qdq):
         super().__init__()
@@ -162,10 +329,19 @@ class FakeQuantLinear(nn.Module):
             if name.startswith("buf_"):
                 self.register_buffer(name, buf.data)
 
+        if hasattr(self, "buf_rotate") and self.buf_rotate:
+            self.rotater = ori_module.rotater
+        else:
+            self.buf_rotate = False
+
         self.dynamic_quant_weight = False
         self.dynamic_quant_tmp_weight = False
 
     def forward(self, x):
+
+        if hasattr(self, "buf_rotate") and self.buf_rotate:
+            x = self.rotater.rotate(x)
+
         if self.a_qdq is not None:
             x = self.a_qdq(x, self)
 
@@ -214,7 +390,7 @@ class FakeQuantLinear(nn.Module):
         pass
 
     def __repr__(self):
-        return f"FakeQuantLinear(in_features={self.in_features}, out_features={self.out_features}, bias={self.bias is not None}, weight_quant={self.w_qdq_name}, act_quant={self.a_qdq_name})"
+        return f"FakeQuantLinear(in_features={self.in_features}, out_features={self.out_features}, bias={self.bias is not None}, weight_quant={self.w_qdq_name}, act_quant={self.a_qdq_name}, online_rotate={self.buf_rotate})"
 
 
 class EffcientFakeQuantLinear(nn.Module):
@@ -231,8 +407,16 @@ class EffcientFakeQuantLinear(nn.Module):
             if name.startswith("buf_"):
                 self.register_buffer(name, buf.data)
 
+        if hasattr(self, "buf_rotate") and self.buf_rotate:
+            self.rotater = ori_module.rotater
+        else:
+            self.buf_rotate = False
+
     @torch.no_grad()
     def forward(self, x):
+        if hasattr(self, "buf_rotate") and self.buf_rotate:
+            x = self.rotater.rotate(x)
+
         if self.a_qdq is not None:
             x = self.a_qdq(x, self)
         x = torch.functional.F.linear(x, self.weight, self.bias)
@@ -265,7 +449,7 @@ class EffcientFakeQuantLinear(nn.Module):
         return any_callable.__name__
 
     def __repr__(self):
-        return f"EffcientFakeQuantLinear(in_features={self.in_features}, out_features={self.out_features}, bias={self.bias is not None}, weight_quant={self.w_qdq_name}, act_quant={self.a_qdq_name})"
+        return f"EffcientFakeQuantLinear(in_features={self.in_features}, out_features={self.out_features}, bias={self.bias is not None}, weight_quant={self.w_qdq_name}, act_quant={self.a_qdq_name}, online_rotate={self.buf_rotate})"
 
 
 class RealQuantLinear(nn.Module):
@@ -388,3 +572,38 @@ class RealQuantLinear(nn.Module):
             + f"zeros_shape={self.zeros_shape}, "
             + f"zeros_dtype={self.zeros_dtype})"
         )
+
+_TRANSFORMERS_LN_TYPES_ = ALL_LAYERNORM_LAYERS
+_TRANSFORMERS_LINEAR_TYPES_ = [nn.Linear]
+
+_MODEL_LN_TYPES_PAIRS_ = {
+    "Llama": LlmcLlamaRMSNorm,
+    "Llava": LlmcLlamaRMSNorm,
+    "Mistral": LlmcMistralRMSNorm,
+    "Mixtral": LlmcMixtralRMSNorm,
+    "Interlm2": LlmcInternLM2RMSNorm,
+    "Qwen2": LlmcQwen2RMSNorm,
+    "Starcoder": LlmcLayerNorm,
+    "Opt": LlmcLayerNorm,
+    "Bloom": LlmcLayerNorm,
+}
+
+
+_LLMC_LN_TYPES_ = [
+    LlmcLayerNorm,
+    LlmcLlamaRMSNorm,
+    LlmcRMSNorm,
+    LlmcQwen2RMSNorm,
+    LlmcMistralRMSNorm,
+    LlmcMixtralRMSNorm,
+    LlmcInternLM2RMSNorm,
+]
+
+
+_LLMC_LINEAR_TYPES_ = [
+    OriginFloatLinear,
+    RotateLinear,
+    FakeQuantLinear,
+    EffcientFakeQuantLinear,
+    RealQuantLinear,
+]

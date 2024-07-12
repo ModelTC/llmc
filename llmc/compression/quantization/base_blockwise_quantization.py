@@ -4,20 +4,13 @@ import torch.nn as nn
 import gc
 import functools
 from collections import defaultdict
-from ..blockwise_optimization import BlockwiseOpt
-from transformers.models.llama.modeling_llama import LlamaRMSNorm
-from transformers.models.mistral.modeling_mistral import MistralRMSNorm
-from .module_utils import (
-    FakeQuantLinear,
-    EffcientFakeQuantLinear,
-    RealQuantLinear,
-    OriginFloatLinear,
-    LlmcLayerNorm,
-    LlmcLlamaRMSNorm,
-    LlmcMistralRMSNorm,
-)
-from .quant import Quantizer
 from llmc.utils import copy_files
+from ..blockwise_optimization import BlockwiseOpt
+from .module_utils import _LLMC_LN_TYPES_, _TRANSFORMERS_LN_TYPES_
+from .module_utils import _LLMC_LINEAR_TYPES_, _TRANSFORMERS_LINEAR_TYPES_
+from .module_utils import FakeQuantLinear, EffcientFakeQuantLinear, RealQuantLinear, OriginFloatLinear
+from .quant import Quantizer
+from .hadamard_utils import random_hadamard_matrix, apply_exact_had_to_linear, is_pow2
 
 
 class BaseBlockwiseQuantization(BlockwiseOpt):
@@ -39,6 +32,9 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
 
     def a_qdq(self, act, module=None):
         return self.aquantizer.fake_quant_act_dynamic(act)
+
+    def logit(self, x):
+        return torch.log(x / (1 - x))
 
     def set_quant_config(self):
         if "quant_out" in self.quant_config and self.quant_config["quant_out"]:
@@ -104,9 +100,6 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
         if self.clip_version == "v2":
             assert self.wquantizer.calib_algo == "learnable"
 
-    def logit(self, x):
-        return torch.log(x / (1 - x))
-
     def block_forward(self, block, input_data=None):
         output = []
 
@@ -115,7 +108,10 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
 
         for i in range(len(input_data)):
             input_data[i] = input_data[i].to(device=next(block.parameters()).device)
-            if "attention_mask" in self.input["kwargs"][i] and self.input["kwargs"][i]["attention_mask"] is not None:
+            if (
+                "attention_mask" in self.input["kwargs"][i]
+                and self.input["kwargs"][i]["attention_mask"] is not None
+            ):
                 self.input["kwargs"][i]["attention_mask"] = self.input["kwargs"][i][
                     "attention_mask"
                 ].cuda()
@@ -206,20 +202,14 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
         assert (
             len(prev_op) == 1
         ), "Only support single prev_op. If multi prev_ops, code need to be updated."
-        if isinstance(prev_op[0], (nn.Linear, FakeQuantLinear)):
-            assert len(layers) == 1
-            self.scale_fc_fc(prev_op[0], layers[0], scales)
-        elif isinstance(
-            prev_op[0],
-            (
-                nn.LayerNorm,
-                LlamaRMSNorm,
-                LlmcLayerNorm,
-                LlmcLlamaRMSNorm,
-                MistralRMSNorm,
-                LlmcMistralRMSNorm,
-            ),
+        if isinstance(
+            prev_op[0], tuple(_LLMC_LINEAR_TYPES_ + _TRANSFORMERS_LINEAR_TYPES_)
         ):
+            assert len(layers) == 1
+            logger.info("apply scale between fc and fc")
+            self.scale_fc_fc(prev_op[0], layers[0], scales)
+        elif isinstance(prev_op[0], tuple(_LLMC_LN_TYPES_ + _TRANSFORMERS_LN_TYPES_)):
+            logger.info("apply scale between ln and fc")
             self.scale_ln_fcs(prev_op[0], layers, scales)
         else:
             raise NotImplementedError(f"prev_op {type(prev_op[0])} not supported yet!")
@@ -232,20 +222,12 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
         assert (
             len(prev_op) == 1
         ), "Only support single prev_op. If multi prev_ops, code need to be updated."
-        if isinstance(prev_op[0], (nn.Linear, FakeQuantLinear)):
+        if isinstance(
+            prev_op[0], tuple(_LLMC_LINEAR_TYPES_ + _TRANSFORMERS_LINEAR_TYPES_)
+        ):
             assert len(layers) == 1
             self.shift_fc_fc(prev_op[0], layers[0], shifts)
-        elif isinstance(
-            prev_op[0],
-            (
-                nn.LayerNorm,
-                LlamaRMSNorm,
-                LlmcLayerNorm,
-                LlmcLlamaRMSNorm,
-                MistralRMSNorm,
-                LlmcMistralRMSNorm,
-            ),
-        ):
+        elif isinstance(prev_op[0], tuple(_LLMC_LN_TYPES_ + _TRANSFORMERS_LN_TYPES_)):
             self.shift_ln_fcs(prev_op[0], layers, shifts)
         else:
             raise NotImplementedError(f"prev_op {type(prev_op[0])} not supported yet!")
@@ -352,7 +334,7 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
     def auto_clip(self, block, idx, input_feat, n_sample_token):
         # auto clip
         for n, m in block.named_modules():
-            if isinstance(m, (nn.Linear, FakeQuantLinear)):
+            if isinstance(m, tuple(_LLMC_LINEAR_TYPES_ + _TRANSFORMERS_LINEAR_TYPES_)):
                 m = m.cuda()
                 if any([_ in n for _ in ["q_", "k_", "query", "key", "Wqkv"]]):
                     if self.clip_version == "v2":
@@ -537,6 +519,73 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
         torch.cuda.empty_cache()
         return best_max_val.squeeze(1), best_min_val.squeeze(1)
 
+    def rotate_pre_layers(self, pre_layers, Q):
+        for layer in pre_layers:
+            dtype = layer.weight.dtype
+            device = layer.weight.data.device
+            W = layer.weight.data.to(device=device, dtype=torch.float64)
+            layer.weight.data = torch.matmul(W, Q).to(device="cpu", dtype=dtype)
+
+    def rotate_post_layers(self, post_layers, Q, exact_had=False):
+        for layer in post_layers:
+            dtype = layer.weight.dtype
+            device = layer.weight.data.device
+            W = layer.weight.data.to(device=device, dtype=torch.float64)
+            layer.weight.data = torch.matmul(Q.T, W).to(device="cpu", dtype=dtype)
+
+            if exact_had and self.online_rote:
+                apply_exact_had_to_linear(layer, had_dim=-1, output=False)
+
+            if hasattr(layer, "bias") and layer.bias is not None:
+                b = layer.bias.data.to(device=device, dtype=torch.float64)
+                layer.bias.data = torch.matmul(Q.T, b).to(device="cpu", dtype=dtype)
+
+    def rotate_embeddings(self, Q):
+        embeddings = self.model.get_embed_layers()
+        assert len(embeddings) == 1
+        for layer in embeddings:
+            dtype = layer.weight.data.dtype
+            W = layer.weight.data.to(device=self.dev, dtype=torch.float64)
+            layer.weight.data = torch.matmul(W, Q).to(device="cpu", dtype=dtype)
+
+    def rotate_head(self, Q):
+        heads = self.model.get_head_layers()
+        for layer in heads:
+            dtype = layer.weight.data.dtype
+            W = layer.weight.data.to(device=self.dev, dtype=torch.float64)
+            layer.weight.data = torch.matmul(W, Q).to(device="cpu", dtype=dtype)
+
+    def fuse_ln_fcs(self, ln, fcs):
+        for fc in fcs:
+            fc_dtype = fc.weight.dtype
+            W = fc.weight.data.double()
+            fc.weight.data = (W * ln.weight.double()).to(fc_dtype)
+            if hasattr(ln, "bias") and ln.bias is not None:
+                if fc.bias is None:
+                    fc.bias = torch.nn.Parameter(
+                        torch.zeros(fc.out_features, dtype=torch.float64)
+                    )
+                fc.bias.data = fc.bias.data.double() + torch.matmul(W, ln.bias.double())
+                fc.bias.data = fc.bias.data.to(fc_dtype)
+
+    def remove_mean_from_embed(self):
+        embeddings = self.model.get_embed_layers()
+        for layer in embeddings:
+            W = layer.weight.data.double()
+            layer.weight.data = (W - W.mean(dim=-1, keepdim=True)).to(
+                layer.weight.data.dtype
+            )
+
+    def bake_mean_into_fc(self, fc):
+        fc_dtype = fc.weight.dtype
+        W_ = fc.weight.data.double()
+        fc.weight.data = W_ - W_.mean(dim=-2, keepdim=True)
+        fc.weight.data = fc.weight.data.to(fc_dtype)
+        if hasattr(fc, "bias") and fc.bias is not None:
+            b_ = fc.bias.data.double()
+            fc.bias.data = b_ - b_.mean()
+            fc.bias.data = fc.bias.data.to(fc_dtype)
+
     @torch.no_grad()
     def deploy(self, quant_format):
         logger.info(f"-- deploy_{quant_format}_model start --")
@@ -576,3 +625,33 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
             self.model.get_model().save_pretrained(path)
             logger.info(f"save model done --")
             self.copy_tokenizer(path)
+
+    def cleanup_memory(self, verbos=True):
+        """Run GC and clear GPU memory."""
+        import gc
+        import inspect
+
+        caller_name = ""
+        try:
+            caller_name = f" (from {inspect.stack()[1].function})"
+        except (ValueError, KeyError):
+            pass
+
+        def total_reserved_mem() -> int:
+            return sum(
+                torch.cuda.memory_reserved(device=i)
+                for i in range(torch.cuda.device_count())
+            )
+
+        memory_before = total_reserved_mem()
+
+        gc.collect()
+
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+            memory_after = total_reserved_mem()
+            if verbos:
+                logger.info(
+                    f"GPU memory{caller_name}: {memory_before / (1024 ** 3):.2f} -> {memory_after / (1024 ** 3):.2f} GB"
+                    f" ({(memory_after - memory_before) / (1024 ** 3):.2f} GB)"
+                )

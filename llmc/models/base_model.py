@@ -6,15 +6,12 @@ from transformers import AutoModelForCausalLM, AutoConfig
 from loguru import logger
 from collections import defaultdict
 from llmc.compression.quantization.module_utils import (
-    FakeQuantLinear,
-    EffcientFakeQuantLinear,
-    RealQuantLinear,
-    OriginFloatLinear,
-    LlmcLayerNorm,
-    LlmcLlamaRMSNorm,
-    LlmcMistralRMSNorm,
-    LlmcQwen2RMSNorm,
-    LlmcMixtralRMSNorm
+    _LLMC_LN_TYPES_,
+    _TRANSFORMERS_LN_TYPES_,
+)
+from llmc.compression.quantization.module_utils import (
+    _LLMC_LINEAR_TYPES_,
+    _TRANSFORMERS_LINEAR_TYPES_,
 )
 
 
@@ -120,16 +117,7 @@ class BaseModel(metaclass=ABCMeta):
         return {
             name: m
             for name, m in block.named_modules()
-            if isinstance(
-                m,
-                (
-                    nn.Linear,
-                    FakeQuantLinear,
-                    EffcientFakeQuantLinear,
-                    RealQuantLinear,
-                    OriginFloatLinear,
-                ),
-            )
+            if isinstance(m, tuple(_LLMC_LINEAR_TYPES_ + _TRANSFORMERS_LINEAR_TYPES_))
         }
 
     def replace_module_all(self, module, params_dict):
@@ -145,7 +133,7 @@ class BaseModel(metaclass=ABCMeta):
         logger.info(f"The Replaced model: {self.model}")
 
     def replace_module_block(self, module, block, i, params_dict):
-        if module in [LlmcLayerNorm, LlmcLlamaRMSNorm, LlmcMistralRMSNorm, LlmcQwen2RMSNorm, LlmcMixtralRMSNorm]:
+        if module in _LLMC_LN_TYPES_ + _TRANSFORMERS_LN_TYPES_:
             layer_norms = self.get_layernorms_in_block(block)
             self.replace_module_layernorm(module, block, layer_norms, i, params_dict)
         else:

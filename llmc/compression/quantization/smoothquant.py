@@ -1,8 +1,7 @@
 import torch
 import gc
 import torch.nn as nn
-from transformers.models.llama.modeling_llama import LlamaRMSNorm
-from transformers.models.mistral.modeling_mistral import MistralRMSNorm
+from .module_utils import _LLMC_LN_TYPES_, _TRANSFORMERS_LN_TYPES_
 from .base_blockwise_quantization import BaseBlockwiseQuantization
 from llmc.utils.registry_factory import ALGO_REGISTRY
 
@@ -15,7 +14,7 @@ class SmoothQuant(BaseBlockwiseQuantization):
     @torch.no_grad()
     def filter_subset(self, subset):
         prev_op = subset["prev_op"]
-        if isinstance(prev_op[0], (nn.LayerNorm, LlamaRMSNorm, MistralRMSNorm)):
+        if isinstance(prev_op[0], tuple(_LLMC_LN_TYPES_ + _TRANSFORMERS_LN_TYPES_)):
             return True
         else:
             return False

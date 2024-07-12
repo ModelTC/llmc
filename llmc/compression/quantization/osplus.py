@@ -3,10 +3,10 @@ import torch.nn as nn
 from loguru import logger
 import functools
 import gc
-from transformers.models.llama.modeling_llama import LlamaRMSNorm
-from transformers.models.mistral.modeling_mistral import MistralRMSNorm
 from .base_blockwise_quantization import BaseBlockwiseQuantization
 from llmc.utils.registry_factory import ALGO_REGISTRY
+from .module_utils import _LLMC_LN_TYPES_, _TRANSFORMERS_LN_TYPES_
+from .module_utils import _LLMC_LINEAR_TYPES_, _TRANSFORMERS_LINEAR_TYPES_
 from .module_utils import FakeQuantLinear, OriginFloatLinear
 from collections import defaultdict
 
@@ -40,33 +40,33 @@ class OsPlus(BaseBlockwiseQuantization):
                 return True
         else:
             prev_op = subset["prev_op"]
-            if isinstance(prev_op[0], (nn.LayerNorm, LlamaRMSNorm, MistralRMSNorm)):
+            if isinstance(prev_op[0], tuple(_LLMC_LN_TYPES_ + _TRANSFORMERS_LN_TYPES_)):
                 return True
             else:
                 return False
 
     def block_transform(self, block, input_feat, idx, block_kwargs):
-        logger.info(f"Start transform the {idx+1}-th block")
+        logger.info(f"Start transform the {idx + 1}-th block")
         subsets = self.model.get_subsets_in_block(block)
         named_linears = self.model.get_block_linears(block)
         name_list = list(named_linears.keys())
 
-        for index, subset in enumerate(subsets):
-            input_feat_subset = defaultdict(list)
-            handles = []
-            for name in name_list:
-                handles.append(
-                    block.get_submodule(name).register_forward_hook(
-                        functools.partial(
-                            self.cache_input_hook,
-                            name=name,
-                            feat_dict=input_feat_subset,
-                        )
+        def register_hooks(feat_dict):
+            handles = [
+                block.get_submodule(name).register_forward_hook(
+                    functools.partial(
+                        self.cache_input_hook, name=name, feat_dict=feat_dict
                     )
                 )
+                for name in name_list
+            ]
             self.block_forward(block)
             for h in handles:
                 h.remove()
+
+        for index, subset in enumerate(subsets):
+            input_feat_subset = defaultdict(list)
+            register_hooks(input_feat_subset)
 
             prev_op = subset["prev_op"]
             layers_dict = subset["layers"]
@@ -85,36 +85,24 @@ class OsPlus(BaseBlockwiseQuantization):
                     idx,
                     subset_kwargs,
                 )
-            params_dict = {}
-            params_dict["a_qdq"] = self.a_qdq if not self.w_only else None
-            params_dict["w_qdq"] = self.w_qdq
+
+            params_dict = {
+                "a_qdq": self.a_qdq if not self.w_only else None,
+                "w_qdq": self.w_qdq,
+            }
             self.model.replace_module_subset(
                 FakeQuantLinear, block, subset, idx, params_dict
             )
 
         if self.weight_clip:
-            params_dict = {}
-            self.model.replace_module_block(OriginFloatLinear, block, idx, params_dict)
+            self.model.replace_module_block(OriginFloatLinear, block, idx, {})
 
             clip_input_feat = defaultdict(list)
-            for name in name_list:
-                handles.append(
-                    block.get_submodule(name).register_forward_hook(
-                        functools.partial(
-                            self.cache_input_hook,
-                            name=name,
-                            feat_dict=clip_input_feat,
-                        )
-                    )
-                )
-            self.block_forward(block)
-            for h in handles:
-                h.remove()
-            logger.info(f"auto_clip start")
+            register_hooks(clip_input_feat)
 
-            params_dict = {}
-            params_dict["a_qdq"] = self.a_qdq
-            params_dict["w_qdq"] = self.w_qdq
+            logger.info("auto_clip start")
+
+            params_dict = {"a_qdq": self.a_qdq, "w_qdq": self.w_qdq}
             self.model.replace_module_block(FakeQuantLinear, block, idx, params_dict)
             self.auto_clip(
                 block,
@@ -123,12 +111,13 @@ class OsPlus(BaseBlockwiseQuantization):
                 n_sample_token=self.config.calib.seq_len,
                 eps=3e-1,
             )
-            logger.info(f"auto_clip finished")
+
+            logger.info("auto_clip finished")
         else:
-            logger.info(f"disable weight clip")
+            logger.info("disable weight clip")
 
         torch.cuda.empty_cache()
-        logger.info(f"End transform the {idx+1}-th block")
+        logger.info(f"End transform the {idx + 1}-th block")
 
     @torch.no_grad()
     def get_original_out(self, x, inspect_module, subset_kwargs):
@@ -288,7 +277,9 @@ class OsPlus(BaseBlockwiseQuantization):
         layers = list(layers_dict.values())
         logger.info(layers_dict)
         if (
-            isinstance(prev_op[0], (nn.Linear, FakeQuantLinear, OriginFloatLinear))
+            isinstance(
+                prev_op[0], tuple(_LLMC_LINEAR_TYPES_ + _TRANSFORMERS_LINEAR_TYPES_)
+            )
             and prev_op[0].out_features != layers[0].in_features * 3
             and prev_op[0].out_features != layers[0].in_features
         ):

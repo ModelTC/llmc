@@ -20,6 +20,12 @@ class Llama(BaseModel):
     def get_embed_layers(self):
         return [self.embed_tokens]
 
+    def get_head_layers(self):
+        return [self.model.lm_head]
+
+    def get_pre_head_layernorm_layers(self):
+        return [self.model.model.norm]
+
     def get_layers_except_blocks(self):
         return [self.embed_tokens, self.model.model.norm, self.model.lm_head]
 
@@ -61,6 +67,7 @@ class Llama(BaseModel):
                 "input": ["mlp.gate_proj"],
                 "inspect": block.mlp,
                 "has_kwargs": False,
+                "is_mlp": True,
             },
             {
                 "layers": {"mlp.down_proj": block.mlp.down_proj},
@@ -68,5 +75,6 @@ class Llama(BaseModel):
                 "input": ["mlp.down_proj"],
                 "inspect": block.mlp.down_proj,
                 "has_kwargs": False,
+                "is_mlp": True,
             },
         ]

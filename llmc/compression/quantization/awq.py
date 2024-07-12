@@ -2,11 +2,10 @@ import torch
 import torch.nn as nn
 from loguru import logger
 import gc
-from transformers.models.llama.modeling_llama import LlamaRMSNorm
-from transformers.models.mistral.modeling_mistral import MistralRMSNorm
+from .module_utils import _LLMC_LN_TYPES_, _TRANSFORMERS_LN_TYPES_
+from .module_utils import FakeQuantLinear
 from .base_blockwise_quantization import BaseBlockwiseQuantization
 from llmc.utils.registry_factory import ALGO_REGISTRY
-from .module_utils import FakeQuantLinear
 
 
 @ALGO_REGISTRY
@@ -174,11 +173,10 @@ class Awq(BaseBlockwiseQuantization):
         assert (
             len(prev_op) == 1
         ), "Only support single prev_op. If multi prev_ops, code need to be updated."
-        if isinstance(
-            prev_op[0],
-            (nn.Linear, nn.LayerNorm, LlamaRMSNorm, FakeQuantLinear, MistralRMSNorm),
-        ):
+
+        if isinstance(prev_op[0], tuple(_LLMC_LN_TYPES_ + _TRANSFORMERS_LN_TYPES_)):
             layers = list(layers_dict.values())
+
             if (
                 isinstance(prev_op[0], (nn.Linear, FakeQuantLinear))
                 and prev_op[0].out_features != layers[0].in_features * 3

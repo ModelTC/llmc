@@ -15,13 +15,13 @@ from contextlib import nullcontext
 
 from .base_blockwise_quantization import BaseBlockwiseQuantization
 from .module_utils import (
-    FakeQuantLinear,
-    LlmcLayerNorm,
-    LlmcLlamaRMSNorm,
-    LlmcMistralRMSNorm,
-    LlmcQwen2RMSNorm,
-    LlmcMixtralRMSNorm
+    _MODEL_LN_TYPES_PAIRS_,
+    _LLMC_LN_TYPES_,
+    _LLMC_LINEAR_TYPES_,
+    _TRANSFORMERS_LINEAR_TYPES_,
 )
+from .module_utils import FakeQuantLinear
+
 from .train_utils import NativeScalerWithGradNormCount, TruncateFunction, LossFunction
 from llmc.utils.registry_factory import ALGO_REGISTRY
 
@@ -32,100 +32,89 @@ class OmniQuant(BaseBlockwiseQuantization):
         super().__init__(model, quant_config, input, config)
         self.add_quant_config()
 
+        model_type = self.config["model"]["type"]
         if (
-            self.config["model"]["type"] not in ["Llama", "Opt", "Falcon", "Mistral", "Qwen2"]
+            model_type not in ["Llama", "Opt", "Falcon", "Mistral", "Qwen2"]
             and self.let
         ):
             raise ValueError("Only support for opt/llama/Llama-2/falcon/Mistral now")
-        elif self.config["model"]["type"] in ("Llama", "Mistral", "Qwen2"):
-            self.attention_mask = self.input["kwargs"][0]["attention_mask"]
-            self.position_ids = self.input["kwargs"][0]["position_ids"]
-        else:
-            self.attention_mask = self.input["kwargs"][0]["attention_mask"]
-            self.position_ids = None
+
+        self.attention_mask = self.input["kwargs"][0].get("attention_mask")
+        self.position_ids = (
+            self.input["kwargs"][0].get("position_ids")
+            if model_type in ["Llama", "Mistral", "Qwen2"]
+            else None
+        )
 
         if self.deactive_amp:
-            self.batch_mask = self.attention_mask.repeat(
-                self.input["data"][0].shape[0], 1, 1, 1
-            ).cuda()
+            self.batch_mask = self._repeat_attention_mask()
         else:
             self.batch_mask = (
-                self.attention_mask.repeat(self.input["data"][0].shape[0], 1, 1, 1)
-                .float()
-                .cuda()
+                self._repeat_attention_mask().float()
+                if self.attention_mask is not None
+                else None
             )
+
         self.dev = torch.device("cuda")
         self.model_dtype = next(self.model.model.parameters()).dtype
 
+    def _repeat_attention_mask(self):
+        if self.attention_mask is not None:
+            return self.attention_mask.repeat(
+                self.input["data"][0].shape[0], 1, 1, 1
+            ).cuda()
+        return None
+
     def add_quant_config(self):
+        config = self.quant_config["special"]
         self.prefix = self.model.block_name_prefix
         self.loss_func = LossFunction(method="mse")
-        self.deactive_amp = self.quant_config["special"]["deactive_amp"]
-        self.wd = self.quant_config["special"]["wd"]
+        self.deactive_amp = config["deactive_amp"]
+        self.wd = config["wd"]
+        self.dtype = torch.float if self.deactive_amp else torch.float16
+        self.traincast = nullcontext if self.deactive_amp else torch.cuda.amp.autocast
+        self.epochs = config["epochs"]
+        self.aug_loss = config["aug_loss"]
+        self.lwc = config["lwc"]
+        self.search_clip_init = config.get("search_clip_init", False)
+        self.smooth_up_down = config.get("smooth_up_down", False)
 
-        if self.deactive_amp:
-            self.dtype = torch.float
-            self.traincast = nullcontext
-        else:
-            self.dtype = torch.float16
-            self.traincast = torch.cuda.amp.autocast
-
-        self.epochs = self.quant_config["special"]["epochs"]
-        self.aug_loss = self.quant_config["special"]["aug_loss"]
-
-        self.lwc = self.quant_config["special"]["lwc"]
-
-        if "search_clip_init" in self.quant_config["special"]:
-            self.search_clip_init = self.quant_config["special"]["search_clip_init"]
-        else:
-            self.search_clip_init = False
+        if self.smooth_up_down and self.config["model"]["type"] == "Llama":
+            self.model.pairs["down_proj"] = "down"
 
         if self.search_clip_init:
             self.clip_version = "v2"
-            if "load_clip" in self.quant_config["special"]:
-                self.load_clip = self.quant_config["special"]["load_clip"]
-            else:
-                self.load_clip = False
-
+            self.load_clip = config.get("load_clip", False)
             if self.load_clip:
-                assert "clip_path" in self.quant_config["special"]
-                self.clip_path = self.quant_config["special"]["clip_path"]
+                self.clip_path = config["clip_path"]
                 self.weight_clips = torch.load(self.clip_path)
 
         if self.lwc:
-            self.lwc_lr = self.quant_config["special"]["lwc_lr"]
+            self.lwc_lr = config["lwc_lr"]
 
-        self.let = self.quant_config["special"]["let"]
+        self.let = config["let"]
         if self.let:
             if self.config["model"]["type"] == "Falcon":
                 raise ValueError("Falcon not yet support let")
+            assert "attn_lr" in config or "let_lr" in config
+            self.let_lr = config["let_lr"]
 
-            self.let_lr = self.quant_config["special"]["let_lr"]
-            self.use_shift = self.quant_config["special"]["use_shift"]
-
+            self.use_shift = config["use_shift"]
             if self.use_shift and not self.model.has_bias():
                 raise ValueError("Don't support no bias model use shift")
-
-            self.alpha = self.quant_config["special"]["alpha"]
-
-            if "search_scale_init" in self.quant_config["special"]:
-                self.search_scale_init = self.quant_config["special"][
-                    "search_scale_init"
-                ]
-            else:
-                self.search_scale_init = False
-
+            self.alpha = config["alpha"]
+            self.search_scale_init = config.get("search_scale_init", False)
             if self.search_scale_init:
-                assert "scale_path" in self.quant_config["special"]
-                self.scale_path = self.quant_config["special"]["scale_path"]
-                self.act_scales = torch.load(self.scale_path)
-                for k in self.act_scales:
-                    self.act_scales[k] = self.act_scales[k].to(torch.float32)
+                self.scale_path = config["scale_path"]
+                self.act_scales = {
+                    k: v.to(torch.float32)
+                    for k, v in torch.load(self.scale_path).items()
+                }
             else:
                 self.act_scales = self.get_act_scale_shift(stat="scales")
-
-            if self.use_shift:
-                self.act_shifts = self.get_act_scale_shift(stat="shifts")
+            self.act_shifts = (
+                self.get_act_scale_shift(stat="shifts") if self.use_shift else False
+            )
         else:
             self.use_shift = False
 
@@ -140,7 +129,10 @@ class OmniQuant(BaseBlockwiseQuantization):
 
         for i in range(len(input_data)):
             input_data[i] = input_data[i].to(device=next(block.parameters()).device)
-            if "attention_mask" in self.input["kwargs"][i]:
+            if (
+                "attention_mask" in self.input["kwargs"][i]
+                and self.input["kwargs"][i]["attention_mask"] is not None
+            ):
                 self.input["kwargs"][i]["attention_mask"] = self.input["kwargs"][i][
                     "attention_mask"
                 ].cuda()
@@ -186,28 +178,20 @@ class OmniQuant(BaseBlockwiseQuantization):
         logger.info(f"End transform the {idx+1}-th block")
 
     def omni_train(self, block, idx):
-        if self.let and self.lwc:
-            optimizer = torch.optim.AdamW(
-                [
-                    {"params": self.get_lwc_parameters(block), "lr": self.lwc_lr},
-                    {"params": self.get_let_parameters(block), "lr": self.let_lr},
-                ],
-                weight_decay=self.wd,
-            )
-        elif self.lwc:
-            optimizer = torch.optim.AdamW(
-                [{"params": self.get_lwc_parameters(block), "lr": self.lwc_lr}],
-                weight_decay=self.wd,
-            )
-        elif self.let:
-            optimizer = torch.optim.AdamW(
-                [{"params": self.get_let_parameters(block), "lr": self.let_lr}],
-                weight_decay=self.wd,
-            )
+        params = []
+        if self.lwc:
+            params.append({"params": self.get_lwc_parameters(block), "lr": self.lwc_lr})
+        if self.let:
+            params.append({"params": self.get_let_parameters(block), "lr": self.let_lr})
+
+        if params:
+            optimizer = torch.optim.AdamW(params, weight_decay=self.wd)
+        else:
+            return
 
         loss_scaler = NativeScalerWithGradNormCount()
 
-        for epochs in range(self.epochs):
+        for epoch in range(self.epochs):
             loss_list = []
             norm_list = []
 
@@ -244,7 +228,7 @@ class OmniQuant(BaseBlockwiseQuantization):
 
             loss_mean = torch.stack(loss_list).mean()
             norm_mean = torch.stack(norm_list).mean()
-            logger.info(f"block {idx} iter {epochs} loss:{loss_mean} norm:{norm_mean} ")
+            logger.info(f"block {idx} iter {epoch} loss:{loss_mean} norm:{norm_mean}")
 
         del optimizer
 
@@ -252,7 +236,9 @@ class OmniQuant(BaseBlockwiseQuantization):
         layers = list(layers_dict.values())
 
         if (
-            isinstance(prev_op[0], (nn.Linear, FakeQuantLinear))
+            isinstance(
+                prev_op[0], tuple(_LLMC_LINEAR_TYPES_ + _TRANSFORMERS_LINEAR_TYPES_)
+            )
             and prev_op[0].out_features != layers[0].in_features
         ):
             logger.info("Cannot apply scale. Do not transform this subset.")
@@ -348,7 +334,9 @@ class OmniQuant(BaseBlockwiseQuantization):
                 )
             ),
         )
-        self.replace_layer_norms(block, idx)
+
+        llmc_ln_module = _MODEL_LN_TYPES_PAIRS_[self.config["model"]["type"]]
+        self.model.replace_module_block(llmc_ln_module, block, idx, {})
 
         for n, m in block.named_modules():
             if isinstance(m, FakeQuantLinear):
@@ -409,22 +397,10 @@ class OmniQuant(BaseBlockwiseQuantization):
 
         return low_param, up_param
 
-    def replace_layer_norms(self, block, idx):
-        if self.config["model"]["type"] == "Mistral":
-            self.model.replace_module_block(LlmcMistralRMSNorm, block, idx, {})
-        elif self.config["model"]["type"] == "Llama":
-            self.model.replace_module_block(LlmcLlamaRMSNorm, block, idx, {})
-        elif self.config["model"]["type"] == "Qwen2":
-            self.model.replace_module_block(LlmcQwen2RMSNorm, block, idx, {})
-        elif self.config["model"]["type"] == "Mixtral":
-            self.model.replace_module_block(LlmcMixtralRMSNorm, block, idx, {})
-        else:
-            self.model.replace_module_block(LlmcLayerNorm, block, idx, {})
-
     def get_layer_norms(self, block):
         layer_norms = []
         for n, m in block.named_modules():
-            if isinstance(m, (LlmcLayerNorm, LlmcLlamaRMSNorm, LlmcMistralRMSNorm, LlmcQwen2RMSNorm, LlmcMixtralRMSNorm)):
+            if isinstance(m, tuple(_LLMC_LN_TYPES_)):
                 layer_norms.append(m)
         return layer_norms
 
@@ -589,6 +565,15 @@ class OmniQuant(BaseBlockwiseQuantization):
             block.out_smooth_scale,
             block.out_smooth_shift,
         )
+
+        if self.smooth_up_down:
+            self.smooth_fc_fc_tmp(
+                subsets[3]["prev_op"][0],
+                subsets[3]["inspect"],
+                block.down_smooth_scale,
+                block.down_smooth_shift,
+            )
+
         self.smooth_q_k_tmp(qkv_layers[0], qkv_layers[1], block.qkt_smooth_scale)
         subsets[3]["inspect"].tmp_weight = subsets[3]["inspect"].weight
 
@@ -657,9 +642,7 @@ class OmniQuant(BaseBlockwiseQuantization):
     def smooth_q_k_inplace(self, block):
 
         for name, module in block.named_modules():
-            if isinstance(
-                module, (LlmcLayerNorm, LlmcLlamaRMSNorm, LlmcMistralRMSNorm, LlmcQwen2RMSNorm, LlmcMixtralRMSNorm)
-            ):
+            if isinstance(module, tuple(_LLMC_LN_TYPES_)):
                 module.use_tmp_parameter = False
 
         if block.self_attn.q_proj.weight.shape != block.self_attn.k_proj.weight.shape:

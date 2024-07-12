@@ -11,12 +11,8 @@ from tqdm import tqdm
 from contextlib import nullcontext
 
 from .base_blockwise_quantization import BaseBlockwiseQuantization
-from .module_utils import (
-    FakeQuantLinear,
-    LlmcLayerNorm,
-    LlmcLlamaRMSNorm,
-    LlmcMistralRMSNorm,
-)
+from .module_utils import FakeQuantLinear
+from .module_utils import _LLMC_LN_TYPES_, _MODEL_LN_TYPES_PAIRS_
 from .train_utils import NativeScalerWithGradNormCount, LossFunction
 from llmc.utils.registry_factory import ALGO_REGISTRY
 
@@ -27,13 +23,12 @@ class NormTweaking(BaseBlockwiseQuantization):
         super().__init__(model, quant_config, input, config)
         self.add_quant_config()
 
-        if self.config["model"]["type"] == "Llama":
-            self.attention_mask = self.input["kwargs"][0]["attention_mask"]
-            self.position_ids = self.input["kwargs"][0]["position_ids"]
-        else:
-            self.attention_mask = self.input["kwargs"][0]["attention_mask"]
-            self.position_ids = None
-
+        self.attention_mask = self.input["kwargs"][0].get("attention_mask")
+        self.position_ids = (
+            self.input["kwargs"][0].get("position_ids")
+            if model_type in ["Llama", "Mistral", "Qwen2"]
+            else None
+        )
         self.dev = torch.device("cuda")
         self.model_dtype = next(self.model.model.parameters()).dtype
 
@@ -147,7 +142,7 @@ class NormTweaking(BaseBlockwiseQuantization):
 
     def apply_layer_norms(self, block):
         for n, m in block.named_modules():
-            if isinstance(m, (LlmcLayerNorm, LlmcLlamaRMSNorm, LlmcMistralRMSNorm)):
+            if isinstance(m, tuple(_LLMC_LN_TYPES_)):
                 m.weight = m.tmp_weight
                 del m.tmp_weight
                 if hasattr(m, "bias") and m.bias is not None:
@@ -161,14 +156,12 @@ class NormTweaking(BaseBlockwiseQuantization):
         params_dict["a_qdq"] = self.a_qdq if not self.w_only else None
         params_dict["w_qdq"] = self.w_qdq
         self.model.replace_module_block(module, block, idx, params_dict)
-        if self.config["model"]["type"] == "Mistral":
-            self.model.replace_module_block(LlmcMistralRMSNorm, block, idx, {})
-        elif self.config["model"]["type"] == "Llama":
-            self.model.replace_module_block(LlmcLlamaRMSNorm, block, idx, {})
-        else:
-            self.model.replace_module_block(LlmcLayerNorm, block, idx, {})
+
+        llmc_ln_module = _MODEL_LN_TYPES_PAIRS_[self.config["model"]["type"]]
+        self.model.replace_module_block(llmc_ln_module, block, idx, {})
+
         for n, m in block.named_modules():
-            if isinstance(m, (LlmcLayerNorm, LlmcLlamaRMSNorm, LlmcMistralRMSNorm)):
+            if isinstance(m, tuple(_LLMC_LN_TYPES_)):
                 m.register_parameter("tmp_weight", nn.Parameter(m.weight))
                 if hasattr(m, "bias") and m.bias is not None:
                     m.register_parameter("tmp_bias", nn.Parameter(m.bias))
@@ -177,7 +170,7 @@ class NormTweaking(BaseBlockwiseQuantization):
     def get_tweak_parameters(self, block):
         params = []
         for n, m in block.named_modules():
-            if isinstance(m, (LlmcLayerNorm, LlmcLlamaRMSNorm, LlmcMistralRMSNorm)):
+            if isinstance(m, tuple(_LLMC_LN_TYPES_)):
                 params.append(m.tmp_weight)
                 if hasattr(m, "tmp_bias"):
                     params.append(m.tmp_bias)

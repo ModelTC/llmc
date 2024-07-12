@@ -21,6 +21,12 @@ class Opt(BaseModel):
     def get_embed_layers(self):
         return [self.embed_tokens, self.embed_positions]
 
+    def get_head_layers(self):
+        return [self.model.lm_head]
+
+    def get_pre_head_layernorm_layers(self):
+        return [self.model.model.decoder.final_layer_norm]
+
     def get_layers_except_blocks(self):
         layers = [self.embed_tokens, self.embed_positions, self.model.lm_head]
         if self.model.model.decoder.project_in:
@@ -66,6 +72,7 @@ class Opt(BaseModel):
                 "input": ["fc1"],
                 "inspect": block.fc1,
                 "has_kwargs": False,
+                "is_mlp": True,
             },
             {
                 "layers": {"fc2": block.fc2},
@@ -73,5 +80,6 @@ class Opt(BaseModel):
                 "input": ["fc2"],
                 "inspect": block.fc2,
                 "has_kwargs": False,
+                "is_mlp": True,
             },
         ]
