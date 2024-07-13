@@ -10,7 +10,7 @@ from .module_utils import _LLMC_LN_TYPES_, _TRANSFORMERS_LN_TYPES_
 from .module_utils import _LLMC_LINEAR_TYPES_, _TRANSFORMERS_LINEAR_TYPES_
 from .module_utils import FakeQuantLinear, EffcientFakeQuantLinear, RealQuantLinear, OriginFloatLinear
 from .quant import Quantizer
-from .hadamard_utils import random_hadamard_matrix, apply_exact_had_to_linear, is_pow2
+from .hadamard_utils import apply_exact_had_to_linear
 
 
 class BaseBlockwiseQuantization(BlockwiseOpt):

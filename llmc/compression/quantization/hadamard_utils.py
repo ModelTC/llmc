@@ -1,5 +1,10 @@
-import torch, math
-import fast_hadamard_transform
+import torch
+import math
+from loguru import logger
+try:
+    import fast_hadamard_transform
+except:
+    logger.info("fast_hadamard_transform not installed. If you need it, please install it firstly.")
 
 ## from .module_utils import RotateLinear
 # Adapted from https://github.com/Cornell-RelaxML/quip-sharp/blob/main/lib/utils/matmul_had.py

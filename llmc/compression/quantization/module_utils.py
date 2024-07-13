@@ -1,15 +1,19 @@
 import torch
 import torch.nn as nn
 import gc
-import fast_hadamard_transform
 import math
 from functools import partial
+from loguru import logger
 from transformers.pytorch_utils import ALL_LAYERNORM_LAYERS
 from transformers.models.llama.modeling_llama import LlamaRMSNorm
 from transformers.models.mistral.modeling_mistral import MistralRMSNorm
 from transformers.models.mixtral.modeling_mixtral import MixtralRMSNorm
 from transformers.models.qwen2.modeling_qwen2 import Qwen2RMSNorm
-from .hadamard_utils import get_hadK, matmul_hadU_cuda
+try:
+    import fast_hadamard_transform
+    from .hadamard_utils import matmul_hadU_cuda
+except:
+    logger.info("fast_hadamard_transform not installed. If you need it, please install it firstly.")
 
 
 class LlmcLayerNorm(nn.Module):

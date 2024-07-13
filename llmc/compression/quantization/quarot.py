@@ -8,7 +8,6 @@ from .module_utils import _LLMC_LN_TYPES_, _TRANSFORMERS_LN_TYPES_
 from .hadamard_utils import (
     random_hadamard_matrix,
     apply_exact_had_to_linear,
-    is_pow2,
     get_hadK,
 )
 from loguru import logger
