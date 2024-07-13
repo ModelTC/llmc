@@ -5,6 +5,9 @@ import fast_hadamard_transform
 import math
 from functools import partial
 from transformers.pytorch_utils import ALL_LAYERNORM_LAYERS
+from transformers.models.mistral.modeling_mistral import MistralRMSNorm
+from transformers.models.mixtral.modeling_mixtral import MixtralRMSNorm
+from transformers.models.qwen2.modeling_qwen2 import Qwen2RMSNorm
 from .hadamard_utils import get_hadK, matmul_hadU_cuda
 
 
@@ -573,7 +576,7 @@ class RealQuantLinear(nn.Module):
             + f"zeros_dtype={self.zeros_dtype})"
         )
 
-_TRANSFORMERS_LN_TYPES_ = ALL_LAYERNORM_LAYERS
+_TRANSFORMERS_LN_TYPES_ = ALL_LAYERNORM_LAYERS + [MistralRMSNorm, MixtralRMSNorm, Qwen2RMSNorm]
 _TRANSFORMERS_LINEAR_TYPES_ = [nn.Linear]
 
 _MODEL_LN_TYPES_PAIRS_ = {
