@@ -3,6 +3,7 @@ import torch.nn as nn
 from loguru import logger
 import gc
 from .module_utils import _LLMC_LN_TYPES_, _TRANSFORMERS_LN_TYPES_
+from .module_utils import _LLMC_LINEAR_TYPES_, _TRANSFORMERS_LINEAR_TYPES_
 from .module_utils import FakeQuantLinear
 from .base_blockwise_quantization import BaseBlockwiseQuantization
 from llmc.utils.registry_factory import ALGO_REGISTRY
@@ -174,7 +175,15 @@ class Awq(BaseBlockwiseQuantization):
             len(prev_op) == 1
         ), "Only support single prev_op. If multi prev_ops, code need to be updated."
 
-        if isinstance(prev_op[0], tuple(_LLMC_LN_TYPES_ + _TRANSFORMERS_LN_TYPES_)):
+        if isinstance(
+            prev_op[0],
+            tuple(
+                _LLMC_LN_TYPES_
+                + _TRANSFORMERS_LN_TYPES_
+                + _LLMC_LINEAR_TYPES_
+                + _TRANSFORMERS_LINEAR_TYPES_
+            ),
+        ):
             layers = list(layers_dict.values())
 
             if (
