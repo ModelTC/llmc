@@ -19,6 +19,8 @@
 
 ## News
 
+* **July 14, 2024:** 🔥We support rotation based quantization QuaRot now !
+
 * **July 4, 2024:** 📱 We open our discussion channel. If you have any question, please join our community:
     *  [Discord Server](https://discord.gg/qZKUDfhm)
     *  [Tencent QQ Group](http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=I9IGPWWj8uuRXWH3_ELWjouf6gkIMgUl&authKey=GA3WbFAsm90ePJf%2FCbc7ZyXXq4ShQktlBaLxgqS5yuSPAsr3%2BDKMRdosUiLYoilO&noverify=0&group_code=526192592)    
@@ -257,9 +259,7 @@ You can add your own model type referring to files under ``llmc/models/*.py``.
 
 ✅ [HQQ](https://mobiusml.github.io/hqq_blog/)
 
-We provide an overview table of the quantization algorithms in this tool as follows (We split algorithms in their original paper into a finer granularity as ``Algorithm`` in the table):
-
-![quant](./imgs/quant.png)
+✅ [QuaRot](https://arxiv.org/abs/2404.00456)
 
 ### Pruning
 
@@ -312,6 +312,7 @@ We develop our code referring to the following repos:
 * https://github.com/xvyaward/owq
 * https://github.com/TimDettmers/bitsandbytes
 * https://github.com/mobiusml/hqq
+* [https://github.com/spcl/QuaRot](https://github.com/spcl/QuaRot)
 
 ## Star History
 

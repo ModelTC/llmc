@@ -8,7 +8,12 @@ from llmc.utils import copy_files
 from ..blockwise_optimization import BlockwiseOpt
 from .module_utils import _LLMC_LN_TYPES_, _TRANSFORMERS_LN_TYPES_
 from .module_utils import _LLMC_LINEAR_TYPES_, _TRANSFORMERS_LINEAR_TYPES_
-from .module_utils import FakeQuantLinear, EffcientFakeQuantLinear, RealQuantLinear, OriginFloatLinear
+from .module_utils import (
+    FakeQuantLinear,
+    EffcientFakeQuantLinear,
+    RealQuantLinear,
+    OriginFloatLinear,
+)
 from .quant import Quantizer
 from .hadamard_utils import apply_exact_had_to_linear
 

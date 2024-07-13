@@ -57,6 +57,6 @@ class Mixtral(BaseModel):
                 "input": ["block_sparse_moe.gate"],
                 "inspect": block.block_sparse_moe.gate,
                 "has_kwargs": False,
-            }
+            },
             # Moe layers can not transfrom.
         ]

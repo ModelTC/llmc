@@ -18,10 +18,13 @@
 
 ## 新闻
 
+* **2024年7月14号：**🔥我们现在已经支持了旋转类量化算法QuaRot!
+
 * **2024年7月4日:** 📱 我们提供了公开的讨论渠道. 如果您有任何问题，可以加入我们的社区:
+    
     *  [Discord群](https://discord.gg/qZKUDfhm)
     *  [QQ群](http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=I9IGPWWj8uuRXWH3_ELWjouf6gkIMgUl&authKey=GA3WbFAsm90ePJf%2FCbc7ZyXXq4ShQktlBaLxgqS5yuSPAsr3%2BDKMRdosUiLYoilO&noverify=0&group_code=526192592)    
-
+    
 * **2024年5月13日:** 🍺🍺🍺 我们发布了量化基准论文：
 
   [**LLM-QBench：大型语言模型训练后量化的最佳实践基准**](https://arxiv.org/abs/2405.06001).
@@ -231,9 +234,7 @@
 
 ✅ [HQQ](https://mobiusml.github.io/hqq_blog/)
 
-我们在此工具中提供了量化算法的概览表（我们将原始论文中的算法分成更细的粒度作为表中的``Algorithm``）：
-
-![quant](./imgs/quant.png)
+✅ [QuaRot](https://arxiv.org/abs/2404.00456)
 
 ### 剪枝
 
