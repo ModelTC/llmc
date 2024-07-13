@@ -86,6 +86,9 @@ class BaseModel(metaclass=ABCMeta):
 
             def forward(self, inp, **kwargs):
                 first_block_input["data"].append(inp)
+                if "output_router_logits" in kwargs:
+                    assert kwargs["output_router_logits"] == False
+                    kwargs.pop("output_router_logits")
                 first_block_input["kwargs"].append(kwargs)
                 raise ValueError
 
