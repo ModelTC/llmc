@@ -17,7 +17,13 @@
 
 **Chinese doc** is [here](https://llmc-zhcn.readthedocs.io/en/latest/).
 
+Community:
+*  [Discord Server](https://discord.gg/qZKUDfhm)
+*  [Tencent QQ Group](http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=I9IGPWWj8uuRXWH3_ELWjouf6gkIMgUl&authKey=GA3WbFAsm90ePJf%2FCbc7ZyXXq4ShQktlBaLxgqS5yuSPAsr3%2BDKMRdosUiLYoilO&noverify=0&group_code=526192592)
+
 ## News
+
+* **July 16, 2024:** 🔥We support wanda for llm sparsification and layerwise mix bits quantization now !
 
 * **July 14, 2024:** 🔥We support rotation based quantization QuaRot now !
 

@@ -16,7 +16,13 @@
 
 **中文文档**在[这里](https://llmc-zhcn.readthedocs.io/en/latest/).
 
+社区:
+*  [Discord群](https://discord.gg/qZKUDfhm)
+*  [QQ群](http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=I9IGPWWj8uuRXWH3_ELWjouf6gkIMgUl&authKey=GA3WbFAsm90ePJf%2FCbc7ZyXXq4ShQktlBaLxgqS5yuSPAsr3%2BDKMRdosUiLYoilO&noverify=0&group_code=526192592)    
+
 ## 新闻
+
+* **2024年7月16号：**🔥我们现在已经支持了大模型稀疏算法Wanda和层间混合bit量化!
 
 * **2024年7月14号：**🔥我们现在已经支持了旋转类量化算法QuaRot!
 
