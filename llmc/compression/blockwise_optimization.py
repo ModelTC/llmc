@@ -8,6 +8,7 @@ class BlockwiseOpt(metaclass=ABCMeta):
         self.model = model
         self.blocks = model.get_blocks()
         self.quant_config = quant_config
+        self.sparsity_config = quant_config
         self.input = input
         self.config = config
         if self.input:
