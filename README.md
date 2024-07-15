@@ -17,15 +17,15 @@
 
 **Chinese doc** is [here](https://llmc-zhcn.readthedocs.io/en/latest/).
 
-Community:
+**Community**:
 *  [Discord Server](https://discord.gg/qZKUDfhm)
 *  [Tencent QQ Group](http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=I9IGPWWj8uuRXWH3_ELWjouf6gkIMgUl&authKey=GA3WbFAsm90ePJf%2FCbc7ZyXXq4ShQktlBaLxgqS5yuSPAsr3%2BDKMRdosUiLYoilO&noverify=0&group_code=526192592)
 
 ## News
 
-* **July 16, 2024:** 🔥We support wanda for llm sparsification and layerwise mix bits quantization now !
+* **July 16, 2024:** 🔥We support Wanda/Naive(Magnitude) for llm sparsification and layer-wise mix bits quantization now!
 
-* **July 14, 2024:** 🔥We support rotation based quantization QuaRot now !
+* **July 14, 2024:** 🔥We support rotation based quantization QuaRot now!
 
 * **July 4, 2024:** 📱 We open our discussion channel. If you have any question, please join our community:
     *  [Discord Server](https://discord.gg/qZKUDfhm)
@@ -269,7 +269,9 @@ You can add your own model type referring to files under ``llmc/models/*.py``.
 
 ### Pruning
 
-This part is coming soon🚀. 
+✅ Naive(Magnitude)
+
+✅ [Wanda](https://arxiv.org/abs/2306.11695)
 
 ## TODO List
 
@@ -286,8 +288,6 @@ This part is coming soon🚀.
 ### Pruning
 
 - [ ] SparseGPT
-
-- [ ] Wanda
 
 - [ ] LLM-Pruner
 
@@ -319,6 +319,7 @@ We develop our code referring to the following repos:
 * https://github.com/TimDettmers/bitsandbytes
 * https://github.com/mobiusml/hqq
 * [https://github.com/spcl/QuaRot](https://github.com/spcl/QuaRot)
+* [https://github.com/locuslab/wanda](https://github.com/locuslab/wanda)
 
 ## Star History
 

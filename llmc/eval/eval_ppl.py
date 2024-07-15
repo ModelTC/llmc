@@ -165,7 +165,7 @@ if __name__ == "__main__":
         "seq_len": 2048,
         "bs": 20,
         "download": False,
-        "path": "/mnt/nvme1/yongyang/llm_datasets/llmc/eval/wikitext2",
+        "path": "data_path",
         "inference_per_block": True,
     }
     ppl_eval = PerplexityEval(tokenizer.get_tokenizer(), eval_cfg)

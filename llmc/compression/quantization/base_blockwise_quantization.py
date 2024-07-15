@@ -88,9 +88,9 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
                             "do_quant": mix_bits_setting["do_quant"],
                             "w_only_mix_bits": w_only_mix_bits,
                             "wquantizer": wquantizer_mix_bits,
-                            "aquantizer": aquantizer_mix_bits
-                            if not w_only_mix_bits
-                            else None,
+                            "aquantizer": (
+                                aquantizer_mix_bits if not w_only_mix_bits else None
+                            ),
                         }
                     )
                 else:
