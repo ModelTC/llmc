@@ -142,8 +142,8 @@ class OmniQuant(BaseBlockwiseQuantization):
                     output.append(out)
         return output
 
-    def get_original_out(self, block, idx):
-        if idx == 0:
+    def get_original_out(self, block):
+        if self.block_idx == 0:
             self.ori_out = self.block_forward(block)
             if self.aug_loss:
                 self.ori_out2 = self.ori_out
@@ -152,8 +152,8 @@ class OmniQuant(BaseBlockwiseQuantization):
             if self.aug_loss:
                 self.ori_out2 = self.block_forward(block)
 
-    def block_transform(self, block, input_feat, idx, block_kwargs):
-        logger.info(f"Start transform the {idx+1}-th block")
+    def block_transform(self, block, input_feat, block_kwargs):
+        logger.info(f"Start transform the {self.block_idx}-th block")
 
         with torch.no_grad():
             block.float()
@@ -161,10 +161,10 @@ class OmniQuant(BaseBlockwiseQuantization):
         for i in range(len(self.input["data"])):
             self.input["data"][i] = self.input["data"][i].to(self.dtype)
 
-        self.get_original_out(block, idx)
+        self.get_original_out(block)
 
-        self.register_omni_parameters(block, input_feat, idx)
-        self.omni_train(block, idx)
+        self.register_omni_parameters(block, input_feat)
+        self.omni_train(block)
 
         if self.let:
             subsets = self.model.get_subsets_in_block(block)
@@ -175,9 +175,9 @@ class OmniQuant(BaseBlockwiseQuantization):
 
         self.clear_tmp(block)
 
-        logger.info(f"End transform the {idx+1}-th block")
+        logger.info(f"End transform the {self.block_idx}-th block")
 
-    def omni_train(self, block, idx):
+    def omni_train(self, block):
         params = []
         if self.lwc:
             params.append({"params": self.get_lwc_parameters(block), "lr": self.lwc_lr})
@@ -228,7 +228,7 @@ class OmniQuant(BaseBlockwiseQuantization):
 
             loss_mean = torch.stack(loss_list).mean()
             norm_mean = torch.stack(norm_list).mean()
-            logger.info(f"block {idx} iter {epoch} loss:{loss_mean} norm:{norm_mean}")
+            logger.info(f"block {self.block_idx} iter {epoch} loss:{loss_mean} norm:{norm_mean}")
 
         del optimizer
 
@@ -271,23 +271,23 @@ class OmniQuant(BaseBlockwiseQuantization):
                             shift.append(module)
         return scale, shift
 
-    def register_omni_parameters(self, block, input_feat, idx):
+    def register_omni_parameters(self, block, input_feat):
         params_dict = {}
         module = FakeQuantLinear
         params_dict["a_qdq"] = self.a_qdq if not self.w_only else None
         params_dict["w_qdq"] = self.w_qdq
-        self.model.replace_module_block(module, block, idx, params_dict)
+        self.model.replace_module_block(module, block, self.block_idx, params_dict)
         if self.lwc:
-            self.register_lwc_parameters(block, input_feat, idx)
+            self.register_lwc_parameters(block, input_feat)
         if self.let:
-            self.register_let_parameters(block, idx)
+            self.register_let_parameters(block)
 
-    def register_lwc_parameters(self, block, input_feat, idx, init_value=4.0):
+    def register_lwc_parameters(self, block, input_feat, init_value=4.0):
         for n, m in block.named_modules():
             if isinstance(m, FakeQuantLinear):
                 if self.search_clip_init:
                     low_param, up_param = self.get_clip_parameters(
-                        input_feat, idx, n, m
+                        input_feat, n, m
                     )
                 else:
                     if self.wquantizer.granularity == "per_group":
@@ -323,7 +323,7 @@ class OmniQuant(BaseBlockwiseQuantization):
                 m.register_parameter("buf_lowbound_factor", low_param)
                 m.dynamic_quant_weight = True
 
-    def register_let_parameters(self, block, idx):
+    def register_let_parameters(self, block):
         block.register_parameter(
             "qkt_smooth_scale",
             nn.Parameter(
@@ -336,13 +336,13 @@ class OmniQuant(BaseBlockwiseQuantization):
         )
 
         llmc_ln_module = _MODEL_LN_TYPES_PAIRS_[self.config["model"]["type"]]
-        self.model.replace_module_block(llmc_ln_module, block, idx, {})
+        self.model.replace_module_block(llmc_ln_module, block, self.block_idx, {})
 
         for n, m in block.named_modules():
             if isinstance(m, FakeQuantLinear):
                 for key in self.model.pairs.keys():
                     if key in n:
-                        scale, shift = self.get_weight_scale_shift(m, idx, n)
+                        scale, shift = self.get_weight_scale_shift(m, n)
                         if shift is not None:
                             block.register_parameter(
                                 f"{self.model.pairs[key]}_smooth_shift",
@@ -359,7 +359,7 @@ class OmniQuant(BaseBlockwiseQuantization):
                 m.dynamic_quant_weight = False
                 m.dynamic_quant_tmp_weight = True
 
-    def get_clip_parameters(self, input_feat, idx, n, m):
+    def get_clip_parameters(self, input_feat, n, m):
 
         if any([_ in n for _ in ["q_", "k_", "query", "key", "Wqkv"]]):
             up_param = None
@@ -369,7 +369,7 @@ class OmniQuant(BaseBlockwiseQuantization):
         if self.load_clip:
             logger.info("Load Searched clip...")
             logger.info(f"clip layer {n}")
-            layer_name = f"{self.model.block_name_prefix}.{idx}.{n}"
+            layer_name = f"{self.model.block_name_prefix}.{self.block_idx}.{n}"
             logger.info(layer_name)
             up_factor = self.weight_clips[layer_name]["up_factor"].float().cuda()
 
@@ -488,12 +488,12 @@ class OmniQuant(BaseBlockwiseQuantization):
 
         return act_stat
 
-    def get_weight_scale_shift(self, layer, layer_idx, name):
-        if f"{self.prefix}.{layer_idx}.{name}" not in self.act_scales:
+    def get_weight_scale_shift(self, layer, name):
+        if f"{self.prefix}.{self.block_idx}.{name}" not in self.act_scales:
             act = None
         else:
             act = (
-                self.act_scales[f"{self.prefix}.{layer_idx}.{name}"]
+                self.act_scales[f"{self.prefix}.{self.block_idx}.{name}"]
                 .to(
                     device=self.dev,
                     dtype=self.dtype,
@@ -509,7 +509,7 @@ class OmniQuant(BaseBlockwiseQuantization):
             )
 
         if self.use_shift:
-            shift = self.act_shifts[f"{self.prefix}.{layer_idx}.{name}"].to(
+            shift = self.act_shifts[f"{self.prefix}.{self.block_idx}.{name}"].to(
                 device=self.dev,
                 dtype=self.dtype,
             )

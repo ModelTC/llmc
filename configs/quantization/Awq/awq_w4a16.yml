@@ -2,24 +2,27 @@ base:
     seed: &seed 42
 model:
     type: Llama
-    path: model path
+    path: /mnt/nvme1/yongyang/llm_weights/llama2/llama2-7b
+    tokenizer_mode: slow
     torch_dtype: auto
 calib:
     name: pileval
     download: False
-    path: calib data path
+    path: /mnt/nvme1/yongyang/llm_datasets/llmc/calib/pileval
     n_samples: 128
     bs: -1
     seq_len: 512
-    preproc: pileval_awq
+    preproc: general
     seed: *seed
 eval:
-    # eval_pos: []
-    eval_pos: [pretrain, transformed]
+    eval_pos: [pretrain, fake_quant]
     name: wikitext2
     download: False
-    path: eval data path
+    path: /mnt/nvme1/yongyang/llm_datasets/llmc/eval/wikitext2
     bs: 1
+    inference_per_block: False
+    # For 70B model eval, bs can be set to 20, and inference_per_block can be set to True.
+    # For 7B / 13B model eval, bs can be set to 1, and inference_per_block can be set to False.
     seq_len: 2048
 quant:
     method: Awq
@@ -28,6 +31,10 @@ quant:
         symmetric: False
         granularity: per_group
         group_size: 128
+    special:
+        version: v2
+        weight_clip: True
 save:
-    save_trans: True
+    save_trans: False
     save_path: ./save
+    tokenizer_file_substring: ["token"]

@@ -45,8 +45,8 @@ class OsPlus(BaseBlockwiseQuantization):
             else:
                 return False
 
-    def block_transform(self, block, input_feat, idx, block_kwargs):
-        logger.info(f"Start transform the {idx + 1}-th block")
+    def block_transform(self, block, input_feat, block_kwargs):
+        logger.info(f"Start transform the {self.block_idx}-th block")
         subsets = self.model.get_subsets_in_block(block)
         named_linears = self.model.get_block_linears(block)
         name_list = list(named_linears.keys())
@@ -82,7 +82,6 @@ class OsPlus(BaseBlockwiseQuantization):
                     prev_op,
                     input_name,
                     inspect_module,
-                    idx,
                     subset_kwargs,
                 )
 
@@ -91,11 +90,11 @@ class OsPlus(BaseBlockwiseQuantization):
                 "w_qdq": self.w_qdq,
             }
             self.model.replace_module_subset(
-                FakeQuantLinear, block, subset, idx, params_dict
+                FakeQuantLinear, block, subset, self.block_idx, params_dict
             )
 
         if self.weight_clip:
-            self.model.replace_module_block(OriginFloatLinear, block, idx, {})
+            self.model.replace_module_block(OriginFloatLinear, block, self.block_idx, {})
 
             clip_input_feat = defaultdict(list)
             register_hooks(clip_input_feat)
@@ -103,10 +102,9 @@ class OsPlus(BaseBlockwiseQuantization):
             logger.info("auto_clip start")
 
             params_dict = {"a_qdq": self.a_qdq, "w_qdq": self.w_qdq}
-            self.model.replace_module_block(FakeQuantLinear, block, idx, params_dict)
+            self.model.replace_module_block(FakeQuantLinear, block, self.block_idx, params_dict)
             self.auto_clip(
                 block,
-                idx,
                 clip_input_feat,
                 n_sample_token=self.config.calib.seq_len,
                 eps=3e-1,
@@ -117,7 +115,7 @@ class OsPlus(BaseBlockwiseQuantization):
             logger.info("disable weight clip")
 
         torch.cuda.empty_cache()
-        logger.info(f"End transform the {idx + 1}-th block")
+        logger.info(f"End transform the {self.block_idx}-th block")
 
     @torch.no_grad()
     def get_original_out(self, x, inspect_module, subset_kwargs):
@@ -267,7 +265,6 @@ class OsPlus(BaseBlockwiseQuantization):
         prev_op,
         input_name,
         inspect_module,
-        idx,
         subset_kwargs,
     ):
         assert (
@@ -294,5 +291,5 @@ class OsPlus(BaseBlockwiseQuantization):
 
         if self.save_scale:
             for n in layers_dict:
-                layer_name = f"{self.model.block_name_prefix}.{idx}.{n}"
+                layer_name = f"{self.model.block_name_prefix}.{self.block_idx}.{n}"
                 self.act_scales[layer_name] = scale

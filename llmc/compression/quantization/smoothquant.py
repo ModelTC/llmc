@@ -62,7 +62,6 @@ class SmoothQuant(BaseBlockwiseQuantization):
         input_name,
         inspect_module,
         subset_kwargs,
-        idx,
     ):
         layers = list(layers_dict.values())
         scale = self.search_scale_subset(layers, input_feat[input_name])

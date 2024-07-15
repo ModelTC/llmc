@@ -10,6 +10,8 @@ class BlockwiseOpt(metaclass=ABCMeta):
         self.quant_config = quant_config
         self.input = input
         self.config = config
+        self.block_idx = None
+        self.num_blocks = len(self.blocks)
         if self.input:
             for i in range(len(input["kwargs"])):
                 if "use_cache" in input["kwargs"][i]:
@@ -20,8 +22,9 @@ class BlockwiseOpt(metaclass=ABCMeta):
 
     def run_block_loop(self):
         for i in range(len(self.blocks)):
-            logger.info(f"\nindex: {i+1}/{len(self.blocks)} \nblock: {self.blocks[i]}")
-            self.block_opt(self.blocks[i], i)
+            self.block_idx = i
+            logger.info(f"\nblock index: {self.block_idx}/{len(self.blocks)} \nblock: {self.blocks[self.block_idx]}")
+            self.block_opt(self.blocks[self.block_idx])
 
         if hasattr(self, "save_scale") and self.save_scale:
             torch.save(self.act_scales, self.scale_path)
@@ -29,7 +32,7 @@ class BlockwiseOpt(metaclass=ABCMeta):
             torch.save(self.weight_clips, self.clip_path)
 
     @abstractmethod
-    def block_opt(self, block, idx):
+    def block_opt(self, block):
         pass
 
     def cache_input_hook(self, m, x, y, name, feat_dict):

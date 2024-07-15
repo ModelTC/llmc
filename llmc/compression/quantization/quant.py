@@ -43,6 +43,9 @@ class Quantizer:
         self.round_zp = "round_zp" not in self.kwargs or self.kwargs["round_zp"]
         self.sigmoid = torch.nn.Sigmoid()
 
+    def __repr__(self):
+        return f"Quantizer(bit={self.bit}, sym={self.sym}, granularity={self.granularity}, kwargs={self.kwargs}, max_int={self.max_int}, min_int={self.min_int})"
+
     def get_tensor_range(self, tensor, args={}):
         if self.calib_algo == "minmax":
             return self.get_minmax_range(tensor)

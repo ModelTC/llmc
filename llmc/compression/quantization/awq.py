@@ -6,6 +6,7 @@ from .module_utils import _LLMC_LN_TYPES_, _TRANSFORMERS_LN_TYPES_
 from .module_utils import _LLMC_LINEAR_TYPES_, _TRANSFORMERS_LINEAR_TYPES_
 from .module_utils import FakeQuantLinear
 from .base_blockwise_quantization import BaseBlockwiseQuantization
+from .utils import get_wquantizer, get_aquantizer
 from llmc.utils.registry_factory import ALGO_REGISTRY
 
 
@@ -41,11 +42,13 @@ class Awq(BaseBlockwiseQuantization):
             self.save_scale = False
 
     @torch.no_grad()
-    def get_weight_scale(self, layers):
+    def get_weight_scale(self, layers_dict):
+        layers = list(layers_dict.values())
         weights = self.collect_layers_weights(layers)
         weights = torch.cat(weights, dim=0)
         org_shape = weights.shape
-        weights = self.wquantizer.reshape_tensor(weights)
+        wquantizer = get_wquantizer(self.block_idx, list(layers_dict.keys())[0], self.mix_bits_map, self.quantizer_mix_bits, self.wquantizer)
+        weights = wquantizer.reshape_tensor(weights)
         scale = weights.abs() / weights.abs().amax(dim=1, keepdim=True)
         scale = scale.view(org_shape)
         scale = scale.mean(0)
@@ -67,8 +70,8 @@ class Awq(BaseBlockwiseQuantization):
         return org_out
 
     @torch.no_grad()
-    def search_scale_subset(self, layers, input, inspect_module, subset_kwargs):
-        w_max = self.get_weight_scale(layers)
+    def search_scale_subset(self, layers_dict, input, inspect_module, subset_kwargs):
+        w_max = self.get_weight_scale(layers_dict)
         # grid search for ratio
         best_error = float("inf")
         best_scales = None
@@ -103,10 +106,15 @@ class Awq(BaseBlockwiseQuantization):
                 elif self.trans_version == "v2":
                     scales = x_max.pow(ratio).clamp(min=1e-4).view(-1)
                 scales = scales / (scales.max() * scales.min()).sqrt()
-                for fc in layers:
+                for layer_name in layers_dict:
+                    fc = layers_dict[layer_name]
                     fc.weight.mul_(scales.view(1, -1))
 
-                    fc.weight.data = self.wquantizer.fake_quant_weight_dynamic(
+                    # fc.weight.data = self.wquantizer.fake_quant_weight_dynamic(
+                    #     fc.weight.data
+                    # )
+                    
+                    fc.weight.data = get_wquantizer(self.block_idx, layer_name, self.mix_bits_map, self.quantizer_mix_bits, self.wquantizer).fake_quant_weight_dynamic(
                         fc.weight.data
                     )
 
@@ -141,15 +149,15 @@ class Awq(BaseBlockwiseQuantization):
                 inp.div_(scale.view(1, -1).to(inp.device))
 
     @torch.no_grad()
-    def block_transform(self, block, input_feat, idx, block_kwargs):
+    def block_transform(self, block, input_feat, block_kwargs):
         if self.trans:
-            super().block_transform(block, input_feat, idx, block_kwargs)
+            super().block_transform(block, input_feat, block_kwargs)
 
         if self.weight_clip:
             logger.info(f"auto_clip start")
             logger.info(f"clip version: {self.clip_version}")
             self.auto_clip(
-                block, idx, input_feat, n_sample_token=self.config.calib.seq_len
+                block, input_feat, n_sample_token=self.config.calib.seq_len
             )
             logger.info(f"auto_clip finished")
         else:
@@ -164,7 +172,6 @@ class Awq(BaseBlockwiseQuantization):
         input_name,
         inspect_module,
         subset_kwargs,
-        idx,
     ):
         if self.config["model"]["type"] == "Starcoder":
             if isinstance(prev_op[0], (nn.Linear, FakeQuantLinear)):
@@ -195,7 +202,7 @@ class Awq(BaseBlockwiseQuantization):
                 return
 
             scale = self.search_scale_subset(
-                layers, input_feat[input_name], inspect_module, subset_kwargs
+                layers_dict, input_feat[input_name], inspect_module, subset_kwargs
             )
 
             self.apply_scale(scale, prev_op, layers)
@@ -203,7 +210,7 @@ class Awq(BaseBlockwiseQuantization):
 
             if self.save_scale:
                 for n in layers_dict:
-                    layer_name = f"{self.model.block_name_prefix}.{idx}.{n}"
+                    layer_name = f"{self.model.block_name_prefix}.{self.block_idx}.{n}"
                     self.act_scales[layer_name] = scale
         else:
             logger.info("Do not transform this subset.")

@@ -17,7 +17,7 @@ class AdaDim(BaseBlockwiseQuantization):
                 org_out = org_out[0]
         return org_out
 
-    def search_dim_subset(self, layers_dict, input, idx):
+    def search_dim_subset(self, layers_dict, input):
         for name in layers_dict:
             layer = layers_dict[name]
 
@@ -54,15 +54,15 @@ class AdaDim(BaseBlockwiseQuantization):
                 layer.register_buffer("buf_qdim", torch.tensor(1))
                 logger.info(f"Suggest layer {name} use per-output channel quant")
 
-    def block_transform(self, block, input_feat, idx, block_kwargs):
-        logger.info(f"Start transform the {idx+1}-th block")
+    def block_transform(self, block, input_feat, block_kwargs):
+        logger.info(f"Start transform the {self.block_idx}-th block")
         subsets = self.model.get_subsets_in_block(block)
         for index, subset in enumerate(subsets):
             logger.info(f"subset: {subset}")
             layers_dict = subset["layers"]
             input_name = subset["input"][0]
 
-            self.search_dim_subset(layers_dict, input_feat[input_name], idx)
+            self.search_dim_subset(layers_dict, input_feat[input_name])
 
             params_dict = {}
             module = FakeQuantLinear
@@ -70,9 +70,9 @@ class AdaDim(BaseBlockwiseQuantization):
             params_dict["w_qdq"] = self.w_qdq
             params_dict["a_qdq"] = self.a_qdq if not self.w_only else None
 
-            self.model.replace_module_subset(module, block, subset, idx, params_dict)
+            self.model.replace_module_subset(module, block, subset, self.block_idx, params_dict)
 
-        logger.info(f"End transform the {idx+1}-th block")
+        logger.info(f"End transform the {self.block_idx}-th block")
 
     def w_qdq(self, module):
         weight = module.weight
