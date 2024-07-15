@@ -14,7 +14,7 @@ calib:
     preproc: pileval_awq
     seed: *seed
 eval:
-    eval_pos: [pretrain, transformed, fake_quant]
+    eval_pos: [pretrain, fake_quant]
     name: wikitext2
     download: False
     path: eval data path

@@ -15,7 +15,7 @@ calib:
     preproc: random_truncate_txt
     seed: *seed
 eval:
-    eval_pos: [pretrain, transformed, fake_quant]
+    eval_pos: [pretrain, fake_quant]
     name: wikitext2
     download: False
     path: eval data path
@@ -31,7 +31,6 @@ quant:
         symmetric: False
         granularity: per_group
         group_size: 128
-    quant_out: True
     special:
         version: v2
         weight_clip: True
