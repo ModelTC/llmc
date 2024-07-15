@@ -21,6 +21,7 @@ def check_config(config):
     if config.get("sparse", False):
         logger.info("Use sparsificatino method")
     else:
+
         def check_weight_setting(weight_setting):
             if weight_setting.granularity == "per_group":
                 assert weight_setting.group_size > 0
@@ -55,13 +56,15 @@ def check_config(config):
         config.model.tokenizer_mode = "slow"
         logger.info("Tokenizer_mode is set to slow.")
 
+
 def mkdirs(path):
     if not os.path.exists(path):
         os.makedirs(path)
     else:
         raise Exception(f"{path} existed before. Need check.")
 
-def copy_files(source_dir, target_dir, substring):    
+
+def copy_files(source_dir, target_dir, substring):
     for filename in os.listdir(source_dir):
         if substring in filename:
             source_file = os.path.join(source_dir, filename)

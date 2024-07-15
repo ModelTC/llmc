@@ -173,7 +173,6 @@ class OriginFloatLinear(nn.Module):
 
     @torch.no_grad()
     def forward(self, x):
-
         if hasattr(self, "buf_rotate") and self.buf_rotate:
             x = self.rotater.rotate(x)
         x = torch.functional.F.linear(x, self.weight, self.bias)
@@ -213,7 +212,6 @@ class Rotater:
         self.had_dim = had_dim
 
     def rotate(self, x):
-
         x_dtype = x.dtype
 
         if self.online_full_had:
@@ -223,7 +221,6 @@ class Rotater:
                 x = matmul_hadU_cuda(x, self.had_K, self.K)
 
         elif self.online_partial_had:
-
             if self.fp32_had:
                 x = x.float()
             init_shape = x.shape
@@ -235,7 +232,6 @@ class Rotater:
                     scale=1 / math.sqrt(init_shape[-1] // self.had_dim),
                 ).transpose(1, 2)
             else:
-
                 self.had_K = self.had_K.to(x.device)
 
                 x = (
@@ -349,7 +345,6 @@ class FakeQuantLinear(nn.Module):
         self.dynamic_quant_tmp_weight = False
 
     def forward(self, x):
-
         if hasattr(self, "buf_rotate") and self.buf_rotate:
             x = self.rotater.rotate(x)
 
@@ -435,7 +430,7 @@ class EffcientFakeQuantLinear(nn.Module):
 
     @classmethod
     @torch.no_grad()
-    def new(cls, module, w_qdq, a_qdq):
+    def new(cls, module, w_qdq, a_qdq, debug_print={}):
         weight = w_qdq(module)
 
         if module.bias is not None:
@@ -451,6 +446,7 @@ class EffcientFakeQuantLinear(nn.Module):
         new_module.a_qdq_name = (
             cls.get_func_name(a_qdq) if a_qdq is not None else "None"
         )
+        new_module.debug_print = debug_print
         return new_module
 
     @classmethod
@@ -460,7 +456,7 @@ class EffcientFakeQuantLinear(nn.Module):
         return any_callable.__name__
 
     def __repr__(self):
-        return f"EffcientFakeQuantLinear(in_features={self.in_features}, out_features={self.out_features}, bias={self.bias is not None}, weight_quant={self.w_qdq_name}, act_quant={self.a_qdq_name}, online_rotate={self.buf_rotate})"
+        return f"EffcientFakeQuantLinear(in_features={self.in_features}, out_features={self.out_features}, bias={self.bias is not None}, weight_quant={self.w_qdq_name}, act_quant={self.a_qdq_name}, online_rotate={self.buf_rotate}, debug_print={self.debug_print})"
 
 
 class RealQuantLinear(nn.Module):

@@ -4,7 +4,9 @@ import torch
 import torch.nn as nn
 from transformers import AutoModelForCausalLM, AutoConfig
 from loguru import logger
+from functools import partial
 from collections import defaultdict
+from llmc.compression.quantization.utils import check_do_quant
 from llmc.compression.quantization.module_utils import (
     _LLMC_LN_TYPES_,
     _TRANSFORMERS_LN_TYPES_,
@@ -12,6 +14,11 @@ from llmc.compression.quantization.module_utils import (
 from llmc.compression.quantization.module_utils import (
     _LLMC_LINEAR_TYPES_,
     _TRANSFORMERS_LINEAR_TYPES_,
+)
+from llmc.compression.quantization.utils import (
+    get_wquantizer,
+    get_aquantizer,
+    check_w_only,
 )
 
 
@@ -67,6 +74,7 @@ class BaseModel(metaclass=ABCMeta):
         )
         if hasattr(self.model_config, "use_cache"):
             self.model_config.use_cache = False
+        logger.info(f"self.model_config : {self.model_config}")
         self.model = AutoModelForCausalLM.from_pretrained(
             self.model_path,
             config=self.model_config,
@@ -124,33 +132,93 @@ class BaseModel(metaclass=ABCMeta):
         }
 
     def replace_module_all(self, module, params_dict):
-        for i in range(len(self.blocks)):
-            logger.info(f"Replace block index: {i+1}/{len(self.blocks)}")
-            block = self.blocks[i]
+        for block_idx in range(len(self.blocks)):
+            logger.info(f"Replace block index: {block_idx}/{len(self.blocks)}")
+            block = self.blocks[block_idx]
             block = block.cuda()
-            self.replace_module_block(module, block, i, params_dict)
+            self.replace_module_block(module, block, block_idx, params_dict)
             block = block.cpu()
 
         gc.collect()
         torch.cuda.empty_cache()
         logger.info(f"The Replaced model: {self.model}")
 
-    def replace_module_block(self, module, block, i, params_dict):
+    def replace_module_block(self, module, block, block_idx, params_dict):
         if module in _LLMC_LN_TYPES_ + _TRANSFORMERS_LN_TYPES_:
             layer_norms = self.get_layernorms_in_block(block)
-            self.replace_module_layernorm(module, block, layer_norms, i, params_dict)
+            self.replace_module_layernorm(
+                module, block, layer_norms, block_idx, params_dict
+            )
         else:
             subset = {}
             subset["layers"] = self.get_block_linears(block)
-            self.replace_module_subset(module, block, subset, i, params_dict)
+            self.replace_module_subset(module, block, subset, block_idx, params_dict)
 
-    def replace_module_subset(self, module, block, subset, i, params_dict):
+    def replace_module_subset(self, module, block, subset, block_idx, params_dict):
         layers_dict = subset["layers"]
 
         for name, m in layers_dict.items():
+            if not check_do_quant(
+                block_idx,
+                name,
+                params_dict["mix_bits_map"],
+                params_dict["quantizer_mix_bits"],
+            ):
+                logger.info(
+                    f"This layer {name} in {block_idx}-th block is set to float. No need to replace this layer."
+                )
+                continue
+            else:
+                logger.info(f"replace >>> {name} in {block_idx}-th block")
             if isinstance(m, module):
                 continue
-            M = module.new(m, **params_dict)
+            if params_dict.get("mix_bits", False):
+                params_dict_tmp = {}
+                params_dict_tmp["debug_print"] = {}
+                wquantizer = get_wquantizer(
+                    block_idx,
+                    name,
+                    params_dict["mix_bits_map"],
+                    params_dict["quantizer_mix_bits"],
+                    params_dict["wquantizer_default"],
+                )
+                params_dict_tmp["w_qdq"] = partial(
+                    params_dict["w_qdq"], wquantizer=wquantizer
+                )
+                params_dict_tmp["debug_print"]["weight"] = {}
+                params_dict_tmp["debug_print"]["weight"]["bit"] = wquantizer.bit
+                params_dict_tmp["debug_print"]["weight"]["sym"] = wquantizer.sym
+                params_dict_tmp["debug_print"]["weight"][
+                    "granularity"
+                ] = wquantizer.granularity
+                if not check_w_only(
+                    block_idx,
+                    name,
+                    params_dict["mix_bits_map"],
+                    params_dict["quantizer_mix_bits"],
+                    params_dict["w_only_default"],
+                ):
+                    aquantizer = get_aquantizer(
+                        block_idx,
+                        name,
+                        params_dict["mix_bits_map"],
+                        params_dict["quantizer_mix_bits"],
+                        params_dict["aquantizer_default"],
+                    )
+                    params_dict_tmp["a_qdq"] = partial(
+                        params_dict["a_qdq"], aquantizer=aquantizer
+                    )
+                    params_dict_tmp["debug_print"]["act"] = {}
+                    params_dict_tmp["debug_print"]["act"]["bit"] = aquantizer.bit
+                    params_dict_tmp["debug_print"]["act"]["sym"] = aquantizer.sym
+                    params_dict_tmp["debug_print"]["act"][
+                        "granularity"
+                    ] = aquantizer.granularity
+                else:
+                    params_dict_tmp["a_qdq"] = None
+                M = module.new(m, **params_dict_tmp)
+            else:
+                M = module.new(m, **params_dict)
 
             name_tmp = name.rsplit(".", 1)
             if len(name_tmp) == 2:

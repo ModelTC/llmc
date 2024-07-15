@@ -22,7 +22,6 @@ class Quarot(BaseBlockwiseQuantization):
         self.preprocess()
 
     def preprocess(self):
-
         assert self.config["model"]["type"] in ["Opt", "Llama"]
         # if self.config["model"]["type"] in ["Opt"]:
         self.remove_mean_from_embed()
@@ -62,24 +61,19 @@ class Quarot(BaseBlockwiseQuantization):
         else:
             raise ValueError(f"Unsupport mode {self.mode}")
 
-    def run_block_loop(self):
-        for i in range(len(self.blocks)):
-            logger.info(f"\nindex: {i+1}/{len(self.blocks)} \nblock: {self.blocks[i]}")
-            self.block_opt(self.blocks[i], i)
-
-    def block_transform(self, block, input_feat, idx, block_kwargs):
-        logger.info(f"Start transform the {idx+1}-th block")
+    def block_transform(self, block, input_feat, block_kwargs):
+        logger.info(f"Start transform the {self.block_idx}-th block")
 
         if self.online_rote:
             self.replace_rotate_linears(block)
         subsets = self.model.get_subsets_in_block(block)
         for index, subset in enumerate(subsets):
-            self.subset_transform(block, idx, subset)
+            self.subset_transform(block, subset)
 
-        self.model.replace_module_block(LlmcRMSNorm, block, idx, {})
+        self.model.replace_module_block(LlmcRMSNorm, block, self.block_idx, {})
 
         logger.info(f"block:{block}")
-        logger.info(f"End transform the {idx+1}-th block")
+        logger.info(f"End transform the {self.block_idx}-th block")
 
     def replace_rotate_linears(self, block):
         for n, m in block.named_modules():
@@ -103,7 +97,7 @@ class Quarot(BaseBlockwiseQuantization):
                 )
 
     @torch.no_grad()
-    def subset_transform(self, block, idx, subset):
+    def subset_transform(self, block, subset):
         prev_op = subset["prev_op"]
         layers_dict = subset["layers"]
         assert (

@@ -65,14 +65,14 @@ class NormTweaking(BaseBlockwiseQuantization):
                     output.append(out)
         return output
 
-    def get_original_out(self, block, idx):
-        if idx == 0:
+    def get_original_out(self, block):
+        if self.block_idx == 0:
             self.ori_out = self.block_forward(block)
         else:
             self.ori_out = self.block_forward(block, self.ori_out)
 
-    def block_transform(self, block, input_feat, idx, block_kwargs):
-        logger.info(f"Start transform the {idx+1}-th block")
+    def block_transform(self, block, input_feat, block_kwargs):
+        logger.info(f"Start transform the {self.block_idx}-th block")
 
         with torch.no_grad():
             block.float()
@@ -80,17 +80,17 @@ class NormTweaking(BaseBlockwiseQuantization):
         for i in range(len(self.input["data"])):
             self.input["data"][i] = self.input["data"][i].to(self.dtype)
 
-        self.get_original_out(block, idx)
-        self.register_tweak_parameters(block, idx)
-        self.ntweak_train(block, idx)
+        self.get_original_out(block)
+        self.register_tweak_parameters(block)
+        self.ntweak_train(block)
 
         self.apply_layer_norms(block)
 
-        logger.info(f"End transform the {idx+1}-th block")
+        logger.info(f"End transform the {self.block_idx}-th block")
 
-    def ntweak_train(self, block, idx):
+    def ntweak_train(self, block):
         optimizer = torch.optim.Adam([{"params": self.get_tweak_parameters(block)}])
-        self.adjust_learning_rate(optimizer, idx)
+        self.adjust_learning_rate(optimizer)
 
         for param_group in optimizer.param_groups:
             logger.info(param_group["lr"])
@@ -136,7 +136,9 @@ class NormTweaking(BaseBlockwiseQuantization):
 
             loss_mean = torch.stack(loss_list).mean()
             norm_mean = torch.stack(norm_list).mean()
-            logger.info(f"block {idx} iter {epochs} loss:{loss_mean} norm:{norm_mean} ")
+            logger.info(
+                f"block {self.block_idx} iter {epochs} loss:{loss_mean} norm:{norm_mean} "
+            )
 
         del optimizer
 
@@ -150,15 +152,15 @@ class NormTweaking(BaseBlockwiseQuantization):
                     del m.tmp_bias
                 m.use_tmp_parameter = False
 
-    def register_tweak_parameters(self, block, idx):
+    def register_tweak_parameters(self, block):
         params_dict = {}
         module = FakeQuantLinear
         params_dict["a_qdq"] = self.a_qdq if not self.w_only else None
         params_dict["w_qdq"] = self.w_qdq
-        self.model.replace_module_block(module, block, idx, params_dict)
+        self.model.replace_module_block(module, block, self.block_idx, params_dict)
 
         llmc_ln_module = _MODEL_LN_TYPES_PAIRS_[self.config["model"]["type"]]
-        self.model.replace_module_block(llmc_ln_module, block, idx, {})
+        self.model.replace_module_block(llmc_ln_module, block, self.block_idx, {})
 
         for n, m in block.named_modules():
             if isinstance(m, tuple(_LLMC_LN_TYPES_)):
@@ -176,10 +178,10 @@ class NormTweaking(BaseBlockwiseQuantization):
                     params.append(m.tmp_bias)
         return iter(params)
 
-    def adjust_learning_rate(self, optimizer, idx):
+    def adjust_learning_rate(self, optimizer):
         for param_group in optimizer.param_groups:
             param_group["lr"] = self.ntweak_lr * (
-                1 + self.gamma * (idx / len(self.blocks))
+                1 + self.gamma * (self.block_idx / len(self.blocks))
             )
 
     def deploy(self, quant_format):

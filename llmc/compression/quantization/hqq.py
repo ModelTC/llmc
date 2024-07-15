@@ -58,7 +58,7 @@ class HQQ(BaseBlockwiseQuantization):
         return scales, zeros
 
     @torch.no_grad()
-    def block_opt(self, block, idx):
+    def block_opt(self, block):
         block = block.cuda()
         named_linears = self.model.get_block_linears(block)
         logger.info(f"named_linears: {named_linears}")

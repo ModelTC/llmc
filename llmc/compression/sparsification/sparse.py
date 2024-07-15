@@ -1,5 +1,3 @@
-
-
 class Sparser:
     def __init__(self, sparsity, **kwargs):
         self.sparsity = sparsity

@@ -3,12 +3,12 @@ from .base_blockwise_sparsification import BaseBlockwiseSparsification
 import torch
 from loguru import logger
 
+
 @ALGO_REGISTRY
 class Magnitude(BaseBlockwiseSparsification):
     def __init__(self, model, sparsity_config, input, config):
         super().__init__(model, sparsity_config, input, config)
 
-    
     @torch.no_grad()
     def subset_transform(
         self,
@@ -18,12 +18,14 @@ class Magnitude(BaseBlockwiseSparsification):
         input_name,
         inspect_module,
         subset_kwargs,
-        idx
+        idx,
     ):
         layers = list(layers_dict.values())
         for layer in layers:
             W = layer.weight.data
             W_metric = torch.abs(W)
-            thresh = torch.sort(W_metric.flatten().cuda())[0][int(W.numel()*self.sparser.sparsity)].cpu()
-            W_mask = (W_metric <= thresh)
+            thresh = torch.sort(W_metric.flatten().cuda())[0][
+                int(W.numel() * self.sparser.sparsity)
+            ].cpu()
+            W_mask = W_metric <= thresh
         W[W_mask] = 0

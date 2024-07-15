@@ -49,8 +49,8 @@ class SpQR(BaseBlockwiseQuantization):
         )
 
     @torch.no_grad()
-    def block_transform(self, block, input_feat, idx, *block_kwargs):
-        logger.info(f"Start transform the {idx+1}-th block")
+    def block_transform(self, block, input_feat, block_kwargs):
+        logger.info(f"Start transform the {self.block_idx}-th block")
         if self.true_sequential:
             subsets = self.model.get_subsets_in_block(block)
 
@@ -78,7 +78,7 @@ class SpQR(BaseBlockwiseQuantization):
                 params_dict["w_qdq"] = self.w_qdq
 
                 self.model.replace_module_subset(
-                    module, block, subset, idx, params_dict
+                    module, block, subset, self.block_idx, params_dict
                 )
         else:
             layers_dict = self.model.get_block_linears(block)
@@ -88,7 +88,7 @@ class SpQR(BaseBlockwiseQuantization):
             params_dict["a_qdq"] = None
             params_dict["w_qdq"] = self.w_qdq
 
-        logger.info(f"End transform the {idx+1}-th block")
+        logger.info(f"End transform the {self.block_idx}-th block")
 
     @torch.no_grad()
     def subset_transform(self, layers_dict):

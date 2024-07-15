@@ -85,10 +85,10 @@ class QUIK(BaseBlockwiseQuantization):
 
         return act_stat
 
-    def block_opt(self, block, idx):
+    def block_opt(self, block):
         layers_dict = self.model.get_block_linears(block)
         for n, m in layers_dict.items():
-            layer_name = f"{self.prefix}.{idx}.{n}"
+            layer_name = f"{self.prefix}.{self.block_idx}.{n}"
 
             if self.fp_relative:
                 outlier_num = (

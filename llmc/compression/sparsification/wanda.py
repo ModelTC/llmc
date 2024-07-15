@@ -4,6 +4,7 @@ from .base_blockwise_sparsification import BaseBlockwiseSparsification
 import torch
 from loguru import logger
 
+
 @ALGO_REGISTRY
 class Wanda(BaseBlockwiseSparsification):
     def __init__(self, model, sparsity_config, input, config):
@@ -20,14 +21,13 @@ class Wanda(BaseBlockwiseSparsification):
             act = act.t()
 
         columns = layer.weight.data.shape[1]
-        
+
         scaler_row = torch.zeros((columns), device=layer.weight.device)
 
         act = act.type(torch.float32).to(scaler_row.device)
-        scaler_row += torch.norm(act, p=2, dim=1) ** 2  / nsamples
-        return scaler_row        
+        scaler_row += torch.norm(act, p=2, dim=1) ** 2 / nsamples
+        return scaler_row
 
-    
     @torch.no_grad()
     def subset_transform(
         self,
@@ -37,15 +37,19 @@ class Wanda(BaseBlockwiseSparsification):
         input_name,
         inspect_module,
         subset_kwargs,
-        idx
+        idx,
     ):
         layers = list(layers_dict.values())
         for layer in layers:
             scaler_row = self.get_row_scale(layer, input_feat[input_name][0])
-            W_metric = torch.abs(layer.weight.data) * torch.sqrt(scaler_row.reshape((1,-1)))
+            W_metric = torch.abs(layer.weight.data) * torch.sqrt(
+                scaler_row.reshape((1, -1))
+            )
 
-            W_mask = (torch.zeros_like(W_metric) == 1)  ## initialize a mask to be all False
+            W_mask = (
+                torch.zeros_like(W_metric) == 1
+            )  ## initialize a mask to be all False
             sort_res = torch.sort(W_metric, dim=-1, stable=True)
-            indices = sort_res[1][:,:int(W_metric.shape[1]*self.sparser.sparsity)]
+            indices = sort_res[1][:, : int(W_metric.shape[1] * self.sparser.sparsity)]
             W_mask.scatter_(1, indices, True)
-            layer.weight.data[W_mask] = 0  ## set weights to zero 
+            layer.weight.data[W_mask] = 0  ## set weights to zero
