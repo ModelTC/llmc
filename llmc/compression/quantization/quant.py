@@ -5,7 +5,17 @@ from loguru import logger
 
 class Quantizer:
     def __init__(self, bit, symmetric, granularity, **kwargs):
-        self.bit = bit
+        if isinstance(bit, str):
+            # for fp quantization, format: ExMy
+            self.use_fp = True
+            self.e_bits = int(bit[1])
+            self.m_bits = int(bit[-1])
+            self.sign_bits = 1
+            self.bit = self.e_bits + self.m_bits + self.sign_bits
+            self.default_bias = 2 ** (self.e_bits - 1)
+        else:
+            self.use_fp = False
+            self.bit = bit
         self.sym = symmetric
         self.granularity = granularity
         self.kwargs = kwargs
@@ -144,6 +154,32 @@ class Quantizer:
                 zeros = -min_val / scales
         return scales, zeros, max_int, min_int
 
+    def get_fp_qparams(self, tensor, tensor_range, device):
+        min_val, max_val = tensor_range[0], tensor_range[1]
+        maxval = torch.max(max_val, -min_val)
+        
+        if maxval.shape[0] != 1 and len(maxval.shape) != len(tensor.shape):
+            maxval = maxval.view([-1] + [1] * (len(tensor.shape) - 1))
+
+        e_bits = torch.tensor(self.e_bits,dtype=torch.float32).cuda()
+        m_bits = torch.tensor(self.m_bits,dtype=torch.float32).cuda()
+
+        bias = 2**e_bits - torch.log2(maxval) + torch.log2(2 - 2 ** (-m_bits)) - 1
+
+        xc = torch.min(torch.max(tensor, -maxval), maxval)
+
+        log_scales = torch.clamp((torch.floor(torch.log2(torch.abs(xc)) + bias)).detach(), 1.0)
+
+        scales = 2.0 ** (log_scales - m_bits - bias)
+
+        return scales
+
+    def get_fp_tensor_qparams(self, tensor, args={}):
+        tensor = self.reshape_tensor(tensor)
+        tensor_range = self.get_tensor_range(tensor, args)
+        scales = self.get_fp_qparams(tensor, tensor_range, tensor.device)
+        return tensor, scales
+
     def get_tensor_qparams(self, tensor, args={}):
         tensor = self.reshape_tensor(tensor)
         tensor_range = self.get_tensor_range(tensor, args)
@@ -170,6 +206,9 @@ class Quantizer:
             tensor = tensor * scales
         else:
             tensor = (tensor - zeros) * scales
+        return tensor
+    def fp_quant_dequant(self, tensor, scales):
+        tensor = self.round_func(tensor / scales) * scales
         return tensor
 
     def quant_dequant(self, tensor, scales, zeros, max_int, min_int):
@@ -245,9 +284,16 @@ class Quantizer:
 
         org_act_shape = q_act.shape
         org_act_dtype = q_act.dtype
+        
+        if not self.use_fp:
+            q_act, scales, zeros, max_int, min_int = self.get_tensor_qparams(q_act, args)
+            q_act = self.quant_dequant(q_act, scales, zeros, max_int, min_int)
+        else:
+            q_act, scales = self.get_fp_tensor_qparams(
+                q_act, args
+            )
+            q_act = self.fp_quant_dequant(q_act, scales)
 
-        q_act, scales, zeros, max_int, min_int = self.get_tensor_qparams(q_act, args)
-        q_act = self.quant_dequant(q_act, scales, zeros, max_int, min_int)
         q_act = self.restore_tensor(q_act, org_act_shape).to(org_act_dtype)
 
         if "current_bit" in args:
@@ -315,11 +361,18 @@ class Quantizer:
 
         org_w_shape = q_weight.shape
         org_w_dtype = q_weight.dtype
-        q_weight, scales, zeros, max_int, min_int = self.get_tensor_qparams(
-            q_weight, args
-        )
+        if not self.use_fp:
+            q_weight, scales, zeros, max_int, min_int = self.get_tensor_qparams(
+                q_weight, args
+            )
 
-        q_weight = self.quant_dequant(q_weight, scales, zeros, max_int, min_int)
+            q_weight = self.quant_dequant(q_weight, scales, zeros, max_int, min_int)
+        else:
+            q_weight, scales = self.get_fp_tensor_qparams(
+                q_weight, args
+            )
+            q_weight = self.fp_quant_dequant(q_weight, scales)
+
         q_weight = self.restore_tensor(q_weight, org_w_shape).to(org_w_dtype)
 
         if "current_bit" in args:
