@@ -191,6 +191,10 @@ class BaseModel(metaclass=ABCMeta):
                 params_dict_tmp["debug_print"]["weight"][
                     "granularity"
                 ] = wquantizer.granularity
+                if wquantizer.granularity == "per_group":
+                    params_dict_tmp["debug_print"]["weight"][
+                        "group_size"
+                    ] = wquantizer.group_size
                 if not check_w_only(
                     block_idx,
                     name,
