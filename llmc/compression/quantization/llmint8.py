@@ -32,7 +32,7 @@ class LlmInt8(BaseBlockwiseQuantization):
         return int_indices, fp_indices
 
     @torch.no_grad()
-    def w_qdq(self, module):
+    def w_qdq(self, module, wquantizer):
         weight = module.weight
         args = {}
         args["int_indices"] = module.buf_int_ids
@@ -43,7 +43,7 @@ class LlmInt8(BaseBlockwiseQuantization):
         return weight
 
     @torch.no_grad()
-    def a_qdq(self, act, module):
+    def a_qdq(self, act, module, aquantizer):
         args = {}
 
         int_indices, fp_indices = self.get_outlier_indices(act)

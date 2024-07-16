@@ -350,7 +350,7 @@ class SpQR(BaseBlockwiseQuantization):
         pass
 
     @torch.no_grad()
-    def w_qdq(self, module):
+    def w_qdq(self, module, wquantizer):
         mask = module.buf_mask.to_dense()
         weight = module.weight
         O = (mask * weight).to(self.model_dtype)

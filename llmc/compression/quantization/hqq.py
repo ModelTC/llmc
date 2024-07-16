@@ -90,7 +90,7 @@ class HQQ(BaseBlockwiseQuantization):
         gc.collect()
         torch.cuda.empty_cache()
 
-    def w_qdq(self, module):
+    def w_qdq(self, module, wquantizer):
         args = {}
         if self.axis == 0:
             args["dim"] = "ic"

@@ -447,7 +447,7 @@ class GPTQ(BaseBlockwiseQuantization):
         return weight, scales, zeros
 
     @torch.no_grad()
-    def w_qdq(self, module):
+    def w_qdq(self, module, wquantizer):
         weight = module.weight
         if self.need_perm:
             perm = module.buf_perm

@@ -655,7 +655,7 @@ class OmniQuant(BaseBlockwiseQuantization):
         if block.self_attn.k_proj.bias is not None:
             block.self_attn.k_proj.bias.mul_(scales.view(-1))
 
-    def w_qdq(self, module):
+    , module):
         args = {"lowbound_factor": None, "upbound_factor": None}
         if hasattr(module, "buf_lowbound_factor"):
             args["lowbound_factor"] = module.buf_lowbound_factor

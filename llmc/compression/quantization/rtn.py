@@ -18,7 +18,7 @@ class RTN(BaseBlockwiseQuantization):
     def block_opt(self, *opt_kwargs):
         pass
 
-    def a_qdq(self, act, module):
+    def a_qdq(self, act, module, aquantizer):
         if self.act_static:
             args = {}
             args["scales"] = (

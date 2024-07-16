@@ -122,7 +122,7 @@ class QUIK(BaseBlockwiseQuantization):
             m.register_buffer("buf_fp_ids", fp_indices)
             del self.act_scales[layer_name]
 
-    def w_qdq(self, module):
+    def w_qdq(self, module, wquantizer):
         weight = module.weight
         args = {}
         args["int_indices"] = module.buf_int_ids
@@ -135,7 +135,7 @@ class QUIK(BaseBlockwiseQuantization):
 
         return weight
 
-    def a_qdq(self, act, module):
+    def a_qdq(self, act, module, aquantizer):
         args = {}
         args["int_indices"] = module.buf_int_ids
         args["fp_indices"] = module.buf_fp_ids

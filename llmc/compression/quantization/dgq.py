@@ -15,7 +15,7 @@ class DGQ(BaseBlockwiseQuantization):
         super().__init__(model, quant_config, input, config)
         self.model_dtype = next(self.model.model.parameters()).dtype
 
-    def w_qdq(self, module):
+    def w_qdq(self, module, wquantizer):
         scales = module.buf_scales
         zeros = module.buf_zeros
         scale8 = module.buf_scale8

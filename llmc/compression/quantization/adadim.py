@@ -76,7 +76,7 @@ class AdaDim(BaseBlockwiseQuantization):
 
         logger.info(f"End transform the {self.block_idx}-th block")
 
-    def w_qdq(self, module):
+    def w_qdq(self, module, wquantizer):
         weight = module.weight
         args = {}
         args["dim"] = "ic" if module.buf_qdim == 0 else "oc"
