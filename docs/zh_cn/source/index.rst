@@ -33,5 +33,5 @@ arxiv链接: https://arxiv.org/abs/2405.06001
    advanced/model_test.md
    advanced/custom_dataset.md
    advanced/mix_bits.md
-   advanced/sparsification
+   advanced/sparsification.md
 
