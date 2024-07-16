@@ -44,9 +44,6 @@ quant:
         setting_1:
             layer_name: [o_proj]
             do_quant: False
-    special:
-        version: v2
-        weight_clip: True
 save:
     save_trans: False
     save_path: ./save

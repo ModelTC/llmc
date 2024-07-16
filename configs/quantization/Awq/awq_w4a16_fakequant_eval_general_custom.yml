@@ -31,9 +31,6 @@ quant:
         symmetric: False
         granularity: per_group
         group_size: 128
-    special:
-        version: v2
-        weight_clip: True
 save:
     save_trans: False
     save_path: ./save
