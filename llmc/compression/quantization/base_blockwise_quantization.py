@@ -88,9 +88,9 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
                             "do_quant": mix_bits_setting["do_quant"],
                             "w_only_mix_bits": w_only_mix_bits,
                             "wquantizer": wquantizer_mix_bits,
-                            "aquantizer": (
-                                aquantizer_mix_bits if not w_only_mix_bits else None
-                            ),
+                            "aquantizer": aquantizer_mix_bits
+                            if not w_only_mix_bits
+                            else None,
                         }
                     )
                 else:
@@ -719,6 +719,7 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
         if quant_format == "fake_quant":
             module = EffcientFakeQuantLinear
             if not self.mix_bits:
+                params_dict["mix_bits"] = False
                 params_dict["a_qdq"] = (
                     partial(self.a_qdq, aquantizer=self.aquantizer)
                     if not self.w_only

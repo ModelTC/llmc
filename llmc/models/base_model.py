@@ -158,21 +158,29 @@ class BaseModel(metaclass=ABCMeta):
         layers_dict = subset["layers"]
 
         for name, m in layers_dict.items():
-            if not check_do_quant(
-                block_idx,
-                name,
-                params_dict["mix_bits_map"],
-                params_dict["quantizer_mix_bits"],
-            ):
-                logger.info(
-                    f"This layer {name} in {block_idx}-th block is set to float. No need to replace this layer."
-                )
-                continue
-            else:
-                logger.info(f"replace >>> {name} in {block_idx}-th block")
             if isinstance(m, module):
+                logger.info(f"{name} in {block_idx}-th block. Target module is same. No need to replace this layer.")
                 continue
-            if params_dict.get("mix_bits", False):
+            if not params_dict.get("mix_bits", False):
+                logger.info(f"replace >>> {name} in {block_idx}-th block")
+                params_dict_tmp = {}
+                params_dict_tmp["a_qdq"] = params_dict["a_qdq"]
+                params_dict_tmp["w_qdq"] = params_dict["w_qdq"]
+                M = module.new(m, **params_dict_tmp)
+            else:
+                # mix bits
+                if not check_do_quant(
+                    block_idx,
+                    name,
+                    params_dict["mix_bits_map"],
+                    params_dict["quantizer_mix_bits"],
+                ):
+                    logger.info(
+                        f"This layer {name} in {block_idx}-th block is set to float. No need to replace this layer."
+                    )
+                    continue
+                else:
+                    logger.info(f"replace >>> {name} in {block_idx}-th block")
                 params_dict_tmp = {}
                 params_dict_tmp["debug_print"] = {}
                 wquantizer = get_wquantizer(
@@ -221,8 +229,6 @@ class BaseModel(metaclass=ABCMeta):
                 else:
                     params_dict_tmp["a_qdq"] = None
                 M = module.new(m, **params_dict_tmp)
-            else:
-                M = module.new(m, **params_dict)
 
             name_tmp = name.rsplit(".", 1)
             if len(name_tmp) == 2:
