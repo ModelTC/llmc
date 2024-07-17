@@ -9,7 +9,7 @@
 [![Discord バナー](https://img.shields.io/discord/1139835312592392214?logo=discord&logoColor=white)](https://discord.gg/qZKUDfhm)
 [![QQ](https://img.shields.io/badge/QQ-EB1923?logo=tencent-qq&logoColor=white)](http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=I9IGPWWj8uuRXWH3_ELWjouf6gkIMgUl&authKey=GA3WbFAsm90ePJf%2FCbc7ZyXXq4ShQktlBaLxgqS5yuSPAsr3%2BDKMRdosUiLYoilO&noverify=0&group_code=526192592)
 
-**\[ [English](README.md) | [中文](README_zh.md) \]**
+**\[ [English](README.md) | [中文](README_zh.md) | 日本語 \]**
 
 **llmc** は、最先端の圧縮アルゴリズムを活用して、パフォーマンスを損なうことなく効率を向上させ、モデルサイズを削減することを目的とした、オフ・ザ・シェルフのツールです。
 
