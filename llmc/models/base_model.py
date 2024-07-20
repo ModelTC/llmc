@@ -164,8 +164,10 @@ class BaseModel(metaclass=ABCMeta):
             if not params_dict.get("mix_bits", False):
                 logger.info(f"replace >>> {name} in {block_idx}-th block")
                 params_dict_tmp = {}
-                params_dict_tmp["a_qdq"] = params_dict["a_qdq"]
-                params_dict_tmp["w_qdq"] = params_dict["w_qdq"]
+                if "a_qdq" in params_dict:
+                    params_dict_tmp["a_qdq"] = params_dict["a_qdq"]
+                if "w_qdq" in params_dict:
+                    params_dict_tmp["w_qdq"] = params_dict["w_qdq"]
                 M = module.new(m, **params_dict_tmp)
             else:
                 # mix bits
