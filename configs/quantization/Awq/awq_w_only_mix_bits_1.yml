@@ -1,5 +1,4 @@
 base:
-base:
     seed: &seed 42
 model:
     type: Llama

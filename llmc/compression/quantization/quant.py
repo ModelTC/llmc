@@ -158,11 +158,14 @@ class Quantizer:
         min_val, max_val = tensor_range[0], tensor_range[1]
         maxval = torch.max(max_val, -min_val)
         
+        e_bits = torch.tensor(self.e_bits,dtype=torch.float32).cuda()
+        m_bits = torch.tensor(self.m_bits,dtype=torch.float32).cuda()
+        
         if maxval.shape[0] != 1 and len(maxval.shape) != len(tensor.shape):
             maxval = maxval.view([-1] + [1] * (len(tensor.shape) - 1))
 
-        e_bits = torch.tensor(self.e_bits,dtype=torch.float32).cuda()
-        m_bits = torch.tensor(self.m_bits,dtype=torch.float32).cuda()
+        if e_bits>=5:
+            maxval = maxval.to(dtype=torch.float32)
 
         bias = 2**e_bits - torch.log2(maxval) + torch.log2(2 - 2 ** (-m_bits)) - 1
 
