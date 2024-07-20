@@ -15,13 +15,14 @@ eval:
 quant:
     method: RTN
     weight:
-        bit: e5m2
+        bit: 8
         symmetric: True
         granularity: per_channel
     act:
-        bit: e5m2
+        bit: 8
         symmetric: True
         granularity: per_token
 save:
     save_trans: False
     save_path: ./save
+    
