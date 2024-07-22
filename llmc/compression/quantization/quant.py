@@ -60,7 +60,7 @@ class Quantizer:
         if self.calib_algo == "minmax":
             return self.get_minmax_range(tensor)
         elif self.calib_algo == "mse":
-            return self.get_mse_range(tensor, **args)
+            return self.get_mse_range(tensor)
         elif self.calib_algo == "learnable":
             return self.get_learnable_range(tensor, **args)
         else:
@@ -76,7 +76,7 @@ class Quantizer:
 
         return (min_val, max_val)
 
-    def get_mse_range(self, tensor, grid=100, norm=2.4, maxshrink=0.8, bs=1024):
+    def get_mse_range(self, tensor, grid=100, norm=2.4, maxshrink=0.8, bs=256):
         assert tensor.shape[0] % bs == 0
         tensor = tensor.float()
         min_val, max_val = self.get_minmax_range(tensor)
@@ -100,8 +100,12 @@ class Quantizer:
                 xmin = p * _min_val
                 xmax = p * _max_val
 
-                scales, zeros, max_int, min_int = self.get_qparams((xmin, xmax), dev)
-                q_tensor = self.quant_dequant(_tensor, scales, zeros, max_int, min_int)
+                if not self.use_fp:
+                    scales, zeros, max_int, min_int = self.get_qparams((xmin, xmax), dev)
+                    q_tensor = self.quant_dequant(_tensor, scales, zeros, max_int, min_int)
+                else:
+                    scales = self.get_fp_qparams(_tensor, (xmin, xmax), dev)
+                    q_tensor = self.fp_quant_dequant(_tensor, scales)
 
                 q_tensor -= _tensor
                 q_tensor.abs_()
