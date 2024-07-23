@@ -15,9 +15,10 @@ from .module_utils import (
     EffcientFakeQuantLinear,
     RealQuantLinear,
     OriginFloatLinear,
+    RotateLinear,
 )
 from .quant import Quantizer
-from .hadamard_utils import apply_exact_had_to_linear
+from .hadamard_utils import apply_exact_had_to_linear, get_hadK
 from .utils import get_wquantizer, get_aquantizer, check_do_quant, check_w_only
 
 
@@ -35,8 +36,8 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
 
         return wquantizer.fake_quant_weight_dynamic(module.weight, args)
 
-    def w_q(self, module):
-        return self.wquantizer.real_quant_weight_dynamic(module.weight.data)
+    def w_q(self, module, wquantizer):
+        return wquantizer.real_quant_weight_dynamic(module.weight.data)
 
     def a_qdq(self, act, module, aquantizer):
         return aquantizer.fake_quant_act_dynamic(act)
@@ -44,62 +45,78 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
     def logit(self, x):
         return torch.log(x / (1 - x))
 
-    def set_quant_config(self):
-        self.mix_bits = False
-        self.mix_bits_map = [{} for _ in range(self.num_blocks)]
-        self.quantizer_mix_bits = []
-        if "quant_out" in self.quant_config and self.quant_config["quant_out"]:
-            self.quant_out = True
-        else:
-            self.quant_out = False
+    def get_replacement_params(self, mode="fake_quant", w_only=False, name=None):
+        params_dict = {}
+        if mode == "fake_quant":
+            if not self.mix_bits:
+                params_dict["a_qdq"] = (
+                    partial(self.a_qdq, aquantizer=self.aquantizer)
+                    if not w_only
+                    else None
+                )
+                params_dict["w_qdq"] = partial(self.w_qdq, wquantizer=self.wquantizer)
+            else:
+                params_dict["mix_bits"] = True
+                params_dict["a_qdq"] = self.a_qdq
+                params_dict["w_qdq"] = self.w_qdq
+                params_dict["mix_bits_map"] = self.mix_bits_map
+                params_dict["quantizer_mix_bits"] = self.quantizer_mix_bits
+                params_dict["wquantizer_default"] = self.wquantizer
+                params_dict["aquantizer_default"] = self.aquantizer
+                params_dict["w_only_default"] = w_only
 
-        # set weight quant config
-        self.wquantizer = Quantizer(**self.quant_config["weight"])
+        elif mode == "real_quant":
+            params_dict["w_q"] = partial(self.w_q, wquantizer=self.wquantizer)
+            params_dict["quant_config"] = self.quant_config
 
-        # set act quant config
-        if "act" in self.quant_config:
-            self.w_only = False
-            self.aquantizer = Quantizer(**self.quant_config["act"])
-        else:
-            self.w_only = True
-            self.aquantizer = None
+        elif mode == "online_rotate":
 
-        logger.info(f"self.model.model_config : {self.model.model_config}")
-
-        if "mix_bits" in self.quant_config:
-            self.mix_bits = True
-            mix_bits_settings = self.quant_config["mix_bits"]
-            logger.info(f"mix_bits_settings number: {len(mix_bits_settings)}")
-            logger.info(
-                f"mix_bits_settings:\n{json.dumps(mix_bits_settings, ensure_ascii=False, indent=4)}"
+            had_K, K = get_hadK(
+                self.intermediate_size if "down_proj" in name else self.num_heads
             )
-            for i in range(len(mix_bits_settings)):
-                mix_bits_setting = mix_bits_settings[f"setting_{i}"]
-                if mix_bits_setting["do_quant"]:
-                    wquantizer_mix_bits = Quantizer(**mix_bits_setting["weight"])
-                    if "act" in mix_bits_setting:
-                        w_only_mix_bits = False
-                        aquantizer_mix_bits = Quantizer(**mix_bits_setting["act"])
-                    else:
-                        w_only_mix_bits = True
-                    self.quantizer_mix_bits.append(
-                        {
-                            "layer_name": mix_bits_setting["layer_name"],
-                            "do_quant": mix_bits_setting["do_quant"],
-                            "w_only_mix_bits": w_only_mix_bits,
-                            "wquantizer": wquantizer_mix_bits,
-                            "aquantizer": aquantizer_mix_bits
-                            if not w_only_mix_bits
-                            else None,
-                        }
-                    )
+            params_dict = {
+                "had_K": had_K,
+                "K": K,
+                "online_full_had": "down_proj" in name,
+                "online_partial_had": "o_proj" in name,
+                "had_dim": (
+                    None if "down_proj" in name else self.hidden_size // self.num_heads
+                ),
+                "fp32_had": self.fp32_had,
+            }
+
+        return params_dict
+
+    def alloc_bits(self, mix_bits_settings):
+
+        for i in range(len(mix_bits_settings)):
+            mix_bits_setting = mix_bits_settings[f"setting_{i}"]
+            if mix_bits_setting["do_quant"]:
+                wquantizer_mix_bits = Quantizer(**mix_bits_setting["weight"])
+                if "act" in mix_bits_setting:
+                    w_only_mix_bits = False
+                    aquantizer_mix_bits = Quantizer(**mix_bits_setting["act"])
                 else:
-                    self.quantizer_mix_bits.append(
-                        {
-                            "layer_name": mix_bits_setting["layer_name"],
-                            "do_quant": mix_bits_setting["do_quant"],
-                        }
-                    )
+                    w_only_mix_bits = True
+                self.quantizer_mix_bits.append(
+                    {
+                        "layer_name": mix_bits_setting["layer_name"],
+                        "do_quant": mix_bits_setting["do_quant"],
+                        "w_only_mix_bits": w_only_mix_bits,
+                        "wquantizer": wquantizer_mix_bits,
+                        "aquantizer": (
+                            aquantizer_mix_bits if not w_only_mix_bits else None
+                        ),
+                    }
+                )
+            else:
+                self.quantizer_mix_bits.append(
+                    {
+                        "layer_name": mix_bits_setting["layer_name"],
+                        "do_quant": mix_bits_setting["do_quant"],
+                    }
+                )
+
         for i in range(len(self.quantizer_mix_bits)):
             logger.info(f"quantizer_mix_bits {i} : {self.quantizer_mix_bits[i]}")
             layer_name = self.quantizer_mix_bits[i]["layer_name"]
@@ -122,57 +139,83 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
                     for k in layeridx:
                         self.mix_bits_map[k][n] = i
 
-        logger.info(
-            f"self.mix_bits_map:\n{json.dumps(self.mix_bits_map, ensure_ascii=False, indent=4)}"
-        )
+    def set_quant_config(self):
+        self.mix_bits = "mix_bits" in self.quant_config
+        self.mix_bits_map = [{} for _ in range(self.num_blocks)]
+        self.quantizer_mix_bits = []
+
+        self.quant_out = self.quant_config.get("quant_out", False)
+
+        # set weight quant config
+        self.wquantizer = Quantizer(**self.quant_config["weight"])
+
+        # set act quant config
+        if "act" in self.quant_config:
+            self.w_only = False
+            self.aquantizer = Quantizer(**self.quant_config["act"])
+        else:
+            self.w_only = True
+            self.aquantizer = None
+
+        # set mix-bits quant config
+        if self.mix_bits:
+
+            mix_bits_settings = self.quant_config["mix_bits"]
+            logger.info(f"mix_bits_settings number: {len(mix_bits_settings)}")
+            logger.info(
+                f"mix_bits_settings:\n{json.dumps(mix_bits_settings, ensure_ascii=False, indent=4)}"
+            )
+            self.alloc_bits(mix_bits_settings)
+
+            logger.info(
+                f"self.mix_bits_map:\n{json.dumps(self.mix_bits_map, ensure_ascii=False, indent=4)}"
+            )
 
         # set special quant config
-        if (
-            "special" in self.quant_config
-            and "weight_clip" in self.quant_config["special"]
-        ):
-            self.weight_clip = self.quant_config["special"]["weight_clip"]
-        else:
-            self.weight_clip = True
+        special_config = self.quant_config.get("special", {})
+        self.weight_clip = special_config.get("weight_clip", True)
+        self.save_scale = special_config.get("save_scale", False)
+        self.save_clip = special_config.get("save_clip", False)
+        self.clip_version = special_config.get("clip_version", "v1")
+        self.clip_sym = special_config.get("clip_sym", self.wquantizer.sym)
+        self.clip_all = special_config.get("clip_all", False)
 
-        if (
-            "special" in self.quant_config
-            and "save_scale" in self.quant_config["special"]
-        ):
-            self.save_scale = self.quant_config["special"]["save_scale"]
-            self.scale_path = self.quant_config["special"]["scale_path"]
+        if self.save_scale:
+            self.scale_path = special_config["scale_path"]
             self.act_scales = {}
-        else:
-            self.save_scale = False
 
-        if (
-            "special" in self.quant_config
-            and "save_clip" in self.quant_config["special"]
-        ):
-            self.save_clip = self.quant_config["special"]["save_clip"]
-            self.clip_path = self.quant_config["special"]["clip_path"]
+        if self.save_clip:
+            self.clip_path = special_config["clip_path"]
             self.weight_clips = {}
-        else:
-            self.save_clip = False
-
-        if (
-            "special" in self.quant_config
-            and "clip_version" in self.quant_config["special"]
-        ):
-            self.clip_version = self.quant_config["special"]["clip_version"]
-        else:
-            self.clip_version = "v1"
-
-        if (
-            "special" in self.quant_config
-            and "clip_sym" in self.quant_config["special"]
-        ):
-            self.clip_sym = self.quant_config["special"]["clip_sym"]
-        else:
-            self.clip_sym = self.wquantizer.sym
 
         if self.clip_version == "v2":
             assert self.wquantizer.calib_algo == "learnable"
+
+        # set online-rotation config
+        self.online_rotate = special_config.get("online_rotate", False)
+        if self.online_rotate:
+            assert self.config["model"]["type"] in ["Opt", "Llama"]
+
+        self.hidden_size = self.model.model_config.hidden_size
+        if self.online_rotate:
+            self.num_heads = self.model.model_config.num_attention_heads
+            self.head_dim = self.hidden_size // self.num_heads
+            self.intermediate_size = self.model.model_config.intermediate_size
+            self.fp32_had = special_config.get("fp32_had", False)
+
+    def replace_rotate_linears(self, block):
+        for n, m in block.named_modules():
+            if isinstance(m, nn.Linear) and ("down_proj" in n or "o_proj" in n):
+                subset = {"layers": {n: m}}
+                self.model.replace_module_subset(
+                    RotateLinear,
+                    block,
+                    subset,
+                    None,
+                    self.get_replacement_params(
+                        mode="online_rotate", w_only=self.w_only, name=n
+                    ),
+                )
 
     def block_forward(self, block, input_data=None):
         output = []
@@ -211,10 +254,10 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
                 )
             )
 
-        if not self.quant_out:
-            self.input["data"] = self.block_forward(block)
-        else:
+        if self.quant_out:
             self.block_forward(block)
+        else:
+            self.input["data"] = self.block_forward(block)
 
         for h in handles:
             h.remove()
@@ -223,11 +266,13 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
         self.block_transform(block, input_feat, self.input["kwargs"])
 
         if self.quant_out:
-            params_dict = {}
-            params_dict["a_qdq"] = self.a_qdq if not self.w_only else None
-            params_dict["w_qdq"] = self.w_qdq
             self.model.replace_module_block(
-                FakeQuantLinear, block, self.block_idx, params_dict
+                FakeQuantLinear,
+                block,
+                self.block_idx,
+                self.get_replacement_params(
+                    mode="fake_quant", w_only=self.w_only, name=None
+                ),
             )
             self.input["data"] = self.block_forward(block)
 
@@ -658,7 +703,7 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
             W = layer.weight.data.to(device=device, dtype=torch.float64)
             layer.weight.data = torch.matmul(Q.T, W).to(device="cpu", dtype=dtype)
 
-            if exact_had and self.online_rote:
+            if exact_had and self.online_rotate:
                 apply_exact_had_to_linear(layer, had_dim=-1, output=False)
 
             if hasattr(layer, "bias") and layer.bias is not None:
@@ -715,36 +760,23 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
     def deploy(self, quant_format):
         logger.info(f"-- deploy_{quant_format}_model start --")
         logger.info(f"quant_config : {self.quant_config}")
-        params_dict = {}
-        if quant_format == "fake_quant":
-            module = EffcientFakeQuantLinear
-            if not self.mix_bits:
-                params_dict["mix_bits"] = False
-                params_dict["a_qdq"] = (
-                    partial(self.a_qdq, aquantizer=self.aquantizer)
-                    if not self.w_only
-                    else None
-                )
-                params_dict["w_qdq"] = partial(self.w_qdq, wquantizer=self.wquantizer)
-            else:
-                params_dict["mix_bits"] = True
-                params_dict["a_qdq"] = self.a_qdq
-                params_dict["w_qdq"] = self.w_qdq
-                params_dict["mix_bits_map"] = self.mix_bits_map
-                params_dict["quantizer_mix_bits"] = self.quantizer_mix_bits
-                params_dict["wquantizer_default"] = self.wquantizer
-                params_dict["aquantizer_default"] = self.aquantizer
-                params_dict["w_only_default"] = self.w_only
-        elif quant_format == "real_quant":
-            module = RealQuantLinear
-            params_dict["w_q"] = self.w_q
-            params_dict["quant_config"] = self.quant_config
-        elif quant_format == "origin_float":
-            module = OriginFloatLinear
-            params_dict = {}
-        else:
-            raise NotImplementedError
-        self.model.replace_module_all(module, params_dict)
+
+        module_mapping = {
+            "fake_quant": EffcientFakeQuantLinear,
+            "real_quant": RealQuantLinear,
+            "origin_float": OriginFloatLinear,
+        }
+
+        if quant_format not in module_mapping:
+            raise NotImplementedError(
+                f"Quant format '{quant_format}' is not implemented."
+            )
+
+        module = module_mapping[quant_format]
+        self.model.replace_module_all(
+            module, self.get_replacement_params(mode=quant_format, w_only=self.w_only)
+        )
+
         logger.info(f"-- deploy_{quant_format}_model done --")
 
     @torch.no_grad()
@@ -754,7 +786,19 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
         logger.info(f"copy tokenizer done --")
 
     @torch.no_grad()
+    def contiguous_params(self):
+        for name, param in self.model.model.named_parameters():
+            if not param.is_contiguous():
+                param.data = param.data.contiguous()
+
+        for name, param in self.model.model.named_buffers():
+            if not param.is_contiguous():
+                param.data = param.data.contiguous()
+
+    @torch.no_grad()
     def save_model(self, path):
+        if self.online_rotate:
+            self.contiguous_params()
         if self.config.model.type == "Llava":
             self.model.llava_model.language_model = self.model.get_model()
             self.model.llava_model.save_pretrained(path)
@@ -765,33 +809,3 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
             self.model.get_model().save_pretrained(path)
             logger.info(f"save model done --")
             self.copy_tokenizer(path)
-
-    def cleanup_memory(self, verbos=True):
-        """Run GC and clear GPU memory."""
-        import gc
-        import inspect
-
-        caller_name = ""
-        try:
-            caller_name = f" (from {inspect.stack()[1].function})"
-        except (ValueError, KeyError):
-            pass
-
-        def total_reserved_mem() -> int:
-            return sum(
-                torch.cuda.memory_reserved(device=i)
-                for i in range(torch.cuda.device_count())
-            )
-
-        memory_before = total_reserved_mem()
-
-        gc.collect()
-
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
-            memory_after = total_reserved_mem()
-            if verbos:
-                logger.info(
-                    f"GPU memory{caller_name}: {memory_before / (1024 ** 3):.2f} -> {memory_after / (1024 ** 3):.2f} GB"
-                    f" ({(memory_after - memory_before) / (1024 ** 3):.2f} GB)"
-                )

@@ -8,7 +8,6 @@ from .module_utils import _LLMC_LN_TYPES_, _TRANSFORMERS_LN_TYPES_
 from .hadamard_utils import (
     random_hadamard_matrix,
     apply_exact_had_to_linear,
-    get_hadK,
 )
 from loguru import logger
 
@@ -41,17 +40,12 @@ class Quarot(BaseBlockwiseQuantization):
         )
 
         self.rotate_head(self.Q)
-        self.cleanup_memory()
+        gc.collect()
+        torch.cuda.empty_cache()
 
     @torch.no_grad()
     def add_quant_config(self):
         self.rotate_mode = self.quant_config["special"]["rotate_mode"]
-        self.online_rote = self.quant_config["special"]["online_rotate"]
-        self.fp32_had = self.quant_config["special"]["fp32_had"]
-        self.hidden_size = self.model.model_config.hidden_size
-        self.num_heads = self.model.model_config.num_attention_heads
-        self.head_dim = self.hidden_size // self.num_heads
-        self.intermediate_size = self.model.model_config.intermediate_size
 
     def get_orthogonal_matrix(self):
         if self.rotate_mode == "random":
@@ -62,9 +56,9 @@ class Quarot(BaseBlockwiseQuantization):
             raise ValueError(f"Unsupport mode {self.mode}")
 
     def block_transform(self, block, input_feat, block_kwargs):
-        logger.info(f"Start transform the {self.block_idx}-th block")
+        logger.info(f"Start transform the {self.block_idx+1}-th block")
 
-        if self.online_rote:
+        if self.online_rotate:
             self.replace_rotate_linears(block)
         subsets = self.model.get_subsets_in_block(block)
         for index, subset in enumerate(subsets):
@@ -73,28 +67,7 @@ class Quarot(BaseBlockwiseQuantization):
         self.model.replace_module_block(LlmcRMSNorm, block, self.block_idx, {})
 
         logger.info(f"block:{block}")
-        logger.info(f"End transform the {self.block_idx}-th block")
-
-    def replace_rotate_linears(self, block):
-        for n, m in block.named_modules():
-            if isinstance(m, nn.Linear) and ("down_proj" in n or "o_proj" in n):
-                had_K, K = get_hadK(
-                    self.intermediate_size if "down_proj" in n else self.num_heads
-                )
-                params_dict = {
-                    "had_K": had_K,
-                    "K": K,
-                    "online_full_had": "down_proj" in n,
-                    "online_partial_had": "o_proj" in n,
-                    "had_dim": (
-                        None if "down_proj" in n else self.hidden_size // self.num_heads
-                    ),
-                    "fp32_had": self.fp32_had,
-                }
-                subset = {"layers": {n: m}}
-                self.model.replace_module_subset(
-                    RotateLinear, block, subset, None, params_dict
-                )
+        logger.info(f"End transform the {self.block_idx+1}-th block")
 
     @torch.no_grad()
     def subset_transform(self, block, subset):
@@ -114,10 +87,12 @@ class Quarot(BaseBlockwiseQuantization):
                 self.bake_mean_into_linear(layers[0])
 
             if "is_mlp" in subset and subset["is_mlp"]:
-                self.rotate_post_layers(layers, self.Q, exact_had=True)
+                self.rotate_post_layers(
+                    layers, self.Q, exact_had=True if self.online_rotate else False
+                )
             else:
                 self.rotate_post_layers(layers, self.Q, exact_had=False)
-                if self.online_rote:
+                if self.online_rotate:
                     apply_exact_had_to_linear(
                         prev_op[0], had_dim=self.head_dim, output=True
                     )

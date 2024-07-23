@@ -198,7 +198,7 @@ class OmniQuant(BaseBlockwiseQuantization):
             for i in range(len(self.input["data"])):
                 with self.traincast():
                     if self.let:
-                        self.smooth_weight_tmp(block)
+                        self.smooth_tmp_weight(block)
 
                     if self.position_ids is not None:
                         quant_out = block(
@@ -274,11 +274,15 @@ class OmniQuant(BaseBlockwiseQuantization):
         return scale, shift
 
     def register_omni_parameters(self, block, input_feat):
-        params_dict = {}
         module = FakeQuantLinear
-        params_dict["a_qdq"] = self.a_qdq if not self.w_only else None
-        params_dict["w_qdq"] = self.w_qdq
-        self.model.replace_module_block(module, block, self.block_idx, params_dict)
+        self.model.replace_module_block(
+            module,
+            block,
+            self.block_idx,
+            self.get_replacement_params(
+                mode="fake_quant", w_only=self.w_only, name=None
+            ),
+        )
         if self.lwc:
             self.register_lwc_parameters(block, input_feat)
         if self.let:
@@ -535,7 +539,7 @@ class OmniQuant(BaseBlockwiseQuantization):
                         m.buf_upbound_factor.requires_grad = False
                         m.buf_lowbound_factor.requires_grad = False
 
-    def smooth_weight_tmp(self, block):
+    def smooth_tmp_weight(self, block):
         subsets = self.model.get_subsets_in_block(block)
         with torch.no_grad():
             for n, m in block.named_parameters():
@@ -663,12 +667,12 @@ class OmniQuant(BaseBlockwiseQuantization):
             args["upbound_factor"] = module.buf_upbound_factor
 
         if module.dynamic_quant_weight:
-            return self.wquantizer.fake_quant_weight_dynamic(module.weight, args)
+            return wquantizer.fake_quant_weight_dynamic(module.weight, args)
 
         elif module.dynamic_quant_tmp_weight:
-            return self.wquantizer.fake_quant_weight_dynamic(module.tmp_weight, args)
+            return wquantizer.fake_quant_weight_dynamic(module.tmp_weight, args)
         else:
-            return self.wquantizer.fake_quant_weight_dynamic(module.weight, args)
+            return wquantizer.fake_quant_weight_dynamic(module.weight, args)
 
     def deploy(self, quant_format):
         super().deploy(quant_format)

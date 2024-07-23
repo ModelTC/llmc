@@ -131,6 +131,66 @@ class BaseModel(metaclass=ABCMeta):
             if isinstance(m, tuple(_LLMC_LINEAR_TYPES_ + _TRANSFORMERS_LINEAR_TYPES_))
         }
 
+    def set_mix_bits_params_dict(self, block_idx, name, params_dict):
+
+        logger.info("set_mix_bits_params_dict")
+
+        if not check_do_quant(
+            block_idx,
+            name,
+            params_dict["mix_bits_map"],
+            params_dict["quantizer_mix_bits"],
+        ):
+            logger.info(
+                f"This layer {name} in {block_idx}-th block is set to float. No need to replace this layer."
+            )
+            return params_dict
+
+        params_mix_dict = {}
+        params_mix_dict["debug_print"] = {}
+        wquantizer = get_wquantizer(
+            block_idx,
+            name,
+            params_dict["mix_bits_map"],
+            params_dict["quantizer_mix_bits"],
+            params_dict["wquantizer_default"],
+        )
+        params_mix_dict["w_qdq"] = partial(params_dict["w_qdq"], wquantizer=wquantizer)
+        params_mix_dict["debug_print"]["weight"] = {}
+        params_mix_dict["debug_print"]["weight"]["bit"] = wquantizer.bit
+        params_mix_dict["debug_print"]["weight"]["sym"] = wquantizer.sym
+        params_mix_dict["debug_print"]["weight"]["granularity"] = wquantizer.granularity
+        if wquantizer.granularity == "per_group":
+            params_mix_dict["debug_print"]["weight"][
+                "group_size"
+            ] = wquantizer.group_size
+        if not check_w_only(
+            block_idx,
+            name,
+            params_dict["mix_bits_map"],
+            params_dict["quantizer_mix_bits"],
+            params_dict["w_only_default"],
+        ):
+            aquantizer = get_aquantizer(
+                block_idx,
+                name,
+                params_dict["mix_bits_map"],
+                params_dict["quantizer_mix_bits"],
+                params_dict["aquantizer_default"],
+            )
+            params_mix_dict["a_qdq"] = partial(
+                params_dict["a_qdq"], aquantizer=aquantizer
+            )
+            params_mix_dict["debug_print"]["act"] = {}
+            params_mix_dict["debug_print"]["act"]["bit"] = aquantizer.bit
+            params_mix_dict["debug_print"]["act"]["sym"] = aquantizer.sym
+            params_mix_dict["debug_print"]["act"][
+                "granularity"
+            ] = aquantizer.granularity
+        else:
+            params_mix_dict["a_qdq"] = None
+        return params_mix_dict
+
     def replace_module_all(self, module, params_dict):
         for block_idx in range(len(self.blocks)):
             logger.info(f"Replace block index: {block_idx}/{len(self.blocks)}")
@@ -158,82 +218,16 @@ class BaseModel(metaclass=ABCMeta):
         layers_dict = subset["layers"]
 
         for name, m in layers_dict.items():
-            if isinstance(m, module):
-                logger.info(f"{name} in {block_idx}-th block. Target module is same. No need to replace this layer.")
-                continue
-            if not params_dict.get("mix_bits", False):
-                logger.info(f"replace >>> {name} in {block_idx}-th block")
-                params_dict_tmp = {}
-                if "had_K" in params_dict.keys():
-                    M = module.new(m, **params_dict)
-                else:
-                    if "a_qdq" in params_dict:
-                        params_dict_tmp["a_qdq"] = params_dict["a_qdq"]
-                    if "w_qdq" in params_dict:
-                        params_dict_tmp["w_qdq"] = params_dict["w_qdq"]
-                    M = module.new(m, **params_dict_tmp)
+            # mix bits
+            params_tmp_dict = {}
+            if "mix_bits" in params_dict and params_dict["mix_bits"]:
+                params_tmp_dict = self.set_mix_bits_params_dict(
+                    block_idx, name, params_dict
+                )
             else:
-                # mix bits
-                if not check_do_quant(
-                    block_idx,
-                    name,
-                    params_dict["mix_bits_map"],
-                    params_dict["quantizer_mix_bits"],
-                ):
-                    logger.info(
-                        f"This layer {name} in {block_idx}-th block is set to float. No need to replace this layer."
-                    )
-                    continue
-                else:
-                    logger.info(f"replace >>> {name} in {block_idx}-th block")
-                params_dict_tmp = {}
-                params_dict_tmp["debug_print"] = {}
-                wquantizer = get_wquantizer(
-                    block_idx,
-                    name,
-                    params_dict["mix_bits_map"],
-                    params_dict["quantizer_mix_bits"],
-                    params_dict["wquantizer_default"],
-                )
-                params_dict_tmp["w_qdq"] = partial(
-                    params_dict["w_qdq"], wquantizer=wquantizer
-                )
-                params_dict_tmp["debug_print"]["weight"] = {}
-                params_dict_tmp["debug_print"]["weight"]["bit"] = wquantizer.bit
-                params_dict_tmp["debug_print"]["weight"]["sym"] = wquantizer.sym
-                params_dict_tmp["debug_print"]["weight"][
-                    "granularity"
-                ] = wquantizer.granularity
-                if wquantizer.granularity == "per_group":
-                    params_dict_tmp["debug_print"]["weight"][
-                        "group_size"
-                    ] = wquantizer.group_size
-                if not check_w_only(
-                    block_idx,
-                    name,
-                    params_dict["mix_bits_map"],
-                    params_dict["quantizer_mix_bits"],
-                    params_dict["w_only_default"],
-                ):
-                    aquantizer = get_aquantizer(
-                        block_idx,
-                        name,
-                        params_dict["mix_bits_map"],
-                        params_dict["quantizer_mix_bits"],
-                        params_dict["aquantizer_default"],
-                    )
-                    params_dict_tmp["a_qdq"] = partial(
-                        params_dict["a_qdq"], aquantizer=aquantizer
-                    )
-                    params_dict_tmp["debug_print"]["act"] = {}
-                    params_dict_tmp["debug_print"]["act"]["bit"] = aquantizer.bit
-                    params_dict_tmp["debug_print"]["act"]["sym"] = aquantizer.sym
-                    params_dict_tmp["debug_print"]["act"][
-                        "granularity"
-                    ] = aquantizer.granularity
-                else:
-                    params_dict_tmp["a_qdq"] = None
-                M = module.new(m, **params_dict_tmp)
+                params_tmp_dict = params_dict
+
+            M = module.new(m, **params_tmp_dict)
 
             name_tmp = name.rsplit(".", 1)
             if len(name_tmp) == 2:
@@ -245,6 +239,7 @@ class BaseModel(metaclass=ABCMeta):
                 child_name = name_tmp[0]
 
             setattr(parent, child_name, M)
+            logger.info(f"replace >>> {name} in {block_idx}-th block")
 
     def replace_module_layernorm(self, module, block, lns, i, params_dict):
         for name, m in lns.items():

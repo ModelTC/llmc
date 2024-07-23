@@ -7,10 +7,9 @@ from collections import defaultdict
 from abc import abstractmethod, ABCMeta
 from .base_blockwise_quantization import BaseBlockwiseQuantization
 from llmc.utils.registry_factory import ALGO_REGISTRY
-import time
 import math
 import copy
-from .module_utils import FakeQuantLinear
+from .module_utils import FakeQuantLinear, RotateLinear
 
 
 @ALGO_REGISTRY
@@ -26,30 +25,26 @@ class GPTQ(BaseBlockwiseQuantization):
     @torch.no_grad()
     def add_quant_config(self):
         self.prefix = self.model.block_name_prefix
-        self.true_sequential = self.quant_config["special"]["true_sequential"]
-        self.static_groups = self.quant_config["special"]["static_groups"]
-        self.actorder = self.quant_config["special"]["actorder"]
-        self.percdamp = self.quant_config["special"]["percdamp"]
-        self.blocksize = self.quant_config["special"]["blocksize"]
-        if (
-            "owq" in self.quant_config["special"]
-            and self.quant_config["special"]["owq"]
-        ):
-            self.owq = True
-        else:
-            self.owq = False
+        special_config = self.quant_config["special"]
+
+        self.true_sequential = special_config["true_sequential"]
+        self.static_groups = special_config["static_groups"]
+        self.actorder = special_config["actorder"]
+        self.percdamp = special_config["percdamp"]
+        self.blocksize = special_config["blocksize"]
+
+        self.owq = special_config.get("owq", False)
+
         if self.owq:
-            self.n_outs = self.quant_config["special"]["n_outs"]
+            self.n_outs = special_config["n_outs"]
             self.static_groups = False
             self.actorder = False
-        if (
+
+        self.need_perm = (
             self.wquantizer.granularity == "per_group"
             and not self.static_groups
             and self.actorder
-        ) or self.owq:
-            self.need_perm = True
-        else:
-            self.need_perm = False
+        ) or self.owq
 
     def hessian_sorting(self, name):
         H = self.layers_cache[name]["H"]
@@ -60,12 +55,10 @@ class GPTQ(BaseBlockwiseQuantization):
             return
 
         temp_mask = torch.full([self.columns], True, device=self.dev)
-
         H_diag = torch.diag(H)
-
         descending_ids = torch.argsort(H_diag, descending=True)
-
         temp_mask[descending_ids[: self.n_out]] = False
+
         if self.actorder:
             perm = torch.cat(
                 [descending_ids[self.n_out :], descending_ids[: self.self.n_out]]
@@ -81,9 +74,40 @@ class GPTQ(BaseBlockwiseQuantization):
         self.perm = perm
 
     @torch.no_grad()
-    def block_transform(self, block, input_feat, block_kwargs):
-        logger.info(f"Start transform the {self.block_idx}-th block")
+    def block_transform_true_sequential(self, block, input_feat):
 
+        subsets = self.model.get_subsets_in_block(block)
+        for subset in subsets:
+            handles = []
+            self.subset_init(subset)
+
+            for name in subset["layers"]:
+                handles.append(
+                    subset["layers"][name].register_forward_hook(
+                        functools.partial(
+                            self.cache_input_hook, name=name, feat_dict=input_feat
+                        )
+                    )
+                )
+            self.block_forward(block)
+            for h in handles:
+                h.remove()
+            torch.cuda.empty_cache()
+
+            self.subset_transform(subset["layers"])
+            self.model.replace_module_subset(
+                FakeQuantLinear,
+                block,
+                subset,
+                self.block_idx,
+                self.get_replacement_params("fake_quant", w_only=True),
+            )
+
+    @torch.no_grad()
+    def block_transform(self, block, input_feat, block_kwargs):
+        logger.info(f"Start transform the {self.block_idx+1}-th block")
+        if self.online_rotate:
+            self.replace_rotate_linears(block)
         if self.owq and not hasattr(self, "n_out_dict"):
             named_linears = self.model.get_block_linears(block)
             self.n_out_dict = {}
@@ -91,43 +115,18 @@ class GPTQ(BaseBlockwiseQuantization):
                 self.n_out_dict[name] = self.n_outs[i]
 
         if self.true_sequential:
-            subsets = self.model.get_subsets_in_block(block)
-
-            for subset in subsets:
-                handles = []
-                self.subset_init(subset)
-
-                for name in subset["layers"]:
-                    handles.append(
-                        subset["layers"][name].register_forward_hook(
-                            functools.partial(
-                                self.cache_input_hook, name=name, feat_dict=input_feat
-                            )
-                        )
-                    )
-                self.block_forward(block)
-                for h in handles:
-                    h.remove()
-                torch.cuda.empty_cache()
-
-                self.subset_transform(subset["layers"])
-                params_dict = {}
-                module = FakeQuantLinear
-                params_dict["a_qdq"] = None
-                params_dict["w_qdq"] = self.w_qdq
-
-                self.model.replace_module_subset(
-                    module, block, subset, self.block_idx, params_dict
-                )
+            self.block_transform_true_sequential(block, input_feat)
         else:
             layers_dict = self.model.get_block_linears(block)
             self.subset_transform(layers_dict)
-            params_dict = {}
-            module = FakeQuantLinear
-            params_dict["a_qdq"] = None
-            params_dict["w_qdq"] = self.w_qdq
+            self.model.replace_module_block(
+                FakeQuantLinear,
+                block,
+                self.block_idx,
+                self.get_replacement_params(mode="fake_quant", w_only=True),
+            )
 
-        logger.info(f"End transform the {self.block_idx}-th block")
+        logger.info(f"End transform the {self.block_idx+1}-th block")
 
     @torch.no_grad()
     def subset_transform(self, layers_dict):
@@ -138,28 +137,33 @@ class GPTQ(BaseBlockwiseQuantization):
 
     @torch.no_grad()
     def layer_transform(self, layer, name):
+        self.initialize_qparams_and_prepare_weights(layer, name)
+        W, H = self.process_hessian_and_weights(layer, name)
+        self.update_layer_with_transformed_weights(layer, W, H, name)
+
+    def initialize_qparams_and_prepare_weights(self, layer, name):
         self.qparams = {}
         self.columns = self.layers_cache[name]["columns"]
-
-        if self.owq:
-            self.n_out = self.n_out_dict[name]
-        else:
-            self.n_out = 0
-
-        W = layer.weight.data.clone()
-        self.n_nonout = W.shape[1] - self.n_out
+        self.n_out = self.n_out_dict[name] if self.owq else 0
+        self.n_nonout = layer.weight.data.shape[1] - self.n_out
 
         if self.actorder or self.owq:
             self.hessian_sorting(name)
 
+    def process_hessian_and_weights(self, layer, name):
+        W = layer.weight.data.clone()
         if isinstance(layer, nn.Conv2d):
             W = W.flatten(1)
-        if isinstance(layer, transformers.Conv1D):
+        elif isinstance(layer, transformers.Conv1D):
             W = W.t()
 
         W = W.float()
+        H = self.layers_cache[name]["H"]
+        del self.layers_cache[name]["H"]
 
-        tick = time.time()
+        dead = torch.diag(H) == 0
+        H[dead, dead] = 1
+        W[:, dead] = 0
 
         if not self.ready():
             if self.wquantizer.granularity == "per_group":
@@ -168,38 +172,24 @@ class GPTQ(BaseBlockwiseQuantization):
             else:
                 self.search_layer_qparams(layer)
 
-        H = self.layers_cache[name]["H"]
-        del self.layers_cache[name]["H"]
-
-        dead = torch.diag(H) == 0
-        H[dead, dead] = 1
-        W[:, dead] = 0
-
         if self.actorder or self.owq:
             W = W[:, self.perm]
             H = H[self.perm][:, self.perm]
-
             self.invperm = torch.argsort(self.perm)
+
             layer.register_buffer("buf_perm", self.perm)
             layer.register_buffer("buf_invperm", self.invperm)
 
             if self.owq:
                 layer.register_buffer("buf_n_nonout", torch.tensor(self.n_nonout))
                 if self.wquantizer.granularity == "per_channel":
-                    (
-                        _,
-                        layer.buf_scales,
-                        layer.buf_zeros,
-                        _,
-                        _,
-                    ) = self.wquantizer.get_tensor_qparams(W[:, : self.n_nonout])
+                    _, layer.buf_scales, layer.buf_zeros, _, _ = (
+                        self.wquantizer.get_tensor_qparams(W[:, : self.n_nonout])
+                    )
                     self.qparams["scale"], self.qparams["zero"] = (
                         layer.buf_scales,
                         layer.buf_zeros,
                     )
-
-        Losses = torch.zeros_like(W)
-        tmp = torch.zeros_like(W)
 
         damp = self.percdamp * torch.mean(torch.diag(H))
         diag = torch.arange(self.columns, device=self.dev)
@@ -207,12 +197,15 @@ class GPTQ(BaseBlockwiseQuantization):
         H = torch.linalg.cholesky(H)
         H = torch.cholesky_inverse(H)
         H = torch.linalg.cholesky(H, upper=True)
-        Hinv = H
 
-        self.weight_transform(W, Hinv, Losses, tmp)
+        return W, H
 
+    def update_layer_with_transformed_weights(self, layer, W, H, name):
+        Losses = torch.zeros_like(W)
+        tmp = torch.zeros_like(W)
+
+        self.weight_transform(W, H, Losses, tmp)
         torch.cuda.synchronize()
-        logger.info(f"time {time.time() - tick}")
         logger.info(f"error {torch.sum(Losses).item()}")
 
         if self.actorder or self.owq:
@@ -232,28 +225,23 @@ class GPTQ(BaseBlockwiseQuantization):
         for i1 in range(0, self.n_nonout, self.blocksize):
             i2 = min(i1 + self.blocksize, self.n_nonout)
             count = i2 - i1
-            W1 = W[:, i1:i2].clone()
-            tmp1 = torch.zeros_like(W1)
-            Err1 = torch.zeros_like(W1)
-            Losses1 = torch.zeros_like(W1)
-            Hinv1 = Hinv[i1:i2, i1:i2]
+            W1, Hinv1 = W[:, i1:i2].clone(), Hinv[i1:i2, i1:i2]
+            tmp1, Err1, Losses1 = (
+                torch.zeros_like(W1),
+                torch.zeros_like(W1),
+                torch.zeros_like(W1),
+            )
+
             for i in range(count):
-                w = W1[:, i]
-                d = Hinv1[i, i]
+                w, d = W1[:, i], Hinv1[i, i]
+                idx = i1 + i
 
                 if self.wquantizer.granularity == "per_group":
-                    idx = i1 + i
-                    if not self.static_groups:
-                        if (i1 + i) % self.wquantizer.group_size == 0:
-                            column_tensors = W[
-                                :,
-                                (i1 + i) : min(
-                                    (i1 + i + self.wquantizer.group_size),
-                                    (self.columns - self.n_out),
-                                ),
-                            ]
-                            self.search_column_qparams(column_tensors, idx)
-
+                    if not self.static_groups and idx % self.wquantizer.group_size == 0:
+                        col_end = min(
+                            idx + self.wquantizer.group_size, self.columns - self.n_out
+                        )
+                        self.search_column_qparams(W[:, idx:col_end], idx)
                     else:
                         if self.actorder:
                             idx = self.perm[idx]
@@ -268,14 +256,12 @@ class GPTQ(BaseBlockwiseQuantization):
                 ).squeeze(1)
 
                 tmp1[:, i] = w
-
-                Losses1[:, i] = (w - q) ** 2 / d**2
+                Losses1[:, i] = ((w - q) ** 2) / (2 * d**2)
                 err1 = (w - q) / d
                 W1[:, i:] -= err1.unsqueeze(1).matmul(Hinv1[i, i:].unsqueeze(0))
                 Err1[:, i] = err1
 
-            tmp[:, i1:i2] = tmp1
-            Losses[:, i1:i2] = Losses1 / 2
+            tmp[:, i1:i2], Losses[:, i1:i2] = tmp1, Losses1
             W[:, i2:] -= Err1.matmul(Hinv[i1:i2, i2:])
 
     @torch.no_grad()
@@ -287,7 +273,12 @@ class GPTQ(BaseBlockwiseQuantization):
         if len(inp.shape) == 2:
             inp = inp.unsqueeze(0)
         tmp = inp.shape[0]
-        if isinstance(layer, (FakeQuantLinear, nn.Linear, transformers.Conv1D)):
+        if isinstance(
+            layer, (FakeQuantLinear, nn.Linear, transformers.Conv1D, RotateLinear)
+        ):
+            if isinstance(layer, RotateLinear):
+                # online rotate
+                inp = layer.rotater.rotate(inp)
             if len(inp.shape) == 3:
                 inp = inp.reshape((-1, inp.shape[-1]))
             inp = inp.t()
@@ -434,7 +425,7 @@ class GPTQ(BaseBlockwiseQuantization):
         layer.buf_zeros = copy.deepcopy(zeros)
 
     @torch.no_grad()
-    def w_q(self, module):
+    def w_q(self, module, wquantizer):
         weight = module.weight.data
         args = {}
         args["scales"] = module.buf_scales
@@ -443,7 +434,7 @@ class GPTQ(BaseBlockwiseQuantization):
         args["min_int"] = module.buf_min_int
         args["scales"] = args["scales"].to(self.model_dtype)
 
-        weight, scales, zeros = self.wquantizer.real_quant_weight_static(weight, args)
+        weight, scales, zeros = wquantizer.real_quant_weight_static(weight, args)
         return weight, scales, zeros
 
     @torch.no_grad()
@@ -465,9 +456,7 @@ class GPTQ(BaseBlockwiseQuantization):
         if self.owq:
             fp_weight = weight[:, module.buf_n_nonout :]
 
-        weight = self.wquantizer.fake_quant_weight_static(weight, args).to(
-            self.model_dtype
-        )
+        weight = wquantizer.fake_quant_weight_static(weight, args).to(self.model_dtype)
 
         if self.owq:
             weight[:, module.buf_n_nonout :] = fp_weight.to(self.model_dtype)

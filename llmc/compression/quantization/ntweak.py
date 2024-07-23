@@ -23,14 +23,32 @@ class NormTweaking(BaseBlockwiseQuantization):
         super().__init__(model, quant_config, input, config)
         self.add_quant_config()
 
+        model_type = self.config["model"]["type"]
         self.attention_mask = self.input["kwargs"][0].get("attention_mask")
         self.position_ids = (
             self.input["kwargs"][0].get("position_ids")
             if model_type in ["Llama", "Mistral", "Qwen2"]
             else None
         )
+
+        if self.deactive_amp:
+            self.batch_mask = self._repeat_attention_mask()
+        else:
+            self.batch_mask = (
+                self._repeat_attention_mask().float()
+                if self.attention_mask is not None
+                else None
+            )
+
         self.dev = torch.device("cuda")
         self.model_dtype = next(self.model.model.parameters()).dtype
+
+    def _repeat_attention_mask(self):
+        if self.attention_mask is not None:
+            return self.attention_mask.repeat(
+                self.input["data"][0].shape[0], 1, 1, 1
+            ).cuda()
+        return None
 
     def add_quant_config(self):
         self.prefix = self.model.block_name_prefix
@@ -55,7 +73,10 @@ class NormTweaking(BaseBlockwiseQuantization):
 
         for i in range(len(input_data)):
             input_data[i] = input_data[i].to(device=next(block.parameters()).device)
-            if "attention_mask" in self.input["kwargs"][i]:
+            if (
+                "attention_mask" in self.input["kwargs"][i]
+                and self.input["kwargs"][i]["attention_mask"] is not None
+            ):
                 self.input["kwargs"][i]["attention_mask"] = self.input["kwargs"][i][
                     "attention_mask"
                 ].cuda()
@@ -97,29 +118,22 @@ class NormTweaking(BaseBlockwiseQuantization):
 
         loss_scaler = NativeScalerWithGradNormCount()
 
-        for i in range(len(self.input["data"])):
-            if self.deactive_amp:
-                self.input["kwargs"][i]["attention_mask"] = self.input["kwargs"][i][
-                    "attention_mask"
-                ].repeat(self.input["data"][i].shape[0], 1, 1, 1)
-            else:
-                self.input["kwargs"][i]["attention_mask"] = (
-                    self.input["kwargs"][i]["attention_mask"]
-                    .repeat(self.input["data"][i].shape[0], 1, 1, 1)
-                    .float()
-                )
-
-            self.input["data"][i] = self.input["data"][i].to(self.dtype)
-
         for epochs in range(self.epochs):
             loss_list = []
             norm_list = []
 
             for i in range(len(self.input["data"])):
                 with self.traincast():
-                    quant_out = block(self.input["data"][i], **self.input["kwargs"][i])[
-                        0
-                    ]
+                    if self.position_ids is not None:
+                        quant_out = block(
+                            self.input["data"][i],
+                            attention_mask=self.batch_mask,
+                            position_ids=self.position_ids,
+                        )[0]
+                    else:
+                        quant_out = block(
+                            self.input["data"][i], attention_mask=self.batch_mask
+                        )[0]
 
                     loss = self.loss_func(self.ori_out[i].to(self.dtype), quant_out)
 
@@ -153,11 +167,14 @@ class NormTweaking(BaseBlockwiseQuantization):
                 m.use_tmp_parameter = False
 
     def register_tweak_parameters(self, block):
-        params_dict = {}
-        module = FakeQuantLinear
-        params_dict["a_qdq"] = self.a_qdq if not self.w_only else None
-        params_dict["w_qdq"] = self.w_qdq
-        self.model.replace_module_block(module, block, self.block_idx, params_dict)
+        self.model.replace_module_block(
+            FakeQuantLinear,
+            block,
+            self.block_idx,
+            self.get_replacement_params(
+                mode="fake_quant", w_only=self.w_only, name=None
+            ),
+        )
 
         llmc_ln_module = _MODEL_LN_TYPES_PAIRS_[self.config["model"]["type"]]
         self.model.replace_module_block(llmc_ln_module, block, self.block_idx, {})

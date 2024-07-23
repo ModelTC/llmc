@@ -63,10 +63,11 @@ class LlmInt8(BaseBlockwiseQuantization):
         assert not quant_format != "fake_quant"
         logger.info(f"-- deploy_{quant_format}_model start --")
         logger.info(f"quant_config : {self.quant_config}")
-        params_dict = {}
-        module = FakeQuantLinear
-        params_dict["a_qdq"] = self.a_qdq
-        params_dict["w_qdq"] = self.w_qdq
 
-        self.model.replace_module_all(module, params_dict)
+        self.model.replace_module_all(
+            FakeQuantLinear,
+            self.get_replacement_params(
+                mode="fake_quant", w_only=self.w_only, name=None
+            ),
+        )
         logger.info(f"-- deploy_{quant_format}_model done --")

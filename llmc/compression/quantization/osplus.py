@@ -16,34 +16,20 @@ class OsPlus(BaseBlockwiseQuantization):
     def __init__(self, model, quant_config, input, config):
         torch.set_grad_enabled(False)
         super().__init__(model, quant_config, input, config)
-        if (
-            "special" in self.quant_config
-            and "weight_clip" in self.quant_config["special"]
-        ):
-            self.weight_clip = self.quant_config["special"]["weight_clip"]
-        else:
-            self.weight_clip = False
-        if (
-            "special" in self.quant_config
-            and "save_scale" in self.quant_config["special"]
-        ):
-            self.save_scale = self.quant_config["special"]["save_scale"]
-        else:
-            self.save_scale = False
+
+        special_config = self.quant_config.get("special", {})
+        self.weight_clip = special_config.get("weight_clip", False)
+        self.save_scale = special_config.get("save_scale", False)
 
     @torch.no_grad()
-    def filter_subset(self, subset, idx, len):
-        if self.weight_clip:
-            if idx == len - 1:
-                return False
-            else:
-                return True
-        else:
-            prev_op = subset["prev_op"]
-            if isinstance(prev_op[0], tuple(_LLMC_LN_TYPES_ + _TRANSFORMERS_LN_TYPES_)):
-                return True
-            else:
-                return False
+    def filter_subset(self, subset, idx, length):
+        if self.weight_clip and idx == length - 1:
+            return False
+        if self.weight_clip or isinstance(
+            subset["prev_op"][0], tuple(_LLMC_LN_TYPES_ + _TRANSFORMERS_LN_TYPES_)
+        ):
+            return True
+        return False
 
     def block_transform(self, block, input_feat, block_kwargs):
         logger.info(f"Start transform the {self.block_idx}-th block")
@@ -85,12 +71,14 @@ class OsPlus(BaseBlockwiseQuantization):
                     subset_kwargs,
                 )
 
-            params_dict = {
-                "a_qdq": self.a_qdq if not self.w_only else None,
-                "w_qdq": self.w_qdq,
-            }
             self.model.replace_module_subset(
-                FakeQuantLinear, block, subset, self.block_idx, params_dict
+                FakeQuantLinear,
+                block,
+                subset,
+                self.block_idx,
+                self.get_replacement_params(
+                    mode="fake_quant", w_only=self.w_only, name=None
+                ),
             )
 
         if self.weight_clip:
@@ -103,9 +91,13 @@ class OsPlus(BaseBlockwiseQuantization):
 
             logger.info("auto_clip start")
 
-            params_dict = {"a_qdq": self.a_qdq, "w_qdq": self.w_qdq}
             self.model.replace_module_block(
-                FakeQuantLinear, block, self.block_idx, params_dict
+                FakeQuantLinear,
+                block,
+                self.block_idx,
+                self.get_replacement_params(
+                    mode="fake_quant", w_only=self.w_only, name=None
+                ),
             )
             self.auto_clip(
                 block,

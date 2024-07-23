@@ -28,20 +28,25 @@ class SpQR(BaseBlockwiseQuantization):
 
     @torch.no_grad()
     def add_quant_config(self):
+        special_config = self.quant_config["special"]
+
         self.prefix = self.model.block_name_prefix
-        self.true_sequential = self.quant_config["special"]["true_sequential"]
-        self.actorder = self.quant_config["special"]["actorder"]
-        self.percdamp = self.quant_config["special"]["percdamp"]
-        self.blocksize = self.quant_config["special"]["blocksize"]
+        self.true_sequential = special_config["true_sequential"]
+        self.actorder = special_config["actorder"]
+        self.percdamp = special_config["percdamp"]
+        self.blocksize = special_config["blocksize"]
+        self.relative_threshold = special_config["relative_threshold"]
+        self.simplified_outliers = special_config["simplified_outliers"]
+
         if self.wquantizer.granularity == "per_group" and self.actorder:
             self.need_perm = True
 
-        self.relative_threshold = self.quant_config["special"]["relative_threshold"]
-        self.simplified_outliers = self.quant_config["special"]["simplified_outliers"]
         if self.relative_threshold == "inf":
             self.relative_threshold = math.inf
-        scale_config = self.quant_config["special"]["scale"]
-        zero_config = self.quant_config["special"]["zero"]
+
+        scale_config = special_config["scale"]
+        zero_config = special_config["zero"]
+
         self.scale_quantizer = Quantizer(**scale_config)
         self.zero_quantizer = Quantizer(**zero_config)
         self.Q = Quantizer(
@@ -49,46 +54,51 @@ class SpQR(BaseBlockwiseQuantization):
         )
 
     @torch.no_grad()
-    def block_transform(self, block, input_feat, block_kwargs):
-        logger.info(f"Start transform the {self.block_idx}-th block")
-        if self.true_sequential:
-            subsets = self.model.get_subsets_in_block(block)
+    def block_transform_true_sequential(self, block, input_feat):
 
-            for subset in subsets:
-                handles = []
-                self.subset_init(subset)
+        subsets = self.model.get_subsets_in_block(block)
+        for subset in subsets:
+            handles = []
+            self.subset_init(subset)
 
-                for name in subset["layers"]:
-                    handles.append(
-                        subset["layers"][name].register_forward_hook(
-                            functools.partial(
-                                self.cache_input_hook, name=name, feat_dict=input_feat
-                            )
+            for name in subset["layers"]:
+                handles.append(
+                    subset["layers"][name].register_forward_hook(
+                        functools.partial(
+                            self.cache_input_hook, name=name, feat_dict=input_feat
                         )
                     )
-                self.block_forward(block)
-                for h in handles:
-                    h.remove()
-                torch.cuda.empty_cache()
-
-                self.subset_transform(subset["layers"])
-                params_dict = {}
-                module = FakeQuantLinear
-                params_dict["a_qdq"] = None
-                params_dict["w_qdq"] = self.w_qdq
-
-                self.model.replace_module_subset(
-                    module, block, subset, self.block_idx, params_dict
                 )
+            self.block_forward(block)
+            for h in handles:
+                h.remove()
+            torch.cuda.empty_cache()
+
+            self.subset_transform(subset["layers"])
+            self.model.replace_module_subset(
+                FakeQuantLinear,
+                block,
+                subset,
+                self.block_idx,
+                self.get_replacement_params(mode="fake_quant", w_only=True),
+            )
+
+    @torch.no_grad()
+    def block_transform(self, block, input_feat, *block_kwargs):
+        logger.info(f"Start transform the {self.block_idx+1}-th block")
+
+        if self.true_sequential:
+            self.block_transform_true_sequential(block, input_feat)
         else:
             layers_dict = self.model.get_block_linears(block)
             self.subset_transform(layers_dict)
-            params_dict = {}
-            module = FakeQuantLinear
-            params_dict["a_qdq"] = None
-            params_dict["w_qdq"] = self.w_qdq
+            self.model.replace_module_block(
+                FakeQuantLinear,
+                block,
+                self.get_replacement_params(mode="fake_quant", w_only=True),
+            )
 
-        logger.info(f"End transform the {self.block_idx}-th block")
+        logger.info(f"End transform the {self.block_idx+1}-th block")
 
     @torch.no_grad()
     def subset_transform(self, layers_dict):
@@ -337,8 +347,8 @@ class SpQR(BaseBlockwiseQuantization):
         d["zeros"] = self.merge_qparams([g["zeros"] for g in self.groups])
         for k, v in d.items():
             layer.register_buffer("buf_" + k, copy.deepcopy(v))
-        layer.register_buffer("buf_max_int", self.groups[0]["max_int"])
-        layer.register_buffer("buf_min_int", self.groups[0]["min_int"])
+        layer.register_buffer("buf_max_int", torch.tensor(self.groups[0]["max_int"]))
+        layer.register_buffer("buf_min_int", torch.tensor(self.groups[0]["min_int"]))
 
     @torch.no_grad()
     def free(self, name):
@@ -364,9 +374,7 @@ class SpQR(BaseBlockwiseQuantization):
         args["max_int"] = module.buf_max_int
         args["min_int"] = module.buf_min_int
 
-        weight = self.wquantizer.fake_quant_weight_static(weight, args).to(
-            self.model_dtype
-        )
+        weight = wquantizer.fake_quant_weight_static(weight, args).to(self.model_dtype)
 
         if hasattr(self, "need_perm"):
             invperm = module.buf_invperm

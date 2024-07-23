@@ -64,14 +64,14 @@ class AdaDim(BaseBlockwiseQuantization):
 
             self.search_dim_subset(layers_dict, input_feat[input_name])
 
-            params_dict = {}
-            module = FakeQuantLinear
-
-            params_dict["w_qdq"] = self.w_qdq
-            params_dict["a_qdq"] = self.a_qdq if not self.w_only else None
-
             self.model.replace_module_subset(
-                module, block, subset, self.block_idx, params_dict
+                FakeQuantLinear,
+                block,
+                subset,
+                self.block_idx,
+                self.get_replacement_params(
+                    mode="fake_quant", w_only=self.w_only, name=None
+                ),
             )
 
         logger.info(f"End transform the {self.block_idx}-th block")

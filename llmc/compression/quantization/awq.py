@@ -14,32 +14,11 @@ from llmc.utils.registry_factory import ALGO_REGISTRY
 class Awq(BaseBlockwiseQuantization):
     def __init__(self, model, quant_config, input, config):
         super().__init__(model, quant_config, input, config)
-        if "special" in self.quant_config and "trans" in self.quant_config["special"]:
-            self.trans = self.quant_config["special"]["trans"]
-        else:
-            self.trans = True
-
-        if (
-            "special" in self.quant_config
-            and "trans_version" in self.quant_config["special"]
-        ):
-            self.trans_version = self.quant_config["special"]["trans_version"]
-        else:
-            self.trans_version = "v2"
-        if (
-            "special" in self.quant_config
-            and "weight_clip" in self.quant_config["special"]
-        ):
-            self.weight_clip = self.quant_config["special"]["weight_clip"]
-        else:
-            self.weight_clip = True
-        if (
-            "special" in self.quant_config
-            and "save_scale" in self.quant_config["special"]
-        ):
-            self.save_scale = self.quant_config["special"]["save_scale"]
-        else:
-            self.save_scale = False
+        special_config = self.quant_config.get("special", {})
+        self.trans = special_config.get("trans", True)
+        self.trans_version = special_config.get("trans_version", "v2")
+        self.weight_clip = special_config.get("weight_clip", True)
+        self.save_scale = special_config.get("save_scale", False)
 
     @torch.no_grad()
     def get_weight_scale(self, layers_dict):
