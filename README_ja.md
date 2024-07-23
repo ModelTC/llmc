@@ -23,6 +23,20 @@
 
 ## ニュース
 
+* **2024 年 7 月 23 日:** 🍺🍺🍺 新しいバージョンのベンチマーク ペーパーをリリースします:
+
+  [**LLMC: 多用途の圧縮ツールキットを使用した大規模言語モデル量子化のベンチマーク**](https://arxiv.org/abs/2405.06001v2)。
+
+  [Ruihao Gong*](https://xhplus.github.io/)、[Yang Yong*](https://github.com/helloyongyang)、[Shiqiao Gu*](https://github.com/gushiqiao)、[Yushi Huang*](https://github.com/Harahan)、[Chengtao Lv](https://scholar.google.com/citations?user=r8vseSUAAAAJ&hl=en)、[Yunchen Zhang](https://scholar.google.com/citations?user=glkWFyUAAAAJ&hl=en)、[Xianglong Liu📧](https://xlliu-beihang.github.io/)、[Dacheng Tao](https://scholar.google.com/citations?user=RwlJNLcAAAAJ&hl=en)
+
+  (* は同等の貢献、📧 は対応する貢献を表します著者。)
+
+  <div align=center>
+  <img src="./imgs/K.png" alt="comp" width="800" />
+  </div>
+
+  ベストプラクティスに焦点を当てるのではなく、キャリブレーションデータ、アルゴリズム、データ形式を考慮して、LLM量子化をモジュール式かつ公平にベンチマークします。詳細な観察と分析により、さまざまな構成でパフォーマンスと方法を改善するためのさまざまなタイプの新しいポイントを提供します。強力なツールキットLLMCと包括的な洞察により、将来のLLM研究者は、アプリケーションに適したアルゴリズムと低ビット形式を効率的に統合し、大規模な言語モデルの圧縮を民主化できます。
+
 * **2024年7月16日:** 🔥現在、llmのスパース化と層間混合ビット量子化のためのWanda/Naive(Magnitude)をサポートしています！
 
 * **2024年7月14日:** 🔥現在、回転ベースの量子化QuaRotをサポートしています！

@@ -22,12 +22,26 @@
 
 ## 新闻
 
+* **2024 年 7 月 23 日：** 🍺🍺🍺 我们发布了全新版本的基准论文：
+
+  [**LLMC：使用多功能压缩工具包对大型语言模型量化进行基准测试**](https://arxiv.org/abs/2405.06001v2)。
+
+  [Ruihao Gong*](https://xhplus.github.io/), [Yang Yong*](https://github.com/helloyongyang), [Shiqiao Gu*](https://github.com/gushiqiao), [Yushi Huang*](https://github.com/Harahan), [Chengtao Lv](https://scholar.google.com/citations?user=r8vseSUAAAAJ&hl=en), [Yunchen Zhang](https://scholar.google.com/citations?user=glkWFyUAAAAJ&hl=en), [Xianglong Liu📧](https://xlliu-beihang.github.io/), [Dacheng Tao](https://scholar.google.com/citations?user=RwlJNLcAAAAJ&hl=en)
+
+  (* 表示同等贡献，📧 表示通讯作者。)
+
+  <div align=center>
+  <img src="./imgs/K.png" alt="comp" width="800" />
+  </div>
+
+  我们不关注最佳实践，而是考虑校准数据、算法和数据格式，以模块化和公平的方式对 LLM 量化进行基准测试。通过详细的观察和分析，我们为不同配置下的性能和方法改进提供了各种类型的新点。借助强大的工具包 LLMC 和全面的见解，未来的 LLM 研究人员可以有效地将合适的算法和低位格式集成到他们的应用中，从而使大型语言模型的压缩变得民主化。
+
 * **2024年7月16号：**🔥我们现在已经支持了大模型稀疏算法Wanda/Naive(Magnitude)和层间混合bit量化!
 
 * **2024年7月14号：**🔥我们现在已经支持了旋转类量化算法QuaRot!
 
 * **2024年7月4日:** 📱 我们提供了公开的讨论渠道. 如果您有任何问题，可以加入我们的社区:
-    
+  
     *  [Discord群](https://discord.gg/qZKUDfhm)
     *  [QQ群](http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=I9IGPWWj8uuRXWH3_ELWjouf6gkIMgUl&authKey=GA3WbFAsm90ePJf%2FCbc7ZyXXq4ShQktlBaLxgqS5yuSPAsr3%2BDKMRdosUiLYoilO&noverify=0&group_code=526192592)    
     

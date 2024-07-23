@@ -23,7 +23,7 @@
 
 ## News
 
-* **July 23, 2024:** 🍺🍺🍺 We release a brand new version of [LLM-QBench](https://arxiv.org/abs/2405.06001v1) named [LLMC](https://arxiv.org/abs/2405.06001v2):
+* **July 23, 2024:** 🍺🍺🍺 We release a brand new version benchmark paper:
 
   [**LLMC: Benchmarking Large Language Model Quantization with a Versatile Compression Toolkit**](https://arxiv.org/abs/2405.06001v2).
   
@@ -32,7 +32,7 @@
   (* denotes equal contribution, 📧 denotes corresponding author.)
   
   <div align=center>
-   <img src="./imgs/llmc.png" alt="comp" width="800" />
+   <img src="./imgs/K.png" alt="comp" width="800" />
   </div>
 
    Instead of focusing on the best practice, We modularly and fairly benchmark LLM quantization considering calibration data, algorithms, and data formats. With detailed observation and analysis, we provide various types of novel points for performance and method improvements under different configurations. With the powerful toolkit LLMC and comprehensive insights, future LLM researchers can efficiently integrate suitable algorithms and low-bit formats for their applications, thereby democratizing the compression of large language models.
