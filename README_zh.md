@@ -335,4 +335,14 @@
       archivePrefix={arXiv},
       primaryClass={cs.LG}
 }
+
+@misc{gong2024llmcbenchmarkinglargelanguage,
+      title={LLMC: Benchmarking Large Language Model Quantization with a Versatile Compression Toolkit}, 
+      author={Ruihao Gong and Yang Yong and Shiqiao Gu and Yushi Huang and Chentao Lv and Yunchen Zhang and Xianglong Liu and Dacheng Tao},
+      year={2024},
+      eprint={2405.06001},
+      archivePrefix={arXiv},
+      primaryClass={cs.LG},
+      url={https://arxiv.org/abs/2405.06001}, 
+}
 ```
