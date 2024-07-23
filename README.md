@@ -23,11 +23,25 @@
 
 ## News
 
+* **July 23, 2024:** 🍺🍺🍺 We release a brand new version of [LLM-QBench](https://arxiv.org/abs/2405.06001v1) named [LLMC](https://arxiv.org/abs/2405.06001v2):
+
+  [**LLMC: Benchmarking Large Language Model Quantization with a Versatile Compression Toolkit**](https://arxiv.org/abs/2405.06001v2).
+  
+  [Ruihao Gong*](https://xhplus.github.io/), [Yang Yong*](https://github.com/helloyongyang), [Shiqiao Gu*](https://github.com/gushiqiao), [Yushi Huang*](https://github.com/Harahan), [Chengtao Lv](https://scholar.google.com/citations?user=r8vseSUAAAAJ&hl=en), [Yunchen Zhang](https://scholar.google.com/citations?user=glkWFyUAAAAJ&hl=en), [Xianglong Liu📧](https://xlliu-beihang.github.io/), [Dacheng Tao](https://scholar.google.com/citations?user=RwlJNLcAAAAJ&hl=en)
+
+  (* denotes equal contribution, 📧 denotes corresponding author.)
+  
+  <div align=center>
+   <img src="./imgs/llmc.png" alt="comp" width="800" />
+  </div>
+
+   Instead of focusing on the best practice, We modularly and fairly benchmark LLM quantization considering calibration data, algorithms, and data formats. With detailed observation and analysis, we provide various types of novel points for performance and method improvements under different configurations. With the powerful toolkit LLMC and comprehensive insights, future LLM researchers can efficiently integrate suitable algorithms and low-bit formats for their applications, thereby democratizing the compression of large language models.
+
 * **July 16, 2024:** 🔥We support Wanda/Naive(Magnitude) for llm sparsification and layer-wise mix bits quantization now!
 
 * **July 14, 2024:** 🔥We support rotation based quantization QuaRot now!
 
-* **July 4, 2024:** 📱 We open our discussion channel. If you have any question, please join our community:
+* **July 4, 2024:** 📱 We open our discussion channel. If you have any questions, please join our community:
     *  [Discord Server](https://discord.gg/qZKUDfhm)
     *  [Tencent QQ Group](http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=I9IGPWWj8uuRXWH3_ELWjouf6gkIMgUl&authKey=GA3WbFAsm90ePJf%2FCbc7ZyXXq4ShQktlBaLxgqS5yuSPAsr3%2BDKMRdosUiLYoilO&noverify=0&group_code=526192592)    
 
@@ -46,7 +60,7 @@
   </div>
 
   We modularly and fairly benchmark the quantization techniques considering calibration cost, inference efficiency, and quantized accuracy. Near 600 experiments on diverse models and datasets provide three insightful takeaways 
-  on the calibration data, algorithm pipeline, and quantization configuration selection. Based on the takeaways, a best practice of LLM PTQ pipeline is designed, achieving the best accuracy and efficiency performance balance 
+  on the calibration data, algorithm pipeline, and quantization configuration selection. Based on the takeaways, a best practice for the LLM PTQ pipeline is designed, to achieve the best accuracy and efficiency performance balance 
   under various scenarios.
   
 * **Mar 7, 2024:** 🚀 We release the quantization part of a powerful and efficient LLM compression tool. Notably, our benchmark paper is coming soon😊.
