@@ -99,4 +99,4 @@ class HQQ(BaseBlockwiseQuantization):
         args["max_int"] = module.buf_max_int
         args["min_int"] = module.buf_min_int
 
-        return self.wquantizer.fake_quant_weight_static(module.weight, args)
+        return wquantizer.fake_quant_weight_static(module.weight, args)
