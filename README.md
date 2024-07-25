@@ -39,11 +39,11 @@
 
    Instead of focusing on the best practice, We modularly and fairly benchmark LLM quantization considering calibration data, algorithms, and data formats. With detailed observation and analysis, we provide various types of novel points for performance and method improvements under different configurations. With the powerful toolkit LLMC and comprehensive insights, future LLM researchers can efficiently integrate suitable algorithms and low-bit formats for their applications, thereby democratizing the compression of large language models.
 
-* **July 16, 2024:** 🔥We support Wanda/Naive(Magnitude) for llm sparsification and layer-wise mix bits quantization now!
+* **Jul 16, 2024:** 🔥We support Wanda/Naive(Magnitude) for llm sparsification and layer-wise mix bits quantization now!
 
-* **July 14, 2024:** 🔥We support rotation based quantization QuaRot now!
+* **Jul 14, 2024:** 🔥We support rotation based quantization QuaRot now!
 
-* **July 4, 2024:** 📱 We open our discussion channel. If you have any questions, please join our community:
+* **Jul 4, 2024:** 📱 We open our discussion channel. If you have any questions, please join our community:
     *  [Discord Server](https://discord.gg/qZKUDfhm)
     *  [Tencent QQ Group](http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=I9IGPWWj8uuRXWH3_ELWjouf6gkIMgUl&authKey=GA3WbFAsm90ePJf%2FCbc7ZyXXq4ShQktlBaLxgqS5yuSPAsr3%2BDKMRdosUiLYoilO&noverify=0&group_code=526192592)    
 
