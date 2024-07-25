@@ -3,7 +3,7 @@
 <img src="./imgs/llmc.png" alt="llmc" style="zoom:35%;" />
 
 [![ライセンス](https://img.shields.io/badge/ライセンス-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0) 
-[![arXiv](https://img.shields.io/badge/LLM--QBench-2405.06001-b31b1b)](https://arxiv.org/abs/2405.06001)
+[![arXiv](https://img.shields.io/badge/LLMC-2405.06001-b31b1b)](https://arxiv.org/abs/2405.06001)
 [![GitHub スター](https://img.shields.io/github/stars/ModelTC/llmc.svg?style=social&label=Star&maxAge=60)](https://github.com/ModelTC/llmc)
 ![訪問者](https://komarev.com/ghpvc/?username=llmc&label=visitors)
 [![Discord バナー](https://img.shields.io/discord/1139835312592392214?logo=discord&logoColor=white)](https://discord.gg/qZKUDfhm)
