@@ -33,9 +33,9 @@ class RTN(BaseBlockwiseQuantization):
             args["min_int"] = (
                 module.buf_act_min_int if hasattr(module, "buf_act_min_int") else None
             )
-            return self.aquantizer.fake_quant_act_static(act, args)
+            return aquantizer.fake_quant_act_static(act, args)
         else:
-            return self.aquantizer.fake_quant_act_dynamic(act)
+            return aquantizer.fake_quant_act_dynamic(act)
 
     def get_act_qparams(self, layers_dict, act_tensors):
         avg_min_val, avg_max_val = None, None
