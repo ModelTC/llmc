@@ -108,8 +108,8 @@ class Quantizer:
                         _tensor, scales, zeros, max_int, min_int
                     )
                 else:
-                    scales = self.get_fp_qparams(_tensor, (xmin, xmax), dev)
-                    q_tensor = self.fp_quant_dequant(_tensor, scales)
+                    clip_tensor, scales = self.get_fp_qparams(_tensor, (xmin, xmax), dev)
+                    q_tensor = self.fp_quant_dequant(clip_tensor, scales)
 
                 q_tensor -= _tensor
                 q_tensor.abs_()
@@ -171,8 +171,8 @@ class Quantizer:
     def get_fp_tensor_qparams(self, tensor, args={}):
         tensor = self.reshape_tensor(tensor)
         tensor_range = self.get_tensor_range(tensor, args)
-        scales = self.get_fp_qparams(tensor, tensor_range, tensor.device)
-        return tensor, scales
+        clip_tensor, scales = self.get_fp_qparams(tensor, tensor_range, tensor.device)
+        return clip_tensor, scales
 
     def get_fp_qparams(self, tensor, tensor_range, device):
         min_val, max_val = tensor_range[0], tensor_range[1]
@@ -197,7 +197,7 @@ class Quantizer:
 
         scales = 2.0 ** (log_scales - m_bits - bias)
 
-        return scales
+        return xc, scales
 
     def quant(self, tensor, scales, zeros, max_int, min_int):
         if self.round_zp:
