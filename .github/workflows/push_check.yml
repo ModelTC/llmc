@@ -1,0 +1,29 @@
+name: Check
+
+on:
+  push:
+    branches:
+      - master  # 或你想要监听的分支
+  pull_request:
+    branches:
+      - master  # 或你想要监听的分支
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.8'  # 选择你所需的 Python 版本
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          
+      - name: Run push_tests
+        run: |
+          python push_check.py

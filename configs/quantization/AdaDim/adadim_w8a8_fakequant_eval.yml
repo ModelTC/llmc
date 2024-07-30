@@ -1,0 +1,37 @@
+base:
+    seed: &seed 0
+model:
+    type: Llama
+    path: model path
+    torch_dtype: auto
+calib:
+    name: c4
+    download: False
+    path: calib data path
+    n_samples: 128
+    bs: 1
+    seq_len: 2048
+    preproc: c4_gptq
+    seed: *seed
+eval:
+    eval_pos: [pretrain, fake_quant]
+    name: wikitext2
+    download: False
+    path: eval data path
+    bs: 1
+    seq_len: 2048
+quant:
+    method: AdaDim
+    weight:
+        bit: 8
+        symmetric: True
+        granularity: per_channel
+        group_size: -1
+    act:
+        bit: 8
+        symmetric: True
+        granularity: per_token
+    quant_out: True
+save:
+    save_trans: False
+    save_path: ./save

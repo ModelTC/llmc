@@ -1,0 +1,15 @@
+docutils
+modelindex
+myst-parser
+sphinx
+sphinx-copybutton
+sphinx-design
+sphinx-notfound-page
+sphinx-tabs
+sphinxcontrib-jquery
+tabulate
+sphinxcontrib.contentui
+-e git+https://github.com/ain-soph/trojanzoo_sphinx_theme.git#egg=trojanzoo_sphinx_theme
+sphinx-prompt
+sphinxcontrib-katex
+sphinx-copybutton
