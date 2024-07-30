@@ -24,7 +24,7 @@ def download(calib_dataset_name, path):
         calib_dataset.save_to_disk(save_path)
         logger.info("download wikitext2 for eval finished.")
     if "ptb" in calib_dataset_name:
-        calib_dataset = load_dataset("ptb_text_only", "penn_treebank", split="test")
+        calib_dataset = load_dataset("ptb_text_only", "penn_treebank", split="test", trust_remote_code=True)
         save_path = os.path.join(path, "ptb")
         calib_dataset.save_to_disk(save_path)
         logger.info("download ptb for eval finished.")
