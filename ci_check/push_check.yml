@@ -1,0 +1,45 @@
+name: Check
+
+on:
+  push:
+    branches:
+      - master  # 或你想要监听的分支
+  pull_request:
+    branches:
+      - master  # 或你想要监听的分支
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.8'  # 选择你所需的 Python 版本
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+      
+      - name: Download dataset
+        run: |
+          cd tools
+          python download_calib_dataset.py --save_path ../check/datasets/calib --dataset_name pileval
+          python download_eval_dataset.py --save_path ../check/datasets/eval --dataset_name wikitext2
+
+      - name: Download model
+        run: |
+          cd models/opt-125m
+          wget -i model_urls.txt
+
+      - name: Run push_tests
+        run: |
+          cd llmc
+          bash run.sh
+
+      - name: Check success
+        if: ${{ success() }}
+        run: echo "All steps completed successfully. Success!"
