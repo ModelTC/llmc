@@ -1,0 +1,6 @@
+https://hf-mirror.com/facebook/opt-125m/resolve/main/config.json
+https://hf-mirror.com/facebook/opt-125m/resolve/main/generation_config.json
+https://hf-mirror.com/facebook/opt-125m/resolve/main/merges.txt
+https://hf-mirror.com/facebook/opt-125m/resolve/main/special_tokens_map.json
+https://hf-mirror.com/facebook/opt-125m/resolve/main/tokenizer_config.json
+https://hf-mirror.com/facebook/opt-125m/resolve/main/vocab.json
