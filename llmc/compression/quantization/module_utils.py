@@ -1,31 +1,34 @@
-import torch
-import torch.nn as nn
 import gc
 import math
 from functools import partial
+
+import torch
+import torch.nn as nn
 from loguru import logger
-from transformers.pytorch_utils import ALL_LAYERNORM_LAYERS
 from transformers.models.llama.modeling_llama import LlamaRMSNorm
 from transformers.models.mistral.modeling_mistral import MistralRMSNorm
 from transformers.models.mixtral.modeling_mixtral import MixtralRMSNorm
+from transformers.pytorch_utils import ALL_LAYERNORM_LAYERS
 
 # from transformers.models.qwen2.modeling_qwen2 import Qwen2RMSNorm
 
 try:
     import fast_hadamard_transform
+
     from .hadamard_utils import matmul_hadU_cuda
-except:
+except Exception:
     logger.info(
-        "fast_hadamard_transform not installed. If you need it, please install it firstly."
+        'fast_hadamard_transform not installed.'
+        'If you need it, please install it firstly.'
     )
 
 
 class LlmcLayerNorm(nn.Module):
     def __init__(self, weight, bias, eps, normalized_shape, elementwise_affine):
         super().__init__()
-        self.register_buffer("weight", weight)
+        self.register_buffer('weight', weight)
         if bias is not None:
-            self.register_buffer("bias", bias)
+            self.register_buffer('bias', bias)
         else:
             self.bias = None
         self.eps = eps
@@ -61,13 +64,17 @@ class LlmcLayerNorm(nn.Module):
         return new_module
 
     def __repr__(self):
-        return f"LlmcLayerNorm({self.normalized_shape}, eps={self.eps}, elementwise_affine={self.elementwise_affine})"
+        return (
+            f'LlmcLayerNorm({self.normalized_shape},'
+            f'eps={self.eps},'
+            f'elementwise_affine={self.elementwise_affine})'
+        )
 
 
 class LlmcLlamaRMSNorm(nn.Module):
     def __init__(self, weight, eps=1e-6):
         super().__init__()
-        self.register_buffer("weight", weight)
+        self.register_buffer('weight', weight)
         self.bias = None
         self.variance_epsilon = eps
         self.use_tmp_parameter = False
@@ -78,10 +85,10 @@ class LlmcLlamaRMSNorm(nn.Module):
         hidden_states = hidden_states * torch.rsqrt(variance + self.variance_epsilon)
         if self.use_tmp_parameter:
             weight = self.tmp_weight
-            bias = self.tmp_bias if hasattr(self, "tmp_bias") else None
+            bias = self.tmp_bias if hasattr(self, 'tmp_bias') else None
         else:
             weight = self.weight
-            bias = self.bias if hasattr(self, "bias") else None
+            bias = self.bias if hasattr(self, 'bias') else None
 
         return (
             (weight * hidden_states + bias).to(input_dtype)
@@ -98,7 +105,7 @@ class LlmcLlamaRMSNorm(nn.Module):
         return new_module
 
     def __repr__(self):
-        return f"LlmcLlamaRMSNorm()"
+        return 'LlmcLlamaRMSNorm()'
 
 
 class LlmcRMSNorm(nn.Module):
@@ -122,7 +129,7 @@ class LlmcRMSNorm(nn.Module):
         return new_module
 
     def __repr__(self):
-        return f"LlmcRMSNorm()"
+        return 'LlmcRMSNorm()'
 
 
 class LlmcQwen2RMSNorm(LlmcLlamaRMSNorm):
@@ -130,7 +137,7 @@ class LlmcQwen2RMSNorm(LlmcLlamaRMSNorm):
         super().__init__(weight, eps)
 
     def __repr__(self):
-        return f"LlmcQwen2RMSNorm()"
+        return 'LlmcQwen2RMSNorm()'
 
 
 class LlmcMixtralRMSNorm(LlmcLlamaRMSNorm):
@@ -138,7 +145,7 @@ class LlmcMixtralRMSNorm(LlmcLlamaRMSNorm):
         super().__init__(weight, eps)
 
     def __repr__(self):
-        return f"LlmcMixtralRMSNorm()"
+        return 'LlmcMixtralRMSNorm()'
 
 
 class LlmcMistralRMSNorm(LlmcLlamaRMSNorm):
@@ -146,7 +153,7 @@ class LlmcMistralRMSNorm(LlmcLlamaRMSNorm):
         super().__init__(weight, eps)
 
     def __repr__(self):
-        return f"LlmcMistralRMSNorm()"
+        return 'LlmcMistralRMSNorm()'
 
 
 class LlmcInternLM2RMSNorm(LlmcLlamaRMSNorm):
@@ -154,27 +161,27 @@ class LlmcInternLM2RMSNorm(LlmcLlamaRMSNorm):
         super().__init__(weight, eps)
 
     def __repr__(self):
-        return f"LlmcInternLM2RMSNorm()"
+        return 'LlmcInternLM2RMSNorm()'
 
 
 class OriginFloatLinear(nn.Module):
     def __init__(self, weight, bias, ori_module):
         super().__init__()
-        self.register_buffer("weight", weight)
+        self.register_buffer('weight', weight)
         if bias is not None:
-            self.register_buffer("bias", bias)
+            self.register_buffer('bias', bias)
         else:
             self.bias = None
 
         for name, buf in ori_module.named_buffers():
-            if name.startswith("buf_"):
+            if name.startswith('buf_'):
                 self.register_buffer(name, buf.data)
-        if hasattr(self, "buf_rotate") and self.buf_rotate:
+        if hasattr(self, 'buf_rotate') and self.buf_rotate:
             self.rotater = ori_module.rotater
 
     @torch.no_grad()
     def forward(self, x):
-        if hasattr(self, "buf_rotate") and self.buf_rotate:
+        if hasattr(self, 'buf_rotate') and self.buf_rotate:
             x = self.rotater.rotate(x)
         x = torch.functional.F.linear(x, self.weight, self.bias)
         return x
@@ -198,7 +205,11 @@ class OriginFloatLinear(nn.Module):
         return new_module
 
     def __repr__(self):
-        return f"OriginFloatLinear(in_features={self.in_features}, out_features={self.out_features}, bias={self.bias is not None})"
+        return (
+            f'OriginFloatLinear(in_features={self.in_features},'
+            f'out_features={self.out_features},'
+            f'bias={self.bias is not None})'
+        )
 
 
 class Rotater:
@@ -261,20 +272,20 @@ class RotateLinear(nn.Module):
         had_dim,
     ):
         super().__init__()
-        self.register_buffer("weight", weight)
+        self.register_buffer('weight', weight)
         if bias is not None:
-            self.register_buffer("bias", bias)
+            self.register_buffer('bias', bias)
         else:
             self.bias = None
 
         for name, buf in ori_module.named_buffers():
-            if name.startswith("buf_"):
+            if name.startswith('buf_'):
                 self.register_buffer(name, buf.data)
 
         self.rotater = Rotater(
             online_full_had, online_partial_had, fp32_had, K, had_K, had_dim
         )
-        self.register_buffer("buf_rotate", torch.tensor(True))
+        self.register_buffer('buf_rotate', torch.tensor(True))
 
     def forward(self, x):
         x = self.rotater.rotate(x)
@@ -319,25 +330,30 @@ class RotateLinear(nn.Module):
         pass
 
     def __repr__(self):
-        return f"RotateLinear(in_features={self.in_features}, out_features={self.out_features}, bias={self.bias is not None}, online_rotate={self.buf_rotate})"
+        return (
+            f'RotateLinear(in_features={self.in_features},'
+            f'out_features={self.out_features},'
+            f'bias={self.bias is not None},'
+            f'online_rotate={self.buf_rotate})'
+        )
 
 
 class FakeQuantLinear(nn.Module):
     def __init__(self, weight, bias, ori_module, w_qdq, a_qdq):
         super().__init__()
-        self.register_buffer("weight", weight)
+        self.register_buffer('weight', weight)
         if bias is not None:
-            self.register_buffer("bias", bias)
+            self.register_buffer('bias', bias)
         else:
             self.bias = None
         self.a_qdq = a_qdq
         self.w_qdq = w_qdq
 
         for name, buf in ori_module.named_buffers():
-            if name.startswith("buf_"):
+            if name.startswith('buf_'):
                 self.register_buffer(name, buf.data)
 
-        if hasattr(self, "buf_rotate") and self.buf_rotate:
+        if hasattr(self, 'buf_rotate') and self.buf_rotate:
             self.rotater = ori_module.rotater
         else:
             self.buf_rotate = False
@@ -346,15 +362,15 @@ class FakeQuantLinear(nn.Module):
         self.dynamic_quant_tmp_weight = False
 
     def forward(self, x):
-        if hasattr(self, "buf_rotate") and self.buf_rotate:
+        if hasattr(self, 'buf_rotate') and self.buf_rotate:
             x = self.rotater.rotate(x)
 
         if self.a_qdq is not None:
             x = self.a_qdq(x, self)
 
-        if not hasattr(self, "tmp_weight"):
+        if not hasattr(self, 'tmp_weight'):
             tmp_weight = self.w_qdq(self)
-            self.register_buffer("tmp_weight", tmp_weight, persistent=False)
+            self.register_buffer('tmp_weight', tmp_weight, persistent=False)
             self.tmp_bias = self.bias
 
         elif self.dynamic_quant_weight:
@@ -383,7 +399,7 @@ class FakeQuantLinear(nn.Module):
         new_module.out_features = module.out_features
         new_module.w_qdq_name = cls.get_func_name(w_qdq)
         new_module.a_qdq_name = (
-            cls.get_func_name(a_qdq) if a_qdq is not None else "None"
+            cls.get_func_name(a_qdq) if a_qdq is not None else 'None'
         )
         return new_module
 
@@ -397,31 +413,37 @@ class FakeQuantLinear(nn.Module):
         pass
 
     def __repr__(self):
-        return f"FakeQuantLinear(in_features={self.in_features}, out_features={self.out_features}, bias={self.bias is not None}, weight_quant={self.w_qdq_name}, act_quant={self.a_qdq_name}, online_rotate={self.buf_rotate})"
+        return (
+            f'FakeQuantLinear(in_features={self.in_features},'
+            f'out_features={self.out_features}, bias={self.bias is not None},'
+            f'weight_quant={self.w_qdq_name},'
+            f'act_quant={self.a_qdq_name},'
+            f'online_rotate={self.buf_rotate})'
+        )
 
 
 class EffcientFakeQuantLinear(nn.Module):
     def __init__(self, weight, bias, ori_module, a_qdq):
         super().__init__()
-        self.register_buffer("weight", weight)
+        self.register_buffer('weight', weight)
         if bias is not None:
-            self.register_buffer("bias", bias)
+            self.register_buffer('bias', bias)
         else:
             self.bias = None
         self.a_qdq = a_qdq
 
         for name, buf in ori_module.named_buffers():
-            if name.startswith("buf_"):
+            if name.startswith('buf_'):
                 self.register_buffer(name, buf.data)
 
-        if hasattr(self, "buf_rotate") and self.buf_rotate:
+        if hasattr(self, 'buf_rotate') and self.buf_rotate:
             self.rotater = ori_module.rotater
         else:
             self.buf_rotate = False
 
     @torch.no_grad()
     def forward(self, x):
-        if hasattr(self, "buf_rotate") and self.buf_rotate:
+        if hasattr(self, 'buf_rotate') and self.buf_rotate:
             x = self.rotater.rotate(x)
 
         if self.a_qdq is not None:
@@ -445,7 +467,7 @@ class EffcientFakeQuantLinear(nn.Module):
         new_module.out_features = module.out_features
         new_module.w_qdq_name = cls.get_func_name(w_qdq)
         new_module.a_qdq_name = (
-            cls.get_func_name(a_qdq) if a_qdq is not None else "None"
+            cls.get_func_name(a_qdq) if a_qdq is not None else 'None'
         )
         new_module.debug_print = debug_print
         return new_module
@@ -457,21 +479,29 @@ class EffcientFakeQuantLinear(nn.Module):
         return any_callable.__name__
 
     def __repr__(self):
-        return f"EffcientFakeQuantLinear(in_features={self.in_features}, out_features={self.out_features}, bias={self.bias is not None}, weight_quant={self.w_qdq_name}, act_quant={self.a_qdq_name}, online_rotate={self.buf_rotate}, debug_print={self.debug_print})"
+        return (
+            f'EffcientFakeQuantLinear(in_features={self.in_features},'
+            f'out_features={self.out_features},'
+            f'bias={self.bias is not None},'
+            f'weight_quant={self.w_qdq_name},'
+            f'act_quant={self.a_qdq_name},'
+            f'online_rotate={self.buf_rotate},'
+            f'debug_print={self.debug_print})'
+        )
 
 
 class RealQuantLinear(nn.Module):
     def __init__(self, weight, bias, scales, zeros):
         super().__init__()
-        self.register_buffer("weight", weight)
+        self.register_buffer('weight', weight)
         if bias is not None:
-            self.register_buffer("bias", bias)
+            self.register_buffer('bias', bias)
         else:
             self.bias = None
-        self.register_buffer("scales", scales)
+        self.register_buffer('scales', scales)
 
         if zeros is not None:
-            self.register_buffer("zeros", zeros)
+            self.register_buffer('zeros', zeros)
         else:
             self.zero = None
 
@@ -515,7 +545,7 @@ class RealQuantLinear(nn.Module):
     @classmethod
     @torch.no_grad()
     def pack(self, weight, scales, zeros, quant_config):
-        if quant_config["weight"]["bit"] == 8:
+        if quant_config['weight']['bit'] == 8:
             if zeros is not None:
                 zeros = zeros.view(weight.shape[0], -1)
             scales = scales.view(weight.shape[0], -1)
@@ -523,19 +553,19 @@ class RealQuantLinear(nn.Module):
 
         h1, h2 = weight.shape
         # pack 8 int4 in an int32 number, pack 16 int2 in an int32 number.
-        bit = quant_config["weight"]["bit"]
+        bit = quant_config['weight']['bit']
         tmp = 32 // bit
 
         if (
-            quant_config["weight"]["group_size"] != -1
-            and quant_config["weight"]["granularity"] == "per_group"
+            quant_config['weight']['group_size'] != -1
+            and quant_config['weight']['granularity'] == 'per_group'
         ):
-            group_size = quant_config["weight"]["group_size"]
+            group_size = quant_config['weight']['group_size']
         else:
             group_size = h2
 
-        assert h1 % tmp == 0 and h2 % tmp == 0, "H1 {} H2 {}".format(h1, h2)
-        assert h2 % group_size == 0, "H1 {} H2 {}".format(h1, h2)
+        assert h1 % tmp == 0 and h2 % tmp == 0, 'H1 {} H2 {}'.format(h1, h2)
+        assert h2 % group_size == 0, 'H1 {} H2 {}'.format(h1, h2)
 
         weight = weight.cuda()
         int_weight = torch.empty(h1, h2 // tmp).to(torch.int32).cuda()
@@ -569,16 +599,16 @@ class RealQuantLinear(nn.Module):
 
     def __repr__(self):
         return (
-            f"RealQuantLinear("
-            + f"in_features={self.in_features}, "
-            + f"out_features={self.out_features}, "
-            + f"bias={self.bias is not None}, "
-            + f"weight_shape={self.weight_shape}, "
-            + f"weight_dtype={self.weight_dtype}, "
-            + f"scales_shape={self.scales_shape}, "
-            + f"scales_dtype={self.scales_dtype}, "
-            + f"zeros_shape={self.zeros_shape}, "
-            + f"zeros_dtype={self.zeros_dtype})"
+            'RealQuantLinear('
+            + f'in_features={self.in_features}, '
+            + f'out_features={self.out_features}, '
+            + f'bias={self.bias is not None}, '
+            + f'weight_shape={self.weight_shape}, '
+            + f'weight_dtype={self.weight_dtype}, '
+            + f'scales_shape={self.scales_shape}, '
+            + f'scales_dtype={self.scales_dtype}, '
+            + f'zeros_shape={self.zeros_shape}, '
+            + f'zeros_dtype={self.zeros_dtype})'
         )
 
 
@@ -592,15 +622,15 @@ _TRANSFORMERS_LN_TYPES_ = ALL_LAYERNORM_LAYERS + [
 _TRANSFORMERS_LINEAR_TYPES_ = [nn.Linear]
 
 _MODEL_LN_TYPES_PAIRS_ = {
-    "Llama": LlmcLlamaRMSNorm,
-    "Llava": LlmcLlamaRMSNorm,
-    "Mistral": LlmcMistralRMSNorm,
-    "Mixtral": LlmcMixtralRMSNorm,
-    "Interlm2": LlmcInternLM2RMSNorm,
-    "Qwen2": LlmcQwen2RMSNorm,
-    "Starcoder": LlmcLayerNorm,
-    "Opt": LlmcLayerNorm,
-    "Bloom": LlmcLayerNorm,
+    'Llama': LlmcLlamaRMSNorm,
+    'Llava': LlmcLlamaRMSNorm,
+    'Mistral': LlmcMistralRMSNorm,
+    'Mixtral': LlmcMixtralRMSNorm,
+    'Interlm2': LlmcInternLM2RMSNorm,
+    'Qwen2': LlmcQwen2RMSNorm,
+    'Starcoder': LlmcLayerNorm,
+    'Opt': LlmcLayerNorm,
+    'Bloom': LlmcLayerNorm,
 }
 
 

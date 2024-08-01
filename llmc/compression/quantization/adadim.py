@@ -1,7 +1,9 @@
 import torch
 from loguru import logger
-from .base_blockwise_quantization import BaseBlockwiseQuantization
+
 from llmc.utils.registry_factory import ALGO_REGISTRY
+
+from .base_blockwise_quantization import BaseBlockwiseQuantization
 from .module_utils import FakeQuantLinear
 
 
@@ -22,13 +24,13 @@ class AdaDim(BaseBlockwiseQuantization):
             layer = layers_dict[name]
 
             loss_dict = {}
-            for dim in ["oc", "ic"]:
+            for dim in ['oc', 'ic']:
                 loss_mean = 0
 
                 weight = layer.weight.data.clone()
 
                 q_weight = self.wquantizer.fake_quant_weight_dynamic(
-                    weight, {"dim": dim}
+                    weight, {'dim': dim}
                 )
 
                 for i in range(len(input)):
@@ -47,20 +49,20 @@ class AdaDim(BaseBlockwiseQuantization):
                 loss_dict[dim] = loss_mean
                 layer.weight.data = weight
 
-            if loss_dict["ic"] < loss_dict["oc"]:
-                layer.register_buffer("buf_qdim", torch.tensor(0))
-                logger.info(f"Suggest layer {name} use per-input channel quant")
+            if loss_dict['ic'] < loss_dict['oc']:
+                layer.register_buffer('buf_qdim', torch.tensor(0))
+                logger.info(f'Suggest layer {name} use per-input channel quant')
             else:
-                layer.register_buffer("buf_qdim", torch.tensor(1))
-                logger.info(f"Suggest layer {name} use per-output channel quant")
+                layer.register_buffer('buf_qdim', torch.tensor(1))
+                logger.info(f'Suggest layer {name} use per-output channel quant')
 
     def block_transform(self, block, input_feat, block_kwargs):
-        logger.info(f"Start transform the {self.block_idx}-th block")
+        logger.info(f'Start transform the {self.block_idx}-th block')
         subsets = self.model.get_subsets_in_block(block)
         for index, subset in enumerate(subsets):
-            logger.info(f"subset: {subset}")
-            layers_dict = subset["layers"]
-            input_name = subset["input"][0]
+            logger.info(f'subset: {subset}')
+            layers_dict = subset['layers']
+            input_name = subset['input'][0]
 
             self.search_dim_subset(layers_dict, input_feat[input_name])
 
@@ -70,16 +72,16 @@ class AdaDim(BaseBlockwiseQuantization):
                 subset,
                 self.block_idx,
                 self.get_replacement_params(
-                    mode="fake_quant", w_only=self.w_only, name=None
+                    mode='fake_quant', w_only=self.w_only, name=None
                 ),
             )
 
-        logger.info(f"End transform the {self.block_idx}-th block")
+        logger.info(f'End transform the {self.block_idx}-th block')
 
     def w_qdq(self, module, wquantizer):
         weight = module.weight
         args = {}
-        args["dim"] = "ic" if module.buf_qdim == 0 else "oc"
+        args['dim'] = 'ic' if module.buf_qdim == 0 else 'oc'
 
         weight = self.wquantizer.fake_quant_weight_dynamic(weight, args)
 

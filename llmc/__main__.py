@@ -1,20 +1,22 @@
-from loguru import logger
 import argparse
-import torch
-import os
-from llmc.data import BaseTokenizer, BaseDataset
-from llmc.models import *
-from llmc.compression.quantization import *
-from llmc.compression.sparsification import *
-from llmc.utils.registry_factory import ALGO_REGISTRY, MODEL_REGISTRY
-from llmc.eval import PerplexityEval
+import copy
 import gc
+import json
+import os
+import time
+
+import torch
 import yaml
 from easydict import EasyDict
-from llmc.utils import seed_all, check_config, mkdirs
-import copy
-import time
-import json
+from loguru import logger
+
+from llmc.compression.quantization import *
+from llmc.compression.sparsification import *
+from llmc.data import BaseDataset, BaseTokenizer
+from llmc.eval import PerplexityEval
+from llmc.models import *
+from llmc.utils import check_config, mkdirs, seed_all
+from llmc.utils.registry_factory import ALGO_REGISTRY, MODEL_REGISTRY
 
 
 def main(config):
@@ -26,7 +28,7 @@ def main(config):
     logger.info(tokenizer)
     logger.info(model)
 
-    if "eval" in config and len(config.eval.eval_pos):
+    if 'eval' in config and len(config.eval.eval_pos):
         eval_list = []
         name_list = (
             config.eval.name
@@ -41,12 +43,12 @@ def main(config):
             ppl_eval = PerplexityEval(tokenizer.get_tokenizer(), eval_config)
             eval_list.append(ppl_eval)
 
-    if "eval" in config and "pretrain" in config.eval.eval_pos:
+    if 'eval' in config and 'pretrain' in config.eval.eval_pos:
         for ppl_eval in eval_list:
             ppl = ppl_eval.eval(model)
-            logger.info(f"{ppl_eval.dataset} ppl : {ppl}")
+            logger.info(f'{ppl_eval.dataset} ppl : {ppl}')
     sparsification = None
-    if not config.get("calib", False):
+    if not config.get('calib', False):
         blockwise_opt = ALGO_REGISTRY[config.quant.method](
             model, quant_config=config.quant, config=config
         )
@@ -58,7 +60,7 @@ def main(config):
         del calib_data
         gc.collect()
         torch.cuda.empty_cache()
-        if not config.get("sparse", False):
+        if not config.get('sparse', False):
             sparsification = False
             blockwise_opt = ALGO_REGISTRY[config.quant.method](
                 model, config.quant, model.get_first_block_input(), config
@@ -70,85 +72,85 @@ def main(config):
             )
         blockwise_opt.run_block_loop()
 
-        if "eval" in config and "transformed" in config.eval.eval_pos:
+        if 'eval' in config and 'transformed' in config.eval.eval_pos:
             if not sparsification:
-                blockwise_opt.deploy("origin_float")
+                blockwise_opt.deploy('origin_float')
             for ppl_eval in eval_list:
                 ppl = ppl_eval.eval(model)
-                logger.info(f"{ppl_eval.dataset} ppl : {ppl}")
+                logger.info(f'{ppl_eval.dataset} ppl : {ppl}')
 
-        if "cvt" in config and config.get("cvt", True):
+        if 'cvt' in config and config.get('cvt', True):
             blockwise_opt.run_block_cvt()
 
-        if "save" in config and config.save.get("save_trans", False):
+        if 'save' in config and config.save.get('save_trans', False):
             blockwise_opt.save_model(save_trans_path)
 
-        if "save" in config and config.save.get("save_trtllm", False):
+        if 'save' in config and config.save.get('save_trtllm', False):
             blockwise_opt.save_model(save_trtllm_trans_path)
             from llmc.utils.export_trtllm import cvt_trtllm_engine
 
             cvt_trtllm_engine(
                 save_trtllm_trans_path,
                 save_trtllm_engine_path,
-                config.save.get("trtllm_cfg"),
+                config.save.get('trtllm_cfg'),
             )
 
-    if "eval" in config and "fake_quant" in config.eval.eval_pos:
-        blockwise_opt.deploy("fake_quant")
+    if 'eval' in config and 'fake_quant' in config.eval.eval_pos:
+        blockwise_opt.deploy('fake_quant')
         for ppl_eval in eval_list:
             ppl = ppl_eval.eval(model)
-            logger.info(f"{ppl_eval.dataset} ppl : {ppl}")
+            logger.info(f'{ppl_eval.dataset} ppl : {ppl}')
 
-    if "save" in config and config.save.get("save_fake", False):
-        blockwise_opt.deploy("fake_quant")
+    if 'save' in config and config.save.get('save_fake', False):
+        blockwise_opt.deploy('fake_quant')
         blockwise_opt.save_model(save_fake_path)
 
-    if "save" in config and config.save.get("save_lightllm", False):
-        blockwise_opt.deploy("real_quant")
+    if 'save' in config and config.save.get('save_lightllm', False):
+        blockwise_opt.deploy('real_quant')
         blockwise_opt.save_model(save_quant_path)
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     llmc_start_time = time.time()
     parser = argparse.ArgumentParser()
-    parser.add_argument("--config", type=str, required=True)
+    parser.add_argument('--config', type=str, required=True)
     args = parser.parse_args()
 
-    with open(args.config, "r") as file:
+    with open(args.config, 'r') as file:
         config = yaml.safe_load(file)
     config = EasyDict(config)
 
     check_config(config)
 
-    logger.info(f"args: {args}")
-    logger.info(f"config:\n{json.dumps(config, ensure_ascii=False, indent=4)}")
+    logger.info(f'args: {args}')
+    logger.info(f'config:\n{json.dumps(config, ensure_ascii=False, indent=4)}')
 
     seed_all(config.base.seed)
 
     # mkdirs
-    if "save" in config:
-        if config.save.get("save_trans", False):
-            save_trans_path = os.path.join(config.save.save_path, "transformed_model")
+    if 'save' in config:
+        if config.save.get('save_trans', False):
+            save_trans_path = os.path.join(config.save.save_path, 'transformed_model')
             mkdirs(save_trans_path)
-        if config.save.get("save_trtllm", False):
+        if config.save.get('save_trtllm', False):
             save_trtllm_trans_path = os.path.join(
-                config.save.save_path, "trtllm_transformed_model"
+                config.save.save_path, 'trtllm_transformed_model'
             )
             mkdirs(save_trtllm_trans_path)
             save_trtllm_engine_path = os.path.join(
-                config.save.save_path, "trtllm_engine"
+                config.save.save_path, 'trtllm_engine'
             )
             mkdirs(save_trtllm_engine_path)
-        if config.save.get("save_lightllm", False):
-            save_quant_path = os.path.join(config.save.save_path, "real_quant_model")
+        if config.save.get('save_lightllm', False):
+            save_quant_path = os.path.join(config.save.save_path, 'real_quant_model')
             mkdirs(save_quant_path)
-        if config.save.get("save_fake", False):
-            save_fake_path = os.path.join(config.save.save_path, "fake_quant_model")
+        if config.save.get('save_fake', False):
+            save_fake_path = os.path.join(config.save.save_path, 'fake_quant_model')
             mkdirs(save_fake_path)
 
     main(config)
 
     llmc_end_time = time.time()
     llmc_duration_time = llmc_end_time - llmc_start_time
-    logger.info(f"llmc_duration_time: {llmc_duration_time} s")
-    logger.info("--- llmc finished ---")
+    logger.info(f'llmc_duration_time: {llmc_duration_time} s')
+    logger.info('--- llmc finished ---')

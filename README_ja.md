@@ -2,7 +2,7 @@
 
 <img src="./imgs/llmc.png" alt="llmc" style="zoom:35%;" />
 
-[![ライセンス](https://img.shields.io/badge/ライセンス-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0) 
+[![ライセンス](https://img.shields.io/badge/ライセンス-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![arXiv](https://img.shields.io/badge/LLMC-2405.06001-b31b1b)](https://arxiv.org/abs/2405.06001)
 [![GitHub スター](https://img.shields.io/github/stars/ModelTC/llmc.svg?style=social&label=Star&maxAge=60)](https://github.com/ModelTC/llmc)
 ![訪問者](https://komarev.com/ghpvc/?username=llmc&label=visitors)
@@ -20,18 +20,19 @@
 **中国語のドキュメント**は[こちら](https://llmc-zhcn.readthedocs.io/en/latest/)です。
 
 **コミュニティ**:
-*  [Discord サーバー](https://discord.gg/qZKUDfhm)
-*  [Tencent QQ グループ](http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=I9IGPWWj8uuRXWH3_ELWjouf6gkIMgUl&authKey=GA3WbFAsm90ePJf%2FCbc7ZyXXq4ShQktlBaLxgqS5yuSPAsr3%2BDKMRdosUiLYoilO&noverify=0&group_code=526192592)
+
+- [Discord サーバー](https://discord.gg/qZKUDfhm)
+- [Tencent QQ グループ](http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=I9IGPWWj8uuRXWH3_ELWjouf6gkIMgUl&authKey=GA3WbFAsm90ePJf%2FCbc7ZyXXq4ShQktlBaLxgqS5yuSPAsr3%2BDKMRdosUiLYoilO&noverify=0&group_code=526192592)
 
 ## ニュース
 
-* **2024 年 7 月 23 日:** 🍺🍺🍺 新しいバージョンのベンチマーク ペーパーをリリースします:
+- **2024 年 7 月 23 日:** 🍺🍺🍺 新しいバージョンのベンチマーク ペーパーをリリースします:
 
   [**LLMC: 多用途の圧縮ツールキットを使用した大規模言語モデル量子化のベンチマーク**](https://arxiv.org/abs/2405.06001v2)。
 
-  [Ruihao Gong*](https://xhplus.github.io/)、[Yang Yong*](https://github.com/helloyongyang)、[Shiqiao Gu*](https://github.com/gushiqiao)、[Yushi Huang*](https://github.com/Harahan)、[Chengtao Lv](https://scholar.google.com/citations?user=r8vseSUAAAAJ&hl=en)、[Yunchen Zhang](https://scholar.google.com/citations?user=glkWFyUAAAAJ&hl=en)、[Xianglong Liu📧](https://xlliu-beihang.github.io/)、[Dacheng Tao](https://scholar.google.com/citations?user=RwlJNLcAAAAJ&hl=en)
+  [Ruihao Gong\*](https://xhplus.github.io/)、[Yang Yong\*](https://github.com/helloyongyang)、[Shiqiao Gu\*](https://github.com/gushiqiao)、[Yushi Huang\*](https://github.com/Harahan)、[Chengtao Lv](https://scholar.google.com/citations?user=r8vseSUAAAAJ&hl=en)、[Yunchen Zhang](https://scholar.google.com/citations?user=glkWFyUAAAAJ&hl=en)、[Xianglong Liu📧](https://xlliu-beihang.github.io/)、[Dacheng Tao](https://scholar.google.com/citations?user=RwlJNLcAAAAJ&hl=en)
 
-  (* は同等の貢献、📧 は対応する貢献を表します著者。)
+  (\* は同等の貢献、📧 は対応する貢献を表します著者。)
 
   <div align=center>
   <img src="./imgs/K.png" alt="comp" width="800" />
@@ -39,38 +40,39 @@
 
   ベストプラクティスに焦点を当てるのではなく、キャリブレーションデータ、アルゴリズム、データ形式を考慮して、LLM量子化をモジュール式かつ公平にベンチマークします。詳細な観察と分析により、さまざまな構成でパフォーマンスと方法を改善するためのさまざまなタイプの新しいポイントを提供します。強力なツールキットLLMCと包括的な洞察により、将来のLLM研究者は、アプリケーションに適したアルゴリズムと低ビット形式を効率的に統合し、大規模な言語モデルの圧縮を民主化できます。
 
-* **2024年7月16日:** 🔥現在、llmのスパース化と層間混合ビット量子化のためのWanda/Naive(Magnitude)をサポートしています！
+- **2024年7月16日:** 🔥現在、llmのスパース化と層間混合ビット量子化のためのWanda/Naive(Magnitude)をサポートしています！
 
-* **2024年7月14日:** 🔥現在、回転ベースの量子化QuaRotをサポートしています！
+- **2024年7月14日:** 🔥現在、回転ベースの量子化QuaRotをサポートしています！
 
-* **2024年7月4日:** 📱 ディスカッションチャンネルを開設しました。質問がある場合は、コミュニティに参加してください:
-    *  [Discord サーバー](https://discord.gg/qZKUDfhm)
-    *  [Tencent QQ グループ](http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=I9IGPWWj8uuRXWH3_ELWjouf6gkIMgkUl&authKey=GA3WbFAsm90ePJf%2FCbc7ZyXXq4ShQktlBaLxgqS5yuSPAsr3%2BDKMRdosUiLYoilO&noverify=0&group_code=526192592)    
+- **2024年7月4日:** 📱 ディスカッションチャンネルを開設しました。質問がある場合は、コミュニティに参加してください:
 
-* **2024年5月17日:** 🚀 現在、LLaVA、Mixtral、LLaMA V3、Qwen V2などの高度な大規模モデルをサポートしています。試してみてください！
+  - [Discord サーバー](https://discord.gg/qZKUDfhm)
+  - [Tencent QQ グループ](http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=I9IGPWWj8uuRXWH3_ELWjouf6gkIMgkUl&authKey=GA3WbFAsm90ePJf%2FCbc7ZyXXq4ShQktlBaLxgqS5yuSPAsr3%2BDKMRdosUiLYoilO&noverify=0&group_code=526192592)
 
-* **2024年5月13日:** 🍺🍺🍺 量子化ベンチマーク論文を発表しました:
+- **2024年5月17日:** 🚀 現在、LLaVA、Mixtral、LLaMA V3、Qwen V2などの高度な大規模モデルをサポートしています。試してみてください！
+
+- **2024年5月13日:** 🍺🍺🍺 量子化ベンチマーク論文を発表しました:
 
   [**LLM-QBench: 大規模言語モデルのポストトレーニング量子化のベストプラクティスに向けたベンチマーク**](https://arxiv.org/abs/2405.06001).
-  
-  [Ruihao Gong*](https://xhplus.github.io/), [Yang Yong*](https://github.com/helloyongyang), [Shiqiao Gu*](https://github.com/gushiqiao), [Yushi Huang*](https://github.com/Harahan), [Yunchen Zhang](https://scholar.google.com/citations?user=glkWFyUAAAAJ&hl=en), [Xianglong Liu📧](https://xlliu-beihang.github.io/), [Dacheng Tao](https://scholar.google.com/citations?user=RwlJNLcAAAAJ&hl=en)
 
-  (* は同等の貢献を示し、📧 は対応する著者を示します。)
-  
+  [Ruihao Gong\*](https://xhplus.github.io/), [Yang Yong\*](https://github.com/helloyongyang), [Shiqiao Gu\*](https://github.com/gushiqiao), [Yushi Huang\*](https://github.com/Harahan), [Yunchen Zhang](https://scholar.google.com/citations?user=glkWFyUAAAAJ&hl=en), [Xianglong Liu📧](https://xlliu-beihang.github.io/), [Dacheng Tao](https://scholar.google.com/citations?user=RwlJNLcAAAAJ&hl=en)
+
+  (\* は同等の貢献を示し、📧 は対応する著者を示します。)
+
   <div align=center>
    <img src="./imgs/best_practice.png" alt="comp" width="800" />
   </div>
 
   校正コスト、推論効率、および量子化精度を考慮して、量子化技術をモジュール化し、公平にベンチマークしました。多様なモデルとデータセットでの約600の実験が、校正データ、アルゴリズムパイプライン、および量子化構成の選択に関する3つの洞察を提供します。これらの洞察に基づいて、LLM PTQパイプラインのベストプラクティスが設計され、さまざまなシナリオで最高の精度と効率のパフォーマンスバランスを実現します。
-  
-* **2024年3月7日:** 🚀 強力で効率的なLLM圧縮ツールの量子化部分をリリースしました。注目すべきは、ベンチマーク論文が近日公開予定です😊。
+
+- **2024年3月7日:** 🚀 強力で効率的なLLM圧縮ツールの量子化部分をリリースしました。注目すべきは、ベンチマーク論文が近日公開予定です😊。
 
 ## ハイライト機能
 
-* LLMs（例：Llama2-70B、OPT-175B）を量子化し、1つのA100/H100/H800 GPUでPPLを評価します💥。
-* ユーザーが選択できる最先端の圧縮アルゴリズムが[元のリポジトリと一致](benchmark/align.md)し、ユーザーは1つのLLMで複数のアルゴリズムを順次使用できます💥。
-* 特定の圧縮アルゴリズムでツールによってエクスポートされた変換モデル（[構成](#構成)の``quant``部分の``save_trans``モード）は、複数のバックエンド（例：[Lightllm](https://github.com/ModelTC/lightllm)、[TensorRT-LLM](https://github.com/NVIDIA/TensorRT-LLM)）によって単純な量子化を行い、特定の圧縮アルゴリズムで最適化されたモデルを取得できます。対応するバックエンドが推論できます💥。
-* 浅いメモリフットプリントを持つ圧縮モデル（[構成](#構成)の``quant``部分の``save_lightllm``モード）は、[Lightllm](https://github.com/ModelTC/lightllm)によって直接推論できます💥。
+- LLMs（例：Llama2-70B、OPT-175B）を量子化し、1つのA100/H100/H800 GPUでPPLを評価します💥。
+- ユーザーが選択できる最先端の圧縮アルゴリズムが[元のリポジトリと一致](benchmark/align.md)し、ユーザーは1つのLLMで複数のアルゴリズムを順次使用できます💥。
+- 特定の圧縮アルゴリズムでツールによってエクスポートされた変換モデル（[構成](#構成)の`quant`部分の`save_trans`モード）は、複数のバックエンド（例：[Lightllm](https://github.com/ModelTC/lightllm)、[TensorRT-LLM](https://github.com/NVIDIA/TensorRT-LLM)）によって単純な量子化を行い、特定の圧縮アルゴリズムで最適化されたモデルを取得できます。対応するバックエンドが推論できます💥。
+- 浅いメモリフットプリントを持つ圧縮モデル（[構成](#構成)の`quant`部分の`save_lightllm`モード）は、[Lightllm](https://github.com/ModelTC/lightllm)によって直接推論できます💥。
 
 ## 使用方法
 
@@ -88,7 +90,7 @@
    # huggingfaceからLLMをダウンロードした後、次のように校正データと評価データを準備します：
    cd tools
    python download_calib_dataset.py --save_path [校正データパス]
-   python download_eval_dataset.py --save_path [評価データパス] 
+   python download_eval_dataset.py --save_path [評価データパス]
    ```
 
 3. アルゴリズムを選択してモデルを量子化します：
@@ -102,20 +104,20 @@
 
 ## 構成
 
-ユーザーが構成を設計するのを支援するために、``llmc/configs/``の下に提供されているすべての構成のいくつかの一般的な構成を説明します：
+ユーザーが構成を設計するのを支援するために、`llmc/configs/`の下に提供されているすべての構成のいくつかの一般的な構成を説明します：
 
-* ``model``:
+- `model`:
 
   ```yaml
   model:
       # ``llmc/models/*.py``のクラス名に置き換えます。
       type: Llama
       # モデルのパスに置き換えます。
-      path: model path 
+      path: model path
       torch_dtype: auto
   ```
 
-* ``calib``: 
+- `calib`:
 
   ```yaml
   # 注意：一部のアルゴリズムには``calib``が必要ありません。例：naive... したがって、この部分を削除できます。
@@ -129,11 +131,11 @@
       bs: -1
       seq_len: 512
       # ``llmc/data/dataset/specified_preproc.py``の関数名に置き換えます。
-      preproc: general  
+      preproc: general
       seed: *seed
   ```
 
-* ``eval``:
+- `eval`:
 
   ```yaml
   # 事前トレーニング/変換/偽量子化モデルのPPLを評価したい場合。
@@ -151,7 +153,7 @@
       seq_len: 2048
   ```
 
-* ``save``:
+- `save`:
 
   ```yaml
   save:
@@ -164,7 +166,7 @@
       save_path: ./save
   ```
 
-* ``quant``:
+- `quant`:
 
   ```yaml
   quant:
@@ -191,7 +193,7 @@
           static: True
       # この部分は特定のアルゴリズム用に設計されており、提供されているものを参考にして独自のアルゴリズムを設計できます。
       special:
-          let: True 
+          let: True
           lwc_lr: 0.01
           let_lr: 0.005
           use_shift: False
@@ -229,7 +231,7 @@
 
 ✅ [LLaVA](https://github.com/haotian-liu/LLaVA)
 
-``llmc/models/*.py``の下のファイルを参照して、独自のモデルタイプを追加できます。
+`llmc/models/*.py`の下のファイルを参照して、独自のモデルタイプを追加できます。
 
 ## サポートされているアルゴリズムリスト
 
@@ -295,7 +297,7 @@
 
 - [ ] モデルを圧縮し、複数のバックエンド（例：[Lightllm](https://github.com/ModelTC/lightllm)、[TensorRT-LLM](https://github.com/NVIDIA/TensorRT-LLM)）を使用して推論するエンドツーエンドの例。
 
-- [ ] 異なるアルゴリズムの``quant``部分の``special``に関するドキュメント。
+- [ ] 異なるアルゴリズムの`quant`部分の`special`に関するドキュメント。
 
 - [ ] ユーザーが独自に新しいアルゴリズムを追加するためのドキュメント。
 
@@ -305,19 +307,19 @@
 
 以下のリポジトリを参考にしてコードを開発しました：
 
-* https://github.com/mit-han-lab/llm-awq
-* https://github.com/mit-han-lab/smoothquant
-* https://github.com/OpenGVLab/OmniQuant
-* https://github.com/IST-DASLab/gptq
-* https://github.com/ModelTC/Outlier_Suppression_Plus
-* https://github.com/IST-DASLab/QUIK
-* https://github.com/Vahe1994/SpQR
-* https://github.com/ilur98/DGQ
-* https://github.com/xvyaward/owq
-* https://github.com/TimDettmers/bitsandbytes
-* https://github.com/mobiusml/hqq
-* [https://github.com/spcl/QuaRot](https://github.com/spcl/QuaRot)
-* [https://github.com/locuslab/wanda](https://github.com/locuslab/wanda)
+- https://github.com/mit-han-lab/llm-awq
+- https://github.com/mit-han-lab/smoothquant
+- https://github.com/OpenGVLab/OmniQuant
+- https://github.com/IST-DASLab/gptq
+- https://github.com/ModelTC/Outlier_Suppression_Plus
+- https://github.com/IST-DASLab/QUIK
+- https://github.com/Vahe1994/SpQR
+- https://github.com/ilur98/DGQ
+- https://github.com/xvyaward/owq
+- https://github.com/TimDettmers/bitsandbytes
+- https://github.com/mobiusml/hqq
+- [https://github.com/spcl/QuaRot](https://github.com/spcl/QuaRot)
+- [https://github.com/locuslab/wanda](https://github.com/locuslab/wanda)
 
 ## スター履歴
 
@@ -338,7 +340,7 @@ LLM-QBench論文/llmcツールキットが研究に役立つまたは関連し�
 }
 
 @misc{gong2024llmqbench,
-      title={LLM-QBench: A Benchmark Towards the Best Practice for Post-training Quantization of Large Language Models}, 
+      title={LLM-QBench: A Benchmark Towards the Best Practice for Post-training Quantization of Large Language Models},
       author={Ruihao Gong and Yang Yong and Shiqiao Gu and Yushi Huang and Yunchen Zhang and Xianglong Liu and Dacheng Tao},
       year={2024},
       eprint={2405.06001},
@@ -347,12 +349,12 @@ LLM-QBench論文/llmcツールキットが研究に役立つまたは関連し�
 }
 
 @misc{gong2024llmcbenchmarkinglargelanguage,
-      title={LLMC: Benchmarking Large Language Model Quantization with a Versatile Compression Toolkit}, 
+      title={LLMC: Benchmarking Large Language Model Quantization with a Versatile Compression Toolkit},
       author={Ruihao Gong and Yang Yong and Shiqiao Gu and Yushi Huang and Chentao Lv and Yunchen Zhang and Xianglong Liu and Dacheng Tao},
       year={2024},
       eprint={2405.06001},
       archivePrefix={arXiv},
       primaryClass={cs.LG},
-      url={https://arxiv.org/abs/2405.06001}, 
+      url={https://arxiv.org/abs/2405.06001},
 }
 ```

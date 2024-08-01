@@ -1,0 +1,59 @@
+name: Check
+
+on:
+  pull_request:
+    branches:
+      - main
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.8'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Download dataset
+        run: |
+          # pwd  # /home/runner/work/llmc/llmc
+          cd tools
+          python download_calib_dataset.py --save_path ../check/datasets/calib --dataset_name pileval
+          python download_eval_dataset.py --save_path ../check/datasets/eval --dataset_name wikitext2
+
+      - name: Download model
+        run: |
+          cd ci_check
+          mkdir -p opt-125m
+          cp model_urls.txt opt-125m/model_urls.txt
+          cd opt-125m
+          wget -i model_urls.txt
+          wget --no-check-certificate https://hf-mirror.com/facebook/opt-125m/resolve/main/pytorch_model.bin
+
+      - name: Run push_tests
+        run: |
+          cd ci_check    # /home/runner/work/llmc/llmc/ci_check
+          python change_files.py
+          bash run.sh
+
+      - name: Check success
+        if: ${{ success() }}
+        run: echo "All steps completed successfully. Success!"
+
+      - name: Clean up
+        if: ${{ always() }}
+        run: |
+          cd ..
+          rm -rf opt-125m
+          rm -rf check

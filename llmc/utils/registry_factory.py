@@ -9,9 +9,9 @@ class Register(dict):
     def register(self, target):
         def add_item(key, value):
             if not callable(value):
-                raise Exception(f"Error:{value} must be callable!")
+                raise Exception(f'Error:{value} must be callable!')
             if key in self._dict:
-                raise Exception(f"{key} already exists.")
+                raise Exception(f'{key} already exists.')
             self[key] = value
             return value
 

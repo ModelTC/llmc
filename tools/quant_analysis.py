@@ -1,30 +1,25 @@
-from transformers import AutoModelForCausalLM, AutoConfig
-from loguru import logger
-from tqdm import tqdm
-
+import argparse
+import functools
 import gc
 import os
-import torch
-import functools
-import argparse
 import sys
 
-sys.path.append("..")
+import torch
+from loguru import logger
+from tqdm import tqdm
+from transformers import AutoConfig, AutoModelForCausalLM
+
+sys.path.append('..')
 import matplotlib.pyplot as plt
 import torch.nn as nn
 
-from llmc.data import BaseTokenizer, BaseDataset
-from llmc.utils.registry_factory import MODEL_REGISTRY
-from llmc.utils.registry_factory import ALGO_REGISTRY
-from llmc.models import *
-from llmc.utils import seed_all, check_config, mkdirs
-from llmc.compression.quantization import Quantizer
-from llmc.compression.quantization import FakeQuantLinear
+from llmc.compression.quantization import FakeQuantLinear, Quantizer
 from llmc.compression.quantization.module_utils import (
-    _LLMC_LINEAR_TYPES_,
-    _TRANSFORMERS_LINEAR_TYPES_,
-    RotateLinear,
-)
+    _LLMC_LINEAR_TYPES_, _TRANSFORMERS_LINEAR_TYPES_, RotateLinear)
+from llmc.data import BaseDataset, BaseTokenizer
+from llmc.models import *
+from llmc.utils import check_config, mkdirs, seed_all
+from llmc.utils.registry_factory import ALGO_REGISTRY, MODEL_REGISTRY
 
 
 def calculate_kurtosis_channel(signal):
@@ -67,7 +62,7 @@ def calculate_kurtosis(signal):
     std = torch.std(signal)
 
     if std == 0:
-        return float("inf")
+        return float('inf')
 
     standardized_signal = (signal - mean) / (std + 1e-8)
 
@@ -81,10 +76,10 @@ def draw(save_path, save_name, X, Y1, Y2):
     ax = fig.add_subplot(1, 1, 1)
     ax.plot(X, Y1)
     ax.plot(X, Y2)
-    plt.xlabel("channel")
-    plt.ylabel("value")
+    plt.xlabel('channel')
+    plt.ylabel('value')
     plt.title(save_name)
-    fig.savefig(f"{save_path}/{save_name}.jpg")
+    fig.savefig(f'{save_path}/{save_name}.jpg')
     plt.close(fig)
     plt.cla()
 
@@ -110,8 +105,8 @@ def analysis_block_cosine(res, t_res, args):
             min_cos = min(cos_values)
             avg_cos = sum(cos_values) / len(cos_values)
             logger.info(name)
-            logger.info(f"min_cos : {min_cos}")
-            logger.info(f"avg_cos : {avg_cos}")
+            logger.info(f'min_cos : {min_cos}')
+            logger.info(f'avg_cos : {avg_cos}')
 
 
 def avg_k_a(a, k):
@@ -125,7 +120,7 @@ def avg_k_a(a, k):
 
 
 def analysis_block_outlier(res, t_res, org_w, trans_w, arg):
-    if args.prof_gra in ["per_channel", "per_group"]:
+    if args.prof_gra in ['per_channel', 'per_group']:
         kurt_func = calculate_kurtosis_channel
     else:
         kurt_func = calculate_kurtosis
@@ -136,15 +131,15 @@ def analysis_block_outlier(res, t_res, org_w, trans_w, arg):
         weight = org_w[name]
         t_weight = trans_w[name]
 
-        if args.prof_gra == "per_group":
+        if args.prof_gra == 'per_group':
             weight = wquanter.reshape_tensor(weight)
             t_weight = wquanter.reshape_tensor(t_weight)
 
         k_w = kurt_func(weight)
         k_t_w = kurt_func(t_weight)
 
-        logger.info(f"The kurtosis of org weight is :{k_w}")
-        logger.info(f"The kurtosis of trans weight is :{k_t_w}")
+        logger.info(f'The kurtosis of org weight is :{k_w}')
+        logger.info(f'The kurtosis of trans weight is :{k_t_w}')
 
         tensor = res[name].mean(dim=0)
         tensor = tensor.float()
@@ -155,12 +150,12 @@ def analysis_block_outlier(res, t_res, org_w, trans_w, arg):
         k_a = kurt_func(tensor)
         k_t_a = kurt_func(t_tensor)
 
-        logger.info(f"The kurtosis of org act is :{k_a}")
-        logger.info(f"The kurtosis of trans act is :{k_t_a}")
+        logger.info(f'The kurtosis of org act is :{k_a}')
+        logger.info(f'The kurtosis of trans act is :{k_t_a}')
 
         if args.draw:
-            save_outlier_path = os.path.join(args.save_path, "outlier")
-            save_t_outlier_path = os.path.join(args.save_path, "t_outlier")
+            save_outlier_path = os.path.join(args.save_path, 'outlier')
+            save_t_outlier_path = os.path.join(args.save_path, 't_outlier')
 
             t_min_val = t_tensor.amin(dim=0).detach().cpu().numpy()
             t_max_val = t_tensor.amax(dim=0).detach().cpu().numpy()
@@ -222,12 +217,12 @@ def stat_input_hook(m, x, y, w, name, idx, args):
     if isinstance(x, tuple):
         x = x[0]
 
-    layer_name = f"block_{idx}.{name}"
+    layer_name = f'block_{idx}.{name}'
 
     if args.online_rotate and t:
-        if "down_proj" in layer_name:
+        if 'down_proj' in layer_name:
             x = down_rotater.rotate(x)
-        elif "o_proj" in layer_name:
+        elif 'o_proj' in layer_name:
             x = o_rotater.rotate(x)
 
     if t:
@@ -241,7 +236,7 @@ def stat_input_hook(m, x, y, w, name, idx, args):
 def stat_output_hook(m, x, y, name, idx, args):
     if isinstance(y, tuple):
         y = y[0]
-    layer_name = f"block_{idx}.{name}"
+    layer_name = f'block_{idx}.{name}'
     if t:
         t_res[layer_name] = y
     else:
@@ -257,10 +252,10 @@ def block_forward(block, input_data, input_kwargs):
             dtype=next(block.parameters()).dtype,
         )
         if (
-            "attention_mask" in input_kwargs[i]
-            and input_kwargs[i]["attention_mask"] is not None
+            'attention_mask' in input_kwargs[i]
+            and input_kwargs[i]['attention_mask'] is not None
         ):
-            input_kwargs[i]["attention_mask"] = input_kwargs[i]["attention_mask"].cuda()
+            input_kwargs[i]['attention_mask'] = input_kwargs[i]['attention_mask'].cuda()
         with torch.no_grad():
             out = block(input_data[i], **input_kwargs[i])[0]
             output.append(out)
@@ -273,20 +268,20 @@ class analysis_quanter(Quantizer):
 
     def fake_quant_weight_dynamic(self, module, args={}):
         weight = module.weight
-        if "int_indices" in args:
-            if self.granularity == "per_group":
-                assert len(args["int_indices"]) % self.group_size == 0
-            q_weight = weight[:, args["int_indices"]]
-            fp_weight = weight[:, args["fp_indices"]]
+        if 'int_indices' in args:
+            if self.granularity == 'per_group':
+                assert len(args['int_indices']) % self.group_size == 0
+            q_weight = weight[:, args['int_indices']]
+            fp_weight = weight[:, args['fp_indices']]
 
-        elif "dim" in args and "ic" in args["dim"]:
+        elif 'dim' in args and 'ic' in args['dim']:
             q_weight = weight.T
         else:
             q_weight = weight
 
-        if "current_bit" in args:
+        if 'current_bit' in args:
             org_bit = self.bit
-            self.bit = args["current_bit"]
+            self.bit = args['current_bit']
 
         org_w_shape = q_weight.shape
         org_w_dtype = q_weight.dtype
@@ -297,79 +292,79 @@ class analysis_quanter(Quantizer):
         q_weight = self.quant_dequant(q_weight, scales, zeros, max_int, min_int)
         q_weight = self.restore_tensor(q_weight, org_w_shape).to(org_w_dtype)
 
-        if "current_bit" in args:
+        if 'current_bit' in args:
             self.bit = org_bit
 
-        if "int_indices" in args:
+        if 'int_indices' in args:
             mix_weight = torch.zeros_like(weight)
-            mix_weight[:, args["int_indices"]] = q_weight
-            mix_weight[:, args["fp_indices"]] = fp_weight
+            mix_weight[:, args['int_indices']] = q_weight
+            mix_weight[:, args['fp_indices']] = fp_weight
             return mix_weight
 
-        elif "dim" in args and "ic" in args["dim"]:
+        elif 'dim' in args and 'ic' in args['dim']:
             q_weight = q_weight.T
 
         return q_weight
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("--dataset_name", type=str)
-    parser.add_argument("--data_path", type=str)
-    parser.add_argument("--n_samples", type=int, default=128)
-    parser.add_argument("--bs", type=int, default=-1)
-    parser.add_argument("--seq_len", type=int, default=512)
-    parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--preproc", type=str, default="general")
-    parser.add_argument("--save_path", type=str, default="./save")
-    parser.add_argument("--draw", action="store_true")
-    parser.add_argument("--cosine", action="store_true")
-    parser.add_argument("--model_type", type=str, required=True)
-    parser.add_argument("--model_path", type=str, required=True)
-    parser.add_argument("--t_model_path", type=str)
-    parser.add_argument("--torch_dtype", type=str, default="auto")
-    parser.add_argument("--tokenizer_mode", type=str, default="slow")
+    parser.add_argument('--dataset_name', type=str)
+    parser.add_argument('--data_path', type=str)
+    parser.add_argument('--n_samples', type=int, default=128)
+    parser.add_argument('--bs', type=int, default=-1)
+    parser.add_argument('--seq_len', type=int, default=512)
+    parser.add_argument('--seed', type=int, default=42)
+    parser.add_argument('--preproc', type=str, default='general')
+    parser.add_argument('--save_path', type=str, default='./save')
+    parser.add_argument('--draw', action='store_true')
+    parser.add_argument('--cosine', action='store_true')
+    parser.add_argument('--model_type', type=str, required=True)
+    parser.add_argument('--model_path', type=str, required=True)
+    parser.add_argument('--t_model_path', type=str)
+    parser.add_argument('--torch_dtype', type=str, default='auto')
+    parser.add_argument('--tokenizer_mode', type=str, default='slow')
 
-    parser.add_argument("--w_only", action="store_true")
-    parser.add_argument("--wbit", type=int, default=6)
-    parser.add_argument("--wsym", action="store_true")
-    parser.add_argument("--wgra", type=str, default="per_channel")
-    parser.add_argument("--group_size", type=int, default=-1)
+    parser.add_argument('--w_only', action='store_true')
+    parser.add_argument('--wbit', type=int, default=6)
+    parser.add_argument('--wsym', action='store_true')
+    parser.add_argument('--wgra', type=str, default='per_channel')
+    parser.add_argument('--group_size', type=int, default=-1)
 
-    parser.add_argument("--abit", type=int, default=6)
-    parser.add_argument("--asym", action="store_true")
-    parser.add_argument("--agra", type=str, default="per_token")
+    parser.add_argument('--abit', type=int, default=6)
+    parser.add_argument('--asym', action='store_true')
+    parser.add_argument('--agra', type=str, default='per_token')
 
-    parser.add_argument("--log_dir", type=str, default="log.txt")
-    parser.add_argument("--prof_gra", type=str, default="per_tensor")
-    parser.add_argument("--config_path", type=str)
+    parser.add_argument('--log_dir', type=str, default='log.txt')
+    parser.add_argument('--prof_gra', type=str, default='per_tensor')
+    parser.add_argument('--config_path', type=str)
 
-    parser.add_argument("--online_rotate", action="store_true")
+    parser.add_argument('--online_rotate', action='store_true')
 
     args = parser.parse_args()
 
     seed_all(args.seed)
 
     logger.remove()
-    logger.add(args.log_dir, level="INFO", mode="w")
+    logger.add(args.log_dir, level='INFO', mode='w')
 
-    logger.info(f"args : {args}")
+    logger.info(f'args : {args}')
 
     calib_cfg = {
-        "name": args.dataset_name,
-        "download": False,
-        "path": args.data_path,
-        "n_samples": args.n_samples,
-        "bs": args.bs,
-        "seq_len": args.seq_len,
-        "preproc": args.preproc,
-        "seed": args.seed,
+        'name': args.dataset_name,
+        'download': False,
+        'path': args.data_path,
+        'n_samples': args.n_samples,
+        'bs': args.bs,
+        'seq_len': args.seq_len,
+        'preproc': args.preproc,
+        'seed': args.seed,
     }
 
     model_config = {
-        "type": args.model_type,
-        "path": args.model_path,
-        "torch_dtype": args.torch_dtype,
+        'type': args.model_type,
+        'path': args.model_path,
+        'torch_dtype': args.torch_dtype,
     }
 
     model = MODEL_REGISTRY[args.model_type](args.model_path, args.torch_dtype)
@@ -377,11 +372,12 @@ if __name__ == "__main__":
     t_model = MODEL_REGISTRY[args.model_type](args.t_model_path, args.torch_dtype)
 
     if args.online_rotate:
+        # import gc
+
         import yaml
         from easydict import EasyDict
-        import gc
 
-        with open(args.config_path, "r") as file:
+        with open(args.config_path, 'r') as file:
             config = yaml.safe_load(file)
         config = EasyDict(config)
 
@@ -402,7 +398,7 @@ if __name__ == "__main__":
         for n, m in t_model.model.named_modules():
             if isinstance(m, RotateLinear):
                 logger.info(m)
-                if "down_proj" in n:
+                if 'down_proj' in n:
                     down_rotater = m.rotater
                 else:
                     o_rotater = m.rotater
@@ -443,8 +439,8 @@ if __name__ == "__main__":
 
     if args.cosine:
         params_dict = {}
-        params_dict["w_qdq"] = wquanter.fake_quant_weight_dynamic
-        params_dict["a_qdq"] = None if args.w_only else a_qdq
+        params_dict['w_qdq'] = wquanter.fake_quant_weight_dynamic
+        params_dict['a_qdq'] = None if args.w_only else a_qdq
         t_model.replace_module_all(FakeQuantLinear, params_dict)
 
     with torch.no_grad():
@@ -456,13 +452,13 @@ if __name__ == "__main__":
 
             t_hooks = register_hook(t_block, i, args)
             t = True
-            t_fp_inps["data"] = block_forward(
-                t_block, t_fp_inps["data"], t_fp_inps["kwargs"]
+            t_fp_inps['data'] = block_forward(
+                t_block, t_fp_inps['data'], t_fp_inps['kwargs']
             )
 
             hooks = register_hook(block, i, args)
             t = False
-            fp_inps["data"] = block_forward(block, fp_inps["data"], fp_inps["kwargs"])
+            fp_inps['data'] = block_forward(block, fp_inps['data'], fp_inps['kwargs'])
 
             block.cpu()
 

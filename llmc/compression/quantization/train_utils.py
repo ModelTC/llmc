@@ -1,10 +1,10 @@
-import torch
-import torch.nn as nn
-
-import sys
 import os
+import sys
 import time
 from math import inf
+
+import torch
+import torch.nn as nn
 from loguru import logger
 
 
@@ -24,19 +24,19 @@ class TruncateFunction(torch.autograd.Function):
 
 
 class LossFunction:
-    def __init__(self, method="mse", reduction="mean", dim=0):
+    def __init__(self, method='mse', reduction='mean', dim=0):
         self.method = method
         self.reduction = reduction
         self.dim = dim
 
     def __call__(self, f_out, q_out):
         # MSE Loss
-        if self.method == "mse":
+        if self.method == 'mse':
             mse_loss = nn.MSELoss(reduction=self.reduction)
             return mse_loss(f_out, q_out)
 
         # Distribution Loss
-        elif self.method == "dist":
+        elif self.method == 'dist':
             mse_loss = nn.MSELoss(reduction=self.reduction)
 
             channel_num = f_out.shape[-1]
@@ -48,7 +48,7 @@ class LossFunction:
             return mean_error + std_error
 
         # KL divergence Loss
-        elif self.method == "kl":
+        elif self.method == 'kl':
             kl_loss = nn.KLDivLoss(reduction=self.reduction)
             return kl_loss(f_out, q_out)
 

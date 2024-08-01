@@ -1,4 +1,5 @@
 from abc import ABCMeta
+
 from transformers import AutoTokenizer
 
 
@@ -6,7 +7,7 @@ class BaseTokenizer(metaclass=ABCMeta):
     def __init__(self, tokenizer_path, tokenizer_mode):
         self.tokenizer_path = tokenizer_path
         self.tokenizer_mode = tokenizer_mode
-        if self.tokenizer_mode == "fast":
+        if self.tokenizer_mode == 'fast':
             self.use_fast = True
         else:
             self.use_fast = False

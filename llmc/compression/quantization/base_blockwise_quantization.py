@@ -1,25 +1,24 @@
-from loguru import logger
-import torch
-import torch.nn as nn
-import gc
 import functools
+import gc
 import json
 from collections import defaultdict
 from functools import partial
+
+import torch
+import torch.nn as nn
+from loguru import logger
+
 from llmc.utils import copy_files
+
 from ..blockwise_optimization import BlockwiseOpt
-from .module_utils import _LLMC_LN_TYPES_, _TRANSFORMERS_LN_TYPES_
-from .module_utils import _LLMC_LINEAR_TYPES_, _TRANSFORMERS_LINEAR_TYPES_
-from .module_utils import (
-    FakeQuantLinear,
-    EffcientFakeQuantLinear,
-    RealQuantLinear,
-    OriginFloatLinear,
-    RotateLinear,
-)
-from .quant import Quantizer
 from .hadamard_utils import apply_exact_had_to_linear, get_hadK
-from .utils import get_wquantizer, get_aquantizer, check_do_quant, check_w_only
+from .module_utils import (_LLMC_LINEAR_TYPES_, _LLMC_LN_TYPES_,
+                           _TRANSFORMERS_LINEAR_TYPES_,
+                           _TRANSFORMERS_LN_TYPES_, EffcientFakeQuantLinear,
+                           FakeQuantLinear, OriginFloatLinear, RealQuantLinear,
+                           RotateLinear)
+from .quant import Quantizer
+from .utils import check_do_quant, check_w_only, get_aquantizer, get_wquantizer
 
 
 class BaseBlockwiseQuantization(BlockwiseOpt):
@@ -28,11 +27,11 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
         self.set_quant_config()
 
     def w_qdq(self, module, wquantizer):
-        args = {"lowbound_factor": None, "upbound_factor": None}
-        if hasattr(module, "buf_lowbound_factor"):
-            args["lowbound_factor"] = module.buf_lowbound_factor
-        if hasattr(module, "buf_upbound_factor"):
-            args["upbound_factor"] = module.buf_upbound_factor
+        args = {'lowbound_factor': None, 'upbound_factor': None}
+        if hasattr(module, 'buf_lowbound_factor'):
+            args['lowbound_factor'] = module.buf_lowbound_factor
+        if hasattr(module, 'buf_upbound_factor'):
+            args['upbound_factor'] = module.buf_upbound_factor
 
         return wquantizer.fake_quant_weight_dynamic(module.weight, args)
 
@@ -45,44 +44,44 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
     def logit(self, x):
         return torch.log(x / (1 - x))
 
-    def get_replacement_params(self, mode="fake_quant", w_only=False, name=None):
+    def get_replacement_params(self, mode='fake_quant', w_only=False, name=None):
         params_dict = {}
-        if mode == "fake_quant":
+        if mode == 'fake_quant':
             if not self.mix_bits:
-                params_dict["a_qdq"] = (
+                params_dict['a_qdq'] = (
                     partial(self.a_qdq, aquantizer=self.aquantizer)
                     if not w_only
                     else None
                 )
-                params_dict["w_qdq"] = partial(self.w_qdq, wquantizer=self.wquantizer)
+                params_dict['w_qdq'] = partial(self.w_qdq, wquantizer=self.wquantizer)
             else:
-                params_dict["mix_bits"] = True
-                params_dict["a_qdq"] = self.a_qdq
-                params_dict["w_qdq"] = self.w_qdq
-                params_dict["mix_bits_map"] = self.mix_bits_map
-                params_dict["quantizer_mix_bits"] = self.quantizer_mix_bits
-                params_dict["wquantizer_default"] = self.wquantizer
-                params_dict["aquantizer_default"] = self.aquantizer
-                params_dict["w_only_default"] = w_only
+                params_dict['mix_bits'] = True
+                params_dict['a_qdq'] = self.a_qdq
+                params_dict['w_qdq'] = self.w_qdq
+                params_dict['mix_bits_map'] = self.mix_bits_map
+                params_dict['quantizer_mix_bits'] = self.quantizer_mix_bits
+                params_dict['wquantizer_default'] = self.wquantizer
+                params_dict['aquantizer_default'] = self.aquantizer
+                params_dict['w_only_default'] = w_only
 
-        elif mode == "real_quant":
-            params_dict["w_q"] = partial(self.w_q, wquantizer=self.wquantizer)
-            params_dict["quant_config"] = self.quant_config
+        elif mode == 'real_quant':
+            params_dict['w_q'] = partial(self.w_q, wquantizer=self.wquantizer)
+            params_dict['quant_config'] = self.quant_config
 
-        elif mode == "online_rotate":
+        elif mode == 'online_rotate':
 
             had_K, K = get_hadK(
-                self.intermediate_size if "down_proj" in name else self.num_heads
+                self.intermediate_size if 'down_proj' in name else self.num_heads
             )
             params_dict = {
-                "had_K": had_K,
-                "K": K,
-                "online_full_had": "down_proj" in name,
-                "online_partial_had": "o_proj" in name,
-                "had_dim": (
-                    None if "down_proj" in name else self.hidden_size // self.num_heads
+                'had_K': had_K,
+                'K': K,
+                'online_full_had': 'down_proj' in name,
+                'online_partial_had': 'o_proj' in name,
+                'had_dim': (
+                    None if 'down_proj' in name else self.hidden_size // self.num_heads
                 ),
-                "fp32_had": self.fp32_had,
+                'fp32_had': self.fp32_had,
             }
 
         return params_dict
@@ -90,21 +89,21 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
     def alloc_bits(self, mix_bits_settings):
 
         for i in range(len(mix_bits_settings)):
-            mix_bits_setting = mix_bits_settings[f"setting_{i}"]
-            if mix_bits_setting["do_quant"]:
-                wquantizer_mix_bits = Quantizer(**mix_bits_setting["weight"])
-                if "act" in mix_bits_setting:
+            mix_bits_setting = mix_bits_settings[f'setting_{i}']
+            if mix_bits_setting['do_quant']:
+                wquantizer_mix_bits = Quantizer(**mix_bits_setting['weight'])
+                if 'act' in mix_bits_setting:
                     w_only_mix_bits = False
-                    aquantizer_mix_bits = Quantizer(**mix_bits_setting["act"])
+                    aquantizer_mix_bits = Quantizer(**mix_bits_setting['act'])
                 else:
                     w_only_mix_bits = True
                 self.quantizer_mix_bits.append(
                     {
-                        "layer_name": mix_bits_setting["layer_name"],
-                        "do_quant": mix_bits_setting["do_quant"],
-                        "w_only_mix_bits": w_only_mix_bits,
-                        "wquantizer": wquantizer_mix_bits,
-                        "aquantizer": (
+                        'layer_name': mix_bits_setting['layer_name'],
+                        'do_quant': mix_bits_setting['do_quant'],
+                        'w_only_mix_bits': w_only_mix_bits,
+                        'wquantizer': wquantizer_mix_bits,
+                        'aquantizer': (
                             aquantizer_mix_bits if not w_only_mix_bits else None
                         ),
                     }
@@ -112,27 +111,27 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
             else:
                 self.quantizer_mix_bits.append(
                     {
-                        "layer_name": mix_bits_setting["layer_name"],
-                        "do_quant": mix_bits_setting["do_quant"],
+                        'layer_name': mix_bits_setting['layer_name'],
+                        'do_quant': mix_bits_setting['do_quant'],
                     }
                 )
 
         for i in range(len(self.quantizer_mix_bits)):
-            logger.info(f"quantizer_mix_bits {i} : {self.quantizer_mix_bits[i]}")
-            layer_name = self.quantizer_mix_bits[i]["layer_name"]
+            logger.info(f'quantizer_mix_bits {i} : {self.quantizer_mix_bits[i]}')
+            layer_name = self.quantizer_mix_bits[i]['layer_name']
             for name in layer_name:
-                n_layeridx = name.split("#")
+                n_layeridx = name.split('#')
                 assert (
                     len(n_layeridx) == 1 or len(n_layeridx) == 2
-                ), "layer_name in mix_bits must be name#1-3-4 or name."
+                ), 'layer_name in mix_bits must be name#1-3-4 or name.'
                 if len(n_layeridx) == 2:
                     n = n_layeridx[0]
-                    layeridx = n_layeridx[1].split("-")
+                    layeridx = n_layeridx[1].split('-')
                     layeridx = [int(idx) for idx in layeridx]
                 else:
                     n = n_layeridx[0]
-                    layeridx = "all"
-                if layeridx == "all":
+                    layeridx = 'all'
+                if layeridx == 'all':
                     for k in range(self.num_blocks):
                         self.mix_bits_map[k][n] = i
                 else:
@@ -140,19 +139,19 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
                         self.mix_bits_map[k][n] = i
 
     def set_quant_config(self):
-        self.mix_bits = "mix_bits" in self.quant_config
+        self.mix_bits = 'mix_bits' in self.quant_config
         self.mix_bits_map = [{} for _ in range(self.num_blocks)]
         self.quantizer_mix_bits = []
 
-        self.quant_out = self.quant_config.get("quant_out", False)
+        self.quant_out = self.quant_config.get('quant_out', False)
 
         # set weight quant config
-        self.wquantizer = Quantizer(**self.quant_config["weight"])
+        self.wquantizer = Quantizer(**self.quant_config['weight'])
 
         # set act quant config
-        if "act" in self.quant_config:
+        if 'act' in self.quant_config:
             self.w_only = False
-            self.aquantizer = Quantizer(**self.quant_config["act"])
+            self.aquantizer = Quantizer(**self.quant_config['act'])
         else:
             self.w_only = True
             self.aquantizer = None
@@ -160,60 +159,62 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
         # set mix-bits quant config
         if self.mix_bits:
 
-            mix_bits_settings = self.quant_config["mix_bits"]
-            logger.info(f"mix_bits_settings number: {len(mix_bits_settings)}")
+            mix_bits_settings = self.quant_config['mix_bits']
+            logger.info(f'mix_bits_settings number: {len(mix_bits_settings)}')
             logger.info(
-                f"mix_bits_settings:\n{json.dumps(mix_bits_settings, ensure_ascii=False, indent=4)}"
+                f'mix_bits_settings:\n'
+                f'{json.dumps(mix_bits_settings, ensure_ascii=False, indent=4)}'
             )
             self.alloc_bits(mix_bits_settings)
 
             logger.info(
-                f"self.mix_bits_map:\n{json.dumps(self.mix_bits_map, ensure_ascii=False, indent=4)}"
+                f'self.mix_bits_map:\n'
+                f'{json.dumps(self.mix_bits_map, ensure_ascii=False, indent=4)}'
             )
 
         # set special quant config
-        special_config = self.quant_config.get("special", {})
-        self.weight_clip = special_config.get("weight_clip", True)
-        self.save_scale = special_config.get("save_scale", False)
-        self.save_clip = special_config.get("save_clip", False)
-        self.clip_version = special_config.get("clip_version", "v1")
-        self.clip_sym = special_config.get("clip_sym", self.wquantizer.sym)
-        self.clip_all = special_config.get("clip_all", False)
+        special_config = self.quant_config.get('special', {})
+        self.weight_clip = special_config.get('weight_clip', True)
+        self.save_scale = special_config.get('save_scale', False)
+        self.save_clip = special_config.get('save_clip', False)
+        self.clip_version = special_config.get('clip_version', 'v1')
+        self.clip_sym = special_config.get('clip_sym', self.wquantizer.sym)
+        self.clip_all = special_config.get('clip_all', False)
 
         if self.save_scale:
-            self.scale_path = special_config["scale_path"]
+            self.scale_path = special_config['scale_path']
             self.act_scales = {}
 
         if self.save_clip:
-            self.clip_path = special_config["clip_path"]
+            self.clip_path = special_config['clip_path']
             self.weight_clips = {}
 
-        if self.clip_version == "v2":
-            assert self.wquantizer.calib_algo == "learnable"
+        if self.clip_version == 'v2':
+            assert self.wquantizer.calib_algo == 'learnable'
 
         # set online-rotation config
-        self.online_rotate = special_config.get("online_rotate", False)
+        self.online_rotate = special_config.get('online_rotate', False)
         if self.online_rotate:
-            assert self.config["model"]["type"] in ["Opt", "Llama"]
+            assert self.config['model']['type'] in ['Opt', 'Llama']
 
         self.hidden_size = self.model.model_config.hidden_size
         if self.online_rotate:
             self.num_heads = self.model.model_config.num_attention_heads
             self.head_dim = self.hidden_size // self.num_heads
             self.intermediate_size = self.model.model_config.intermediate_size
-            self.fp32_had = special_config.get("fp32_had", False)
+            self.fp32_had = special_config.get('fp32_had', False)
 
     def replace_rotate_linears(self, block):
         for n, m in block.named_modules():
-            if isinstance(m, nn.Linear) and ("down_proj" in n or "o_proj" in n):
-                subset = {"layers": {n: m}}
+            if isinstance(m, nn.Linear) and ('down_proj' in n or 'o_proj' in n):
+                subset = {'layers': {n: m}}
                 self.model.replace_module_subset(
                     RotateLinear,
                     block,
                     subset,
                     None,
                     self.get_replacement_params(
-                        mode="online_rotate", w_only=self.w_only, name=n
+                        mode='online_rotate', w_only=self.w_only, name=n
                     ),
                 )
 
@@ -221,26 +222,26 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
         output = []
 
         if input_data is None:
-            input_data = self.input["data"]
+            input_data = self.input['data']
 
         for i in range(len(input_data)):
             input_data[i] = input_data[i].to(device=next(block.parameters()).device)
             if (
-                "attention_mask" in self.input["kwargs"][i]
-                and self.input["kwargs"][i]["attention_mask"] is not None
+                'attention_mask' in self.input['kwargs'][i]
+                and self.input['kwargs'][i]['attention_mask'] is not None
             ):
-                self.input["kwargs"][i]["attention_mask"] = self.input["kwargs"][i][
-                    "attention_mask"
+                self.input['kwargs'][i]['attention_mask'] = self.input['kwargs'][i][
+                    'attention_mask'
                 ].cuda()
             with torch.no_grad():
-                out = block(input_data[i], **self.input["kwargs"][i])[0]
+                out = block(input_data[i], **self.input['kwargs'][i])[0]
                 output.append(out)
         return output
 
     def block_opt(self, block):
         block = block.cuda()
         named_linears = self.model.get_block_linears(block)
-        logger.info(f"named_linears: {named_linears}")
+        logger.info(f'named_linears: {named_linears}')
         input_feat = defaultdict(list)
         handles = []
         self.block_init(block)
@@ -257,13 +258,13 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
         if self.quant_out:
             self.block_forward(block)
         else:
-            self.input["data"] = self.block_forward(block)
+            self.input['data'] = self.block_forward(block)
 
         for h in handles:
             h.remove()
         torch.cuda.empty_cache()
 
-        self.block_transform(block, input_feat, self.input["kwargs"])
+        self.block_transform(block, input_feat, self.input['kwargs'])
 
         if self.quant_out:
             self.model.replace_module_block(
@@ -271,10 +272,10 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
                 block,
                 self.block_idx,
                 self.get_replacement_params(
-                    mode="fake_quant", w_only=self.w_only, name=None
+                    mode='fake_quant', w_only=self.w_only, name=None
                 ),
             )
-            self.input["data"] = self.block_forward(block)
+            self.input['data'] = self.block_forward(block)
 
         block = block.cpu()
         del input_feat
@@ -282,17 +283,17 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
         torch.cuda.empty_cache()
 
     def block_transform(self, block, input_feat, block_kwargs):
-        logger.info(f"Start transform the {self.block_idx}-th block")
+        logger.info(f'Start transform the {self.block_idx}-th block')
         subsets = self.model.get_subsets_in_block(block)
         for index, subset in enumerate(subsets):
             if not self.filter_subset(subset):
                 continue
-            logger.info(f"subset: {subset}")
-            prev_op = subset["prev_op"]
-            layers_dict = subset["layers"]
-            input_name = subset["input"][0]
-            inspect_module = subset["inspect"]
-            inspect_has_kwargs = subset["has_kwargs"]
+            logger.info(f'subset: {subset}')
+            prev_op = subset['prev_op']
+            layers_dict = subset['layers']
+            input_name = subset['input'][0]
+            inspect_module = subset['inspect']
+            inspect_has_kwargs = subset['has_kwargs']
             subset_kwargs = block_kwargs if inspect_has_kwargs else {}
             self.subset_transform(
                 layers_dict,
@@ -302,7 +303,7 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
                 inspect_module,
                 subset_kwargs,
             )
-        logger.info(f"End transform the {self.block_idx}-th block")
+        logger.info(f'End transform the {self.block_idx}-th block')
 
     def block_init(self, block):
         pass
@@ -321,18 +322,18 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
     def apply_scale(self, scales, prev_op, layers):
         assert (
             len(prev_op) == 1
-        ), "Only support single prev_op. If multi prev_ops, code need to be updated."
+        ), 'Only support single prev_op. If multi prev_ops, code need to be updated.'
         if isinstance(
             prev_op[0], tuple(_LLMC_LINEAR_TYPES_ + _TRANSFORMERS_LINEAR_TYPES_)
         ):
             assert len(layers) == 1
-            logger.info("apply scale between fc and fc")
+            logger.info('apply scale between fc and fc')
             self.scale_fc_fc(prev_op[0], layers[0], scales)
         elif isinstance(prev_op[0], tuple(_LLMC_LN_TYPES_ + _TRANSFORMERS_LN_TYPES_)):
-            logger.info("apply scale between ln and fc")
+            logger.info('apply scale between ln and fc')
             self.scale_ln_fcs(prev_op[0], layers, scales)
         else:
-            raise NotImplementedError(f"prev_op {type(prev_op[0])} not supported yet!")
+            raise NotImplementedError(f'prev_op {type(prev_op[0])} not supported yet!')
 
     @torch.no_grad()
     def apply_shift(self, shifts, prev_op, layers):
@@ -341,7 +342,7 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
 
         assert (
             len(prev_op) == 1
-        ), "Only support single prev_op. If multi prev_ops, code need to be updated."
+        ), 'Only support single prev_op. If multi prev_ops, code need to be updated.'
         if isinstance(
             prev_op[0], tuple(_LLMC_LINEAR_TYPES_ + _TRANSFORMERS_LINEAR_TYPES_)
         ):
@@ -350,13 +351,13 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
         elif isinstance(prev_op[0], tuple(_LLMC_LN_TYPES_ + _TRANSFORMERS_LN_TYPES_)):
             self.shift_ln_fcs(prev_op[0], layers, shifts)
         else:
-            raise NotImplementedError(f"prev_op {type(prev_op[0])} not supported yet!")
+            raise NotImplementedError(f'prev_op {type(prev_op[0])} not supported yet!')
 
     @torch.no_grad()
     def scale_fc_fc(self, fc1, fc2, scales):
         scales = scales.to(fc1.weight.device)
         if fc1.out_features == fc2.in_features * 3:
-            num_heads = self.model.get_model_config().to_dict().get("n_head", None)
+            num_heads = self.model.get_model_config().to_dict().get('n_head', None)
             fc1.weight.t_()
             org_shape = fc1.weight.shape
             fc1.weight.data = fc1.weight.data.reshape(org_shape[0] * num_heads, 3, -1)
@@ -365,7 +366,7 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
                 fc1.weight[:, 2, :].shape
             )
             fc1.weight.data = fc1.weight.data.reshape(org_shape).t_()
-            if hasattr(fc1, "bias") and fc1.bias is not None:
+            if hasattr(fc1, 'bias') and fc1.bias is not None:
                 fc1.bias.data = fc1.bias.data.reshape(num_heads, 3, -1)
 
                 value = fc1.bias.data[:, 2, :].reshape(-1)
@@ -377,7 +378,7 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
         else:
             assert fc1.out_features == fc2.in_features
 
-            if hasattr(fc1, "bias") and fc1.bias is not None:
+            if hasattr(fc1, 'bias') and fc1.bias is not None:
                 fc1.bias.div_(scales.view(-1))
 
             fc1.weight.div_(scales.view(-1, 1))
@@ -387,8 +388,8 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
     @torch.no_grad()
     def shift_fc_fc(self, fc1, fc2, shifts):
         if fc1.out_features == fc2.in_features * 3:
-            num_heads = self.model.get_model_config().to_dict().get("n_head", None)
-            if hasattr(fc1, "bias") and fc1.bias is not None:
+            num_heads = self.model.get_model_config().to_dict().get('n_head', None)
+            if hasattr(fc1, 'bias') and fc1.bias is not None:
                 fc1.bias.data = fc1.bias.data.reshape(num_heads, 3, -1)
 
                 value = fc1.bias.data[:, 2, :].reshape(-1)
@@ -399,15 +400,15 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
         else:
             assert fc1.out_features == fc2.in_features
 
-            if hasattr(fc1, "bias") and fc1.bias is not None:
+            if hasattr(fc1, 'bias') and fc1.bias is not None:
                 fc1.bias.sub_(shifts)
 
-        if hasattr(fc2, "bias") and fc2.bias is not None:
+        if hasattr(fc2, 'bias') and fc2.bias is not None:
             fc2.bias.add_(fc2.weight @ shifts)
         else:
-            if hasattr(self, "use_shift") and self.use_shift:
+            if hasattr(self, 'use_shift') and self.use_shift:
                 del fc2.bias
-                fc2.register_buffer("bias", fc2.weight @ shifts)
+                fc2.register_buffer('bias', fc2.weight @ shifts)
 
     @torch.no_grad()
     def shift_ln_fcs(self, ln, fcs, shifts):
@@ -421,9 +422,9 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
             if self.model.has_bias():
                 fc.bias.add_(fc.weight @ shifts)
             else:
-                if hasattr(self, "use_shift") and self.use_shift:
+                if hasattr(self, 'use_shift') and self.use_shift:
                     del fc.bias
-                    fc.register_buffer("bias", fc.weight @ shifts)
+                    fc.register_buffer('bias', fc.weight @ shifts)
 
         for p in ln.parameters():
             assert torch.isnan(p).sum() == 0
@@ -458,17 +459,18 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
                 self.block_idx, n, self.mix_bits_map, self.quantizer_mix_bits
             ):
                 logger.info(
-                    f"This layer {n} in {self.block_idx}-th block is set to float. No need to clip this layer."
+                    f'This layer {n} in {self.block_idx}-th block is set to float.'
+                    f'No need to clip this layer.'
                 )
                 continue
             if isinstance(m, tuple(_LLMC_LINEAR_TYPES_ + _TRANSFORMERS_LINEAR_TYPES_)):
                 m = m.cuda()
-                if any([_ in n for _ in ["q_", "k_", "query", "key", "Wqkv"]]):
-                    if self.clip_version == "v2":
-                        m.register_buffer("buf_upbound_factor", None)
-                        m.register_buffer("buf_lowbound_factor", None)
+                if any([_ in n for _ in ['q_', 'k_', 'query', 'key', 'Wqkv']]):
+                    if self.clip_version == 'v2':
+                        m.register_buffer('buf_upbound_factor', None)
+                        m.register_buffer('buf_lowbound_factor', None)
                     continue
-                logger.info(f"clip layer: {n}")
+                logger.info(f'clip layer: {n}')
 
                 if len(input_feat[n]) != 1:
                     inputs = [torch.cat(input_feat[n])]
@@ -486,7 +488,7 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
 
     @torch.no_grad()
     def apply_clip(self, layer, min_val, max_val, layer_name):
-        if self.clip_version == "v1":
+        if self.clip_version == 'v1':
             max_val = max_val.to(layer.weight.device)
             org_shape = layer.weight.shape
             layer.weight.data = layer.weight.data.reshape(*max_val.shape[:2], -1)
@@ -495,22 +497,22 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
 
             layer.weight.data = torch.clamp(layer.weight.data, min_val, max_val)
             layer.weight.data = layer.weight.data.reshape(org_shape)
-        elif self.clip_version == "v2":
+        elif self.clip_version == 'v2':
             up_factor, low_factor = self.get_clip_factor(
                 layer, min_val, max_val, layer_name
             )
-            layer.register_buffer("buf_upbound_factor", up_factor)
-            layer.register_buffer("buf_lowbound_factor", low_factor)
+            layer.register_buffer('buf_upbound_factor', up_factor)
+            layer.register_buffer('buf_lowbound_factor', low_factor)
             if self.save_clip:
                 layer_name = (
-                    f"{self.model.block_name_prefix}.{self.block_idx}.{layer_name}"
+                    f'{self.model.block_name_prefix}.{self.block_idx}.{layer_name}'
                 )
-                self.weight_clips[layer_name] = {"up_factor": None, "low_factor": None}
-                self.weight_clips[layer_name]["up_factor"] = up_factor.cpu()
+                self.weight_clips[layer_name] = {'up_factor': None, 'low_factor': None}
+                self.weight_clips[layer_name]['up_factor'] = up_factor.cpu()
                 if low_factor is not None:
-                    self.weight_clips[layer_name]["low_factor"] = low_factor.cpu()
+                    self.weight_clips[layer_name]['low_factor'] = low_factor.cpu()
         else:
-            raise Exception(f"Not support other clip version")
+            raise Exception('Not support other clip version')
 
     def get_clip_factor(self, layer, min_val, max_val, layer_name):
         wquantizer = get_wquantizer(
@@ -564,7 +566,7 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
             self.quantizer_mix_bits,
             self.wquantizer,
         )
-        if wquantizer.granularity == "per_group":
+        if wquantizer.granularity == 'per_group':
             group_size = wquantizer.group_size
         else:
             group_size = w.shape[1]
@@ -578,7 +580,7 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
         best_min_val_all = []
 
         for i_b in range(w.shape[0] // oc_batch_size):
-            w = w_all[i_b * oc_batch_size : (i_b + 1) * oc_batch_size]
+            w = w_all[i_b * oc_batch_size: (i_b + 1) * oc_batch_size]
 
             if self.clip_sym:
                 org_max_val = w.abs().amax(dim=-1, keepdim=True)
@@ -593,7 +595,7 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
             org_out_dict = {}
             for i_s in range(int(max_shrink * n_grid)):
                 if i_s == 0:
-                    if self.clip_version == "v2" and not check_w_only(
+                    if self.clip_version == 'v2' and not check_w_only(
                         self.block_idx,
                         layer_name,
                         self.mix_bits_map,
@@ -607,7 +609,7 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
                     x = input[i]
                     x = x.view(-1, x.shape[-1])
                     x = x.reshape(1, x.shape[0], -1, group_size)
-                    x = x[:, 0 :: x.shape[1] // n_sample_token]
+                    x = x[:, 0:: x.shape[1] // n_sample_token]
                     if i in org_out_dict:
                         org_out = org_out_dict[i]
                     else:
@@ -621,10 +623,10 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
                     else:
                         min_val = org_min_val * (1 - i_s / n_grid)
 
-                    if self.clip_version == "v1":
+                    if self.clip_version == 'v1':
                         cur_w = torch.clamp(w, min_val, max_val)
                         q_w = wquantizer.fake_quant_weight_dynamic(cur_w)
-                    elif self.clip_version == "v2":
+                    elif self.clip_version == 'v2':
                         low_factor = self.logit((min_val / org_min_val))
                         up_factor = self.logit((max_val / org_max_val))
                         tensor_range = wquantizer.get_learnable_range(
@@ -635,13 +637,13 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
                             tensor_range, w.device
                         )
                         args = {}
-                        args["scales"] = scales
-                        args["zeros"] = zeros
-                        args["max_int"] = max_int
-                        args["min_int"] = min_int
+                        args['scales'] = scales
+                        args['zeros'] = zeros
+                        args['max_int'] = max_int
+                        args['min_int'] = min_int
                         q_w = wquantizer.fake_quant_weight_static(w, args)
                     else:
-                        raise Exception(f"Not support other clip version")
+                        raise Exception('Not support other clip version')
 
                     if not check_w_only(
                         self.block_idx,
@@ -666,7 +668,7 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
                     err = (cur_out - org_out).pow(2).mean(dim=1).view(min_errs.shape)
                     err_mean += err
 
-                    if self.clip_version == "v1":
+                    if self.clip_version == 'v1':
                         del cur_w
                     del cur_out
 
@@ -694,21 +696,21 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
             dtype = layer.weight.dtype
             device = layer.weight.data.device
             W = layer.weight.data.to(device=device, dtype=torch.float64)
-            layer.weight.data = torch.matmul(W, Q).to(device="cpu", dtype=dtype)
+            layer.weight.data = torch.matmul(W, Q).to(device='cpu', dtype=dtype)
 
     def rotate_post_layers(self, post_layers, Q, exact_had=False):
         for layer in post_layers:
             dtype = layer.weight.dtype
             device = layer.weight.data.device
             W = layer.weight.data.to(device=device, dtype=torch.float64)
-            layer.weight.data = torch.matmul(Q.T, W).to(device="cpu", dtype=dtype)
+            layer.weight.data = torch.matmul(Q.T, W).to(device='cpu', dtype=dtype)
 
             if exact_had and self.online_rotate:
                 apply_exact_had_to_linear(layer, had_dim=-1, output=False)
 
-            if hasattr(layer, "bias") and layer.bias is not None:
+            if hasattr(layer, 'bias') and layer.bias is not None:
                 b = layer.bias.data.to(device=device, dtype=torch.float64)
-                layer.bias.data = torch.matmul(Q.T, b).to(device="cpu", dtype=dtype)
+                layer.bias.data = torch.matmul(Q.T, b).to(device='cpu', dtype=dtype)
 
     def rotate_embeddings(self, Q):
         embeddings = self.model.get_embed_layers()
@@ -716,21 +718,21 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
         for layer in embeddings:
             dtype = layer.weight.data.dtype
             W = layer.weight.data.to(device=self.dev, dtype=torch.float64)
-            layer.weight.data = torch.matmul(W, Q).to(device="cpu", dtype=dtype)
+            layer.weight.data = torch.matmul(W, Q).to(device='cpu', dtype=dtype)
 
     def rotate_head(self, Q):
         heads = self.model.get_head_layers()
         for layer in heads:
             dtype = layer.weight.data.dtype
             W = layer.weight.data.to(device=self.dev, dtype=torch.float64)
-            layer.weight.data = torch.matmul(W, Q).to(device="cpu", dtype=dtype)
+            layer.weight.data = torch.matmul(W, Q).to(device='cpu', dtype=dtype)
 
     def fuse_ln_fcs(self, ln, fcs):
         for fc in fcs:
             fc_dtype = fc.weight.dtype
             W = fc.weight.data.double()
             fc.weight.data = (W * ln.weight.double()).to(fc_dtype)
-            if hasattr(ln, "bias") and ln.bias is not None:
+            if hasattr(ln, 'bias') and ln.bias is not None:
                 if fc.bias is None:
                     fc.bias = torch.nn.Parameter(
                         torch.zeros(fc.out_features, dtype=torch.float64)
@@ -751,20 +753,20 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
         W_ = fc.weight.data.double()
         fc.weight.data = W_ - W_.mean(dim=-2, keepdim=True)
         fc.weight.data = fc.weight.data.to(fc_dtype)
-        if hasattr(fc, "bias") and fc.bias is not None:
+        if hasattr(fc, 'bias') and fc.bias is not None:
             b_ = fc.bias.data.double()
             fc.bias.data = b_ - b_.mean()
             fc.bias.data = fc.bias.data.to(fc_dtype)
 
     @torch.no_grad()
     def deploy(self, quant_format):
-        logger.info(f"-- deploy_{quant_format}_model start --")
-        logger.info(f"quant_config : {self.quant_config}")
+        logger.info(f'-- deploy_{quant_format}_model start --')
+        logger.info(f'quant_config : {self.quant_config}')
 
         module_mapping = {
-            "fake_quant": EffcientFakeQuantLinear,
-            "real_quant": RealQuantLinear,
-            "origin_float": OriginFloatLinear,
+            'fake_quant': EffcientFakeQuantLinear,
+            'real_quant': RealQuantLinear,
+            'origin_float': OriginFloatLinear,
         }
 
         if quant_format not in module_mapping:
@@ -777,13 +779,13 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
             module, self.get_replacement_params(mode=quant_format, w_only=self.w_only)
         )
 
-        logger.info(f"-- deploy_{quant_format}_model done --")
+        logger.info(f'-- deploy_{quant_format}_model done --')
 
     @torch.no_grad()
     def copy_tokenizer(self, path):
-        for substring in self.config.save.get("tokenizer_file_substring", ["token"]):
+        for substring in self.config.save.get('tokenizer_file_substring', ['token']):
             copy_files(self.config.model.path, path, substring)
-        logger.info(f"copy tokenizer done --")
+        logger.info('copy tokenizer done --')
 
     @torch.no_grad()
     def contiguous_params(self):
@@ -799,13 +801,13 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
     def save_model(self, path):
         if self.online_rotate:
             self.contiguous_params()
-        if self.config.model.type == "Llava":
+        if self.config.model.type == 'Llava':
             self.model.llava_model.language_model = self.model.get_model()
             self.model.llava_model.save_pretrained(path)
-            logger.info(f"save model done --")
+            logger.info('save model done --')
             self.copy_tokenizer(path)
-            copy_files(self.config.model.path, path, "preprocessor_config")
+            copy_files(self.config.model.path, path, 'preprocessor_config')
         else:
             self.model.get_model().save_pretrained(path)
-            logger.info(f"save model done --")
+            logger.info('save model done --')
             self.copy_tokenizer(path)
