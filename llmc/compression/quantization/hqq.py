@@ -1,9 +1,12 @@
+import gc
+
 import torch
 import torch.nn as nn
 from loguru import logger
-import gc
-from .base_blockwise_quantization import BaseBlockwiseQuantization
+
 from llmc.utils.registry_factory import ALGO_REGISTRY
+
+from .base_blockwise_quantization import BaseBlockwiseQuantization
 
 
 @ALGO_REGISTRY
@@ -14,11 +17,11 @@ class HQQ(BaseBlockwiseQuantization):
 
     @torch.no_grad()
     def add_quant_config(self):
-        self.lp_norm = self.quant_config["special"]["lp_norm"]
-        self.beta = self.quant_config["special"]["beta"]
-        self.kappa = self.quant_config["special"]["kappa"]
-        self.iters = self.quant_config["special"]["iters"]
-        self.axis = self.quant_config["special"]["axis"]
+        self.lp_norm = self.quant_config['special']['lp_norm']
+        self.beta = self.quant_config['special']['beta']
+        self.kappa = self.quant_config['special']['kappa']
+        self.iters = self.quant_config['special']['iters']
+        self.axis = self.quant_config['special']['axis']
         if self.lp_norm == 1:
             self.shrink_op = lambda x, beta: torch.sign(x) * torch.nn.functional.relu(
                 torch.abs(x) - 1.0 / self.beta
@@ -45,7 +48,7 @@ class HQQ(BaseBlockwiseQuantization):
             current_beta *= current_kappa
             current_error = float(torch.abs(W_f - W_r).mean())
 
-            logger.info(f"iter : {i}, error : {current_error}")
+            logger.info(f'iter : {i}, error : {current_error}')
 
             if current_error < best_error:
                 best_error = current_error
@@ -61,10 +64,10 @@ class HQQ(BaseBlockwiseQuantization):
     def block_opt(self, block):
         block = block.cuda()
         named_linears = self.model.get_block_linears(block)
-        logger.info(f"named_linears: {named_linears}")
+        logger.info(f'named_linears: {named_linears}')
 
         for name in named_linears:
-            logger.info(f"Optimize weights proximal of {name}")
+            logger.info(f'Optimize weights proximal of {name}')
             layer = named_linears[name]
 
             tensor = layer.weight.data.float()
@@ -81,10 +84,10 @@ class HQQ(BaseBlockwiseQuantization):
             best_scales, best_zeros = self.optimize_weights_proximal(
                 tensor, org_scales, org_zeros, max_int, min_int
             )
-            layer.register_buffer("buf_scales", best_scales)
-            layer.register_buffer("buf_zeros", best_zeros)
-            layer.register_buffer("buf_max_int", torch.tensor(max_int))
-            layer.register_buffer("buf_min_int", torch.tensor(min_int))
+            layer.register_buffer('buf_scales', best_scales)
+            layer.register_buffer('buf_zeros', best_zeros)
+            layer.register_buffer('buf_max_int', torch.tensor(max_int))
+            layer.register_buffer('buf_min_int', torch.tensor(min_int))
 
         block = block.cpu()
         gc.collect()
@@ -93,10 +96,10 @@ class HQQ(BaseBlockwiseQuantization):
     def w_qdq(self, module, wquantizer):
         args = {}
         if self.axis == 0:
-            args["dim"] = "ic"
-        args["scales"] = module.buf_scales
-        args["zeros"] = module.buf_zeros
-        args["max_int"] = module.buf_max_int
-        args["min_int"] = module.buf_min_int
+            args['dim'] = 'ic'
+        args['scales'] = module.buf_scales
+        args['zeros'] = module.buf_zeros
+        args['max_int'] = module.buf_max_int
+        args['min_int'] = module.buf_min_int
 
         return wquantizer.fake_quant_weight_static(module.weight, args)

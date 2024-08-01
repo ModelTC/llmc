@@ -1,15 +1,17 @@
-from .base_blockwise_quantization import BaseBlockwiseQuantization
-from llmc.utils.registry_factory import ALGO_REGISTRY
-from loguru import logger
 import torch
+from loguru import logger
+
+from llmc.utils.registry_factory import ALGO_REGISTRY
+
+from .base_blockwise_quantization import BaseBlockwiseQuantization
 
 
 @ALGO_REGISTRY
 class RTN(BaseBlockwiseQuantization):
     def __init__(self, model, quant_config, input=None, config=None):
         super().__init__(model, quant_config, input, config)
-        if quant_config.get("act", False) and quant_config["act"].get("static", False):
-            logger.info("Activation quant is static. Calibration is required.")
+        if quant_config.get('act', False) and quant_config['act'].get('static', False):
+            logger.info('Activation quant is static. Calibration is required.')
             self.act_static = True
         else:
             self.act_static = False
@@ -21,17 +23,17 @@ class RTN(BaseBlockwiseQuantization):
     def a_qdq(self, act, module, aquantizer):
         if self.act_static:
             args = {}
-            args["scales"] = (
-                module.buf_act_scales if hasattr(module, "buf_act_scales") else None
+            args['scales'] = (
+                module.buf_act_scales if hasattr(module, 'buf_act_scales') else None
             )
-            args["zeros"] = (
-                module.buf_act_zeros if hasattr(module, "buf_act_zeros") else None
+            args['zeros'] = (
+                module.buf_act_zeros if hasattr(module, 'buf_act_zeros') else None
             )
-            args["max_int"] = (
-                module.buf_act_max_int if hasattr(module, "buf_act_max_int") else None
+            args['max_int'] = (
+                module.buf_act_max_int if hasattr(module, 'buf_act_max_int') else None
             )
-            args["min_int"] = (
-                module.buf_act_min_int if hasattr(module, "buf_act_min_int") else None
+            args['min_int'] = (
+                module.buf_act_min_int if hasattr(module, 'buf_act_min_int') else None
             )
             return aquantizer.fake_quant_act_static(act, args)
         else:
@@ -61,14 +63,14 @@ class RTN(BaseBlockwiseQuantization):
             (avg_min_val, avg_max_val), act_tensors[0].device
         )
         for name in layers_dict:
-            layers_dict[name].register_buffer("buf_act_scales", scales)
-            layers_dict[name].register_buffer("buf_act_zeros", zeros)
-            layers_dict[name].register_buffer("buf_act_max_int", max_int)
-            layers_dict[name].register_buffer("buf_act_min_int", min_int)
-            logger.info(f"{name} act_scales : {scales}")
-            logger.info(f"{name} act_zeros : {zeros}")
-            logger.info(f"{name} act_max_int : {max_int}")
-            logger.info(f"{name} act_min_int : {min_int}")
+            layers_dict[name].register_buffer('buf_act_scales', scales)
+            layers_dict[name].register_buffer('buf_act_zeros', zeros)
+            layers_dict[name].register_buffer('buf_act_max_int', max_int)
+            layers_dict[name].register_buffer('buf_act_min_int', min_int)
+            logger.info(f'{name} act_scales : {scales}')
+            logger.info(f'{name} act_zeros : {zeros}')
+            logger.info(f'{name} act_max_int : {max_int}')
+            logger.info(f'{name} act_min_int : {min_int}')
 
     @torch.no_grad()
     def subset_transform(
@@ -81,6 +83,6 @@ class RTN(BaseBlockwiseQuantization):
         subset_kwargs,
     ):
         if not self.act_static:
-            logger.info("Activation quant is dynamic. Do nothing here.")
+            logger.info('Activation quant is dynamic. Do nothing here.')
             return
         self.get_act_qparams(layers_dict, input_feat[input_name])

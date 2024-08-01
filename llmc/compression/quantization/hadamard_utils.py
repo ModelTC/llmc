@@ -1,16 +1,19 @@
-import torch
 import math
+
+import torch
 from loguru import logger
 
 try:
     import fast_hadamard_transform
-except:
+except Exception:
     logger.info(
-        "fast_hadamard_transform not installed. If you need it, please install it firstly."
+        'fast_hadamard_transform not installed.'
+        'If you need it, please install it firstly.'
     )
 
-## from .module_utils import RotateLinear
-# Adapted from https://github.com/Cornell-RelaxML/quip-sharp/blob/main/lib/utils/matmul_had.py
+# from .module_utils import RotateLinear
+# Adapted from
+# https://github.com/Cornell-RelaxML/quip-sharp/blob/main/lib/utils/matmul_had.py
 
 
 def get_hadK(n, transpose=False):
@@ -95,7 +98,8 @@ def matmul_hadUt(X):
 
 
 def random_hadamard_matrix(size, device):
-    # See https://cornell-relaxml.github.io/quip-sharp/ , Section "Randomized Hadamard Transformation"
+    # See https://cornell-relaxml.github.io/quip-sharp/,
+    # Section "Randomized Hadamard Transformation"
     Q = torch.randint(low=0, high=2, size=(size,)).to(torch.float64)
     Q = Q * 2 - 1
     Q = torch.diag(Q)
@@ -127,12 +131,12 @@ def apply_exact_had_to_linear(module, had_dim=-1, output=False):
     in_features, out_features = module.in_features, module.out_features
 
     if had_dim != -1:
-        assert is_pow2(had_dim), "Hadamard dimension must be a power of 2!"
+        assert is_pow2(had_dim), 'Hadamard dimension must be a power of 2!'
 
     W_ = module.weight.data
     dtype = W_.dtype
     dev = W_.device
-    init_shape = W_.shape
+    # init_shape = W_.shape
     W_ = W_.float().cuda()
 
     if had_dim == -1:
@@ -156,11 +160,11 @@ def apply_exact_had_to_linear(module, had_dim=-1, output=False):
                 .t()
             )
         else:
-            raise NotImplementedError("Not implemented (or tested) yet!")
-            n = W_.shape[1]
-            W_ = hadamard_transform(
-                W_.reshape(-1, n // had_dim, had_dim), scale=1 / math.sqrt(had_dim)
-            ).reshape(init_shape)
+            raise NotImplementedError('Not implemented (or tested) yet!')
+            # n = W_.shape[1]
+            # W_ = hadamard_transform(
+            #     W_.reshape(-1, n // had_dim, had_dim), scale=1 / math.sqrt(had_dim)
+            # ).reshape(init_shape)
     module.weight.data = W_.to(device=dev, dtype=dtype)
 
 

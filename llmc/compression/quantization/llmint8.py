@@ -1,7 +1,9 @@
-from loguru import logger
 import torch
-from .base_blockwise_quantization import BaseBlockwiseQuantization
+from loguru import logger
+
 from llmc.utils.registry_factory import ALGO_REGISTRY
+
+from .base_blockwise_quantization import BaseBlockwiseQuantization
 from .module_utils import FakeQuantLinear
 
 
@@ -13,7 +15,7 @@ class LlmInt8(BaseBlockwiseQuantization):
 
     @torch.no_grad()
     def add_quant_config(self):
-        self.threshold = self.quant_config["special"]["threshold"]
+        self.threshold = self.quant_config['special']['threshold']
 
     @torch.no_grad()
     def block_opt(self, *opt_kwargs):
@@ -35,8 +37,8 @@ class LlmInt8(BaseBlockwiseQuantization):
     def w_qdq(self, module, wquantizer):
         weight = module.weight
         args = {}
-        args["int_indices"] = module.buf_int_ids
-        args["fp_indices"] = module.buf_fp_ids
+        args['int_indices'] = module.buf_int_ids
+        args['fp_indices'] = module.buf_fp_ids
 
         weight = self.wquantizer.fake_quant_weight_dynamic(weight, args)
 
@@ -48,11 +50,11 @@ class LlmInt8(BaseBlockwiseQuantization):
 
         int_indices, fp_indices = self.get_outlier_indices(act)
 
-        args["int_indices"] = int_indices
-        args["fp_indices"] = fp_indices
+        args['int_indices'] = int_indices
+        args['fp_indices'] = fp_indices
 
-        module.register_buffer("buf_int_ids", int_indices)
-        module.register_buffer("buf_fp_ids", fp_indices)
+        module.register_buffer('buf_int_ids', int_indices)
+        module.register_buffer('buf_fp_ids', fp_indices)
 
         act = self.aquantizer.fake_quant_act_dynamic(act, args)
 
@@ -60,14 +62,14 @@ class LlmInt8(BaseBlockwiseQuantization):
 
     @torch.no_grad()
     def deploy(self, quant_format):
-        assert not quant_format != "fake_quant"
-        logger.info(f"-- deploy_{quant_format}_model start --")
-        logger.info(f"quant_config : {self.quant_config}")
+        assert not quant_format != 'fake_quant'
+        logger.info(f'-- deploy_{quant_format}_model start --')
+        logger.info(f'quant_config : {self.quant_config}')
 
         self.model.replace_module_all(
             FakeQuantLinear,
             self.get_replacement_params(
-                mode="fake_quant", w_only=self.w_only, name=None
+                mode='fake_quant', w_only=self.w_only, name=None
             ),
         )
-        logger.info(f"-- deploy_{quant_format}_model done --")
+        logger.info(f'-- deploy_{quant_format}_model done --')

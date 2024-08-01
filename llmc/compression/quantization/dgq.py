@@ -1,11 +1,13 @@
+import gc
+
 import torch
 import torch.nn as nn
 from loguru import logger
-import gc
+
 from llmc.utils.registry_factory import ALGO_REGISTRY
 
-from .module_utils import _LLMC_LN_TYPES_, _TRANSFORMERS_LN_TYPES_
 from .base_blockwise_quantization import BaseBlockwiseQuantization
+from .module_utils import _LLMC_LN_TYPES_, _TRANSFORMERS_LN_TYPES_
 from .quant import Quantizer
 
 
@@ -24,10 +26,10 @@ class DGQ(BaseBlockwiseQuantization):
         upper = torch.clamp(zeros + int_max, max=15.0).reshape(-1, 1)
         lower = torch.clamp(zeros - int_max, min=0.0).reshape(-1, 1)
         args = {}
-        args["scales"] = s.reshape(-1, 1)
-        args["zeros"] = zeros.reshape(-1, 1)
-        args["max_int"] = upper
-        args["min_int"] = lower
+        args['scales'] = s.reshape(-1, 1)
+        args['zeros'] = zeros.reshape(-1, 1)
+        args['max_int'] = upper
+        args['min_int'] = lower
         # logger.info(f"s.shape : {s.shape}")
         # logger.info(f"scales.shape : {scales.shape}")
         # logger.info(f"zeros.shape : {zeros.shape}")
@@ -36,26 +38,26 @@ class DGQ(BaseBlockwiseQuantization):
         return self.wquantizer_w4.fake_quant_weight_static(module.weight.data, args)
 
     def set_quant_config(self):
-        logger.info(f"self.quant_config : {self.quant_config}")
-        if "quant_out" in self.quant_config and self.quant_config["quant_out"]:
+        logger.info(f'self.quant_config : {self.quant_config}')
+        if 'quant_out' in self.quant_config and self.quant_config['quant_out']:
             self.quant_out = True
         else:
             self.quant_out = False
 
         # set weight quant config
-        self.wquantizer_w4 = Quantizer(**self.quant_config["weight"]["w_1"])
+        self.wquantizer_w4 = Quantizer(**self.quant_config['weight']['w_1'])
         perchannel_setting = {
-            "bit": self.quant_config["weight"]["w_1"]["bit"],
-            "symmetric": self.quant_config["weight"]["w_1"]["symmetric"],
-            "granularity": "per_channel",
+            'bit': self.quant_config['weight']['w_1']['bit'],
+            'symmetric': self.quant_config['weight']['w_1']['symmetric'],
+            'granularity': 'per_channel',
         }
         self.wquantizer_w4_perchannel = Quantizer(**perchannel_setting)
-        self.wquantizer_w8 = Quantizer(**self.quant_config["weight"]["w_2"])
+        self.wquantizer_w8 = Quantizer(**self.quant_config['weight']['w_2'])
 
         # set act quant config
-        if "act" in self.quant_config and self.quant_config["act"] is not None:
+        if 'act' in self.quant_config and self.quant_config['act'] is not None:
             self.w_only = False
-            self.aquantizer = Quantizer(**self.quant_config["act"])
+            self.aquantizer = Quantizer(**self.quant_config['act'])
         else:
             self.w_only = True
 
@@ -102,7 +104,7 @@ class DGQ(BaseBlockwiseQuantization):
     def smooth_llama_mlp(self, upp, downp, act_scales):
         device, dtype = downp.weight.device, downp.weight.dtype
 
-        downp_scales = downp.weight.abs().max(dim=0)[0].cuda().float().clamp(min=1e-5)
+        # downp_scales = downp.weight.abs().max(dim=0)[0].cuda().float().clamp(min=1e-5)
 
         maxsv, inds = act_scales.sort()
         basl = int(len(act_scales) * 0.005 + 1.5)  # hyperparameter
@@ -111,18 +113,18 @@ class DGQ(BaseBlockwiseQuantization):
             return
         scales = act_scales / baseline
         scales[act_scales <= baseline] = 1.0
-        downp_m = downp_scales[inds[-basl:]]
-        downp_redu = 50 * downp_scales.max() / downp_m
+        # downp_m = downp_scales[inds[-basl:]]
+        # downp_redu = 50 * downp_scales.max() / downp_m
         scales[inds[-basl:]] = scales[inds[-basl:]]
         # print(scales.max())
 
         act_scales /= scales
         scales = scales.to(device=device, dtype=dtype)
-        logger.info(f"scales.device : {scales.device}")
+        logger.info(f'scales.device : {scales.device}')
         # gatep.weight.div_(scales)
         upp.weight.data.div_(scales.view(-1, 1))
 
-        if hasattr(upp, "bias") and upp.bias is not None:
+        if hasattr(upp, 'bias') and upp.bias is not None:
             upp.bias.div_(scales)
         downp.weight.data.mul_(scales.view(1, -1))
 
@@ -149,14 +151,16 @@ class DGQ(BaseBlockwiseQuantization):
         )
         for group_index in range(w_in_channels // w4_group_size):
             inp_LxG = input_feat[
-                :, group_index * w4_group_size : (group_index + 1) * w4_group_size
+                :, group_index * w4_group_size: (group_index + 1) * w4_group_size
             ]
             weight_OxG = weight_tmp[
-                :, group_index * w4_group_size : (group_index + 1) * w4_group_size
+                :, group_index * w4_group_size: (group_index + 1) * w4_group_size
             ]
             """
-            For each pair of (inp_LxG weight_OxG), we can all consider it as per channel quantization.
-            Let's consider weight as the transpose matrix of the weight in PyTorch's linear layer.
+            For each pair of (inp_LxG weight_OxG),
+            we can all consider it as per channel quantization.
+            Let's consider weight as
+            the transpose matrix of the weight in PyTorch's linear layer.
 
             output = input x weight
 
@@ -167,13 +171,15 @@ class DGQ(BaseBlockwiseQuantization):
             input => (in/G) * [L * G]
             weight => (in/G) * [G * out]
 
-            [L * G] x [G * out] is per channel quantization. The scale shape is [out * 1].
-            input x weight is per group quantization. The scale shape is [out * (in/G)].
+            [L * G] x [G * out] is per channel quantization.
+            The scale shape is [out * 1].
+            input x weight is per group quantization.
+            The scale shape is [out * (in/G)].
             """
             org_out_LxO = inp_LxG @ (weight_OxG.t())
             grid = 20
             best_loss = torch.full(
-                [weight_OxG.shape[0]], float("inf"), device=device, dtype=dtype
+                [weight_OxG.shape[0]], float('inf'), device=device, dtype=dtype
             )
             w_max = weight_OxG.amax(dim=-1, keepdim=True)
             w_min = weight_OxG.amin(dim=-1, keepdim=True)
@@ -206,7 +212,7 @@ class DGQ(BaseBlockwiseQuantization):
         grid = 80
         org_out = input_feat @ weight_tmp.t()
         best_loss = torch.full(
-            [w_out_channels], float("inf"), device=device, dtype=dtype
+            [w_out_channels], float('inf'), device=device, dtype=dtype
         )
         best_scale8 = torch.zeros(
             (w_out_channels,), dtype=self.model_dtype, device=device
@@ -253,18 +259,18 @@ class DGQ(BaseBlockwiseQuantization):
 
     @torch.no_grad()
     def search_scale_zero_subset(self, layers_dict, input_feat):
-        logger.info(f"layers_dict : {layers_dict}")
+        logger.info(f'layers_dict : {layers_dict}')
         for layer_name in layers_dict:
-            logger.info(f"search for : {layer_name}")
+            logger.info(f'search for : {layer_name}')
             best_scales, best_zeros, best_scale8 = self.search_scale_zero_layer(
                 layers_dict[layer_name], input_feat
             )
             # logger.info(f"best_scales : {best_scales}, {best_scales.shape}")
             # logger.info(f"best_zeros : {best_zeros}, {best_zeros.shape}")
             # logger.info(f"best_scale8 : {best_scale8}, {best_scale8.shape}")
-            layers_dict[layer_name].register_buffer("buf_scales", best_scales)
-            layers_dict[layer_name].register_buffer("buf_zeros", best_zeros)
-            layers_dict[layer_name].register_buffer("buf_scale8", best_scale8)
+            layers_dict[layer_name].register_buffer('buf_scales', best_scales)
+            layers_dict[layer_name].register_buffer('buf_zeros', best_zeros)
+            layers_dict[layer_name].register_buffer('buf_scale8', best_scale8)
 
     @torch.no_grad()
     def subset_transform(
@@ -280,7 +286,7 @@ class DGQ(BaseBlockwiseQuantization):
         if isinstance(prev_op[0], tuple(_LLMC_LN_TYPES_ + _TRANSFORMERS_LN_TYPES_)):
             self.smoothquant_transform(prev_op, layers, input_feat[input_name])
         # For llama model down proj
-        if "mlp.down_proj" in layers_dict:
+        if 'mlp.down_proj' in layers_dict:
             scale = self.search_scale_subset(layers, input_feat[input_name])
             self.smooth_llama_mlp(prev_op[0], layers[0], scale)
         self.search_scale_zero_subset(layers_dict, input_feat[input_name][0])

@@ -1,10 +1,13 @@
-import torch
 import functools
-import torch.nn as nn
 import gc
-from .base_blockwise_quantization import BaseBlockwiseQuantization
-from llmc.utils.registry_factory import ALGO_REGISTRY
+
+import torch
+import torch.nn as nn
 from tqdm import tqdm
+
+from llmc.utils.registry_factory import ALGO_REGISTRY
+
+from .base_blockwise_quantization import BaseBlockwiseQuantization
 
 
 @ALGO_REGISTRY
@@ -15,16 +18,16 @@ class QUIK(BaseBlockwiseQuantization):
 
     def add_quant_config(self):
         self.prefix = self.model.block_name_prefix
-        self.fp_relative = self.quant_config["special"]["fp_relative"]
-        self.fp_features = self.quant_config["special"]["fp_features"]
-        self.fp_threshold = self.quant_config["special"]["fp_threshold"]
-        if "last_fc_bit" in self.quant_config:
-            self.last_fc_bit = self.quant_config["special"]["last_fc_bit"]
-        self.act_scales = self.get_act_scale_shift(stat="scales")
+        self.fp_relative = self.quant_config['special']['fp_relative']
+        self.fp_features = self.quant_config['special']['fp_features']
+        self.fp_threshold = self.quant_config['special']['fp_threshold']
+        if 'last_fc_bit' in self.quant_config:
+            self.last_fc_bit = self.quant_config['special']['last_fc_bit']
+        self.act_scales = self.get_act_scale_shift(stat='scales')
         self.int_ids = {}
         self.fp_ids = {}
 
-    def get_act_scale_shift(self, stat="scales"):
+    def get_act_scale_shift(self, stat='scales'):
         self.model.model.eval()
 
         act_stat = {}
@@ -53,9 +56,9 @@ class QUIK(BaseBlockwiseQuantization):
         def stat_input_hook(m, x, y, name):
             if isinstance(x, tuple):
                 x = x[0]
-            if stat == "scales":
+            if stat == 'scales':
                 get_tensor_scale(name, x)
-            elif stat == "shifts":
+            elif stat == 'shifts':
                 get_tensor_shift(name, x)
 
         hooks = []
@@ -88,7 +91,7 @@ class QUIK(BaseBlockwiseQuantization):
     def block_opt(self, block):
         layers_dict = self.model.get_block_linears(block)
         for n, m in layers_dict.items():
-            layer_name = f"{self.prefix}.{self.block_idx}.{n}"
+            layer_name = f'{self.prefix}.{self.block_idx}.{n}'
 
             if self.fp_relative:
                 outlier_num = (
@@ -104,11 +107,11 @@ class QUIK(BaseBlockwiseQuantization):
                 max_val = layer_scales.abs().max()
 
                 fp_threshold = self.fp_threshold
-                if hasattr(self, "last_fc_bit"):
-                    if "dense_4h_to_h" in n or "down_proj" in n:
+                if hasattr(self, 'last_fc_bit'):
+                    if 'dense_4h_to_h' in n or 'down_proj' in n:
                         fp_threshold = self.fp_threshold * 2
                         m.register_buffer(
-                            "buf_current_bit", torch.tensor(self.last_fc_bit)
+                            'buf_current_bit', torch.tensor(self.last_fc_bit)
                         )
 
                 if max_val <= fp_threshold:
@@ -118,18 +121,18 @@ class QUIK(BaseBlockwiseQuantization):
             int_indices = torch.sort(layer_scales)[1][:-outlier_num]
             fp_indices = torch.sort(layer_scales)[1][-outlier_num:]
 
-            m.register_buffer("buf_int_ids", int_indices)
-            m.register_buffer("buf_fp_ids", fp_indices)
+            m.register_buffer('buf_int_ids', int_indices)
+            m.register_buffer('buf_fp_ids', fp_indices)
             del self.act_scales[layer_name]
 
     def w_qdq(self, module, wquantizer):
         weight = module.weight
         args = {}
-        args["int_indices"] = module.buf_int_ids
-        args["fp_indices"] = module.buf_fp_ids
+        args['int_indices'] = module.buf_int_ids
+        args['fp_indices'] = module.buf_fp_ids
 
-        if hasattr(module, "buf_current_bit"):
-            args["current_bit"] = module.buf_current_bit
+        if hasattr(module, 'buf_current_bit'):
+            args['current_bit'] = module.buf_current_bit
 
         weight = self.wquantizer.fake_quant_weight_dynamic(weight, args)
 
@@ -137,11 +140,11 @@ class QUIK(BaseBlockwiseQuantization):
 
     def a_qdq(self, act, module, aquantizer):
         args = {}
-        args["int_indices"] = module.buf_int_ids
-        args["fp_indices"] = module.buf_fp_ids
+        args['int_indices'] = module.buf_int_ids
+        args['fp_indices'] = module.buf_fp_ids
 
-        if hasattr(module, "buf_current_bit"):
-            args["current_bit"] = module.buf_current_bit
+        if hasattr(module, 'buf_current_bit'):
+            args['current_bit'] = module.buf_current_bit
 
         act = self.aquantizer.fake_quant_act_dynamic(act, args)
 

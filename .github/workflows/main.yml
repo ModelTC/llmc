@@ -3,7 +3,7 @@ name: Check
 on:
   pull_request:
     branches:
-      - main  
+      - main
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -15,18 +15,16 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          ref: ${{ github.head_ref }}
 
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.8'  
+          python-version: '3.8'
 
       - name: Install dependencies
         run: |
           pip install -r requirements.txt
-      
+
       - name: Download dataset
         run: |
           # pwd  # /home/runner/work/llmc/llmc
@@ -41,7 +39,7 @@ jobs:
           cp model_urls.txt opt-125m/model_urls.txt
           cd opt-125m
           wget -i model_urls.txt
-          wget --no-check-certificate https://hf-mirror.com/facebook/opt-125m/resolve/main/pytorch_model.bin 
+          wget --no-check-certificate https://hf-mirror.com/facebook/opt-125m/resolve/main/pytorch_model.bin
 
       - name: Run push_tests
         run: |

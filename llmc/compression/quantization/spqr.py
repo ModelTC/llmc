@@ -1,14 +1,17 @@
-from loguru import logger
+import copy
+import functools
+import math
+import time
+from collections import defaultdict
+
 import torch
 import torch.nn as nn
 import transformers
-import functools
-from collections import defaultdict
-from .base_blockwise_quantization import BaseBlockwiseQuantization
+from loguru import logger
+
 from llmc.utils.registry_factory import ALGO_REGISTRY
-import time
-import math
-import copy
+
+from .base_blockwise_quantization import BaseBlockwiseQuantization
 from .module_utils import FakeQuantLinear
 from .quant import Quantizer
 
@@ -18,9 +21,9 @@ class SpQR(BaseBlockwiseQuantization):
     def __init__(self, model, quant_config, input, config):
         super().__init__(model, quant_config, input, config)
         assert (
-            self.wquantizer.granularity == "per_group"
-        ), "SpQR only supports per_group quantization"
-        self.dev = torch.device("cuda")
+            self.wquantizer.granularity == 'per_group'
+        ), 'SpQR only supports per_group quantization'
+        self.dev = torch.device('cuda')
         self.model_dtype = next(self.model.model.parameters()).dtype
         self.add_quant_config()
         self.layers_cache = {}
@@ -28,29 +31,29 @@ class SpQR(BaseBlockwiseQuantization):
 
     @torch.no_grad()
     def add_quant_config(self):
-        special_config = self.quant_config["special"]
+        special_config = self.quant_config['special']
 
         self.prefix = self.model.block_name_prefix
-        self.true_sequential = special_config["true_sequential"]
-        self.actorder = special_config["actorder"]
-        self.percdamp = special_config["percdamp"]
-        self.blocksize = special_config["blocksize"]
-        self.relative_threshold = special_config["relative_threshold"]
-        self.simplified_outliers = special_config["simplified_outliers"]
+        self.true_sequential = special_config['true_sequential']
+        self.actorder = special_config['actorder']
+        self.percdamp = special_config['percdamp']
+        self.blocksize = special_config['blocksize']
+        self.relative_threshold = special_config['relative_threshold']
+        self.simplified_outliers = special_config['simplified_outliers']
 
-        if self.wquantizer.granularity == "per_group" and self.actorder:
+        if self.wquantizer.granularity == 'per_group' and self.actorder:
             self.need_perm = True
 
-        if self.relative_threshold == "inf":
+        if self.relative_threshold == 'inf':
             self.relative_threshold = math.inf
 
-        scale_config = special_config["scale"]
-        zero_config = special_config["zero"]
+        scale_config = special_config['scale']
+        zero_config = special_config['zero']
 
         self.scale_quantizer = Quantizer(**scale_config)
         self.zero_quantizer = Quantizer(**zero_config)
         self.Q = Quantizer(
-            self.wquantizer.bit, self.wquantizer.sym, "per_channel", round_zp=False
+            self.wquantizer.bit, self.wquantizer.sym, 'per_channel', round_zp=False
         )
 
     @torch.no_grad()
@@ -61,9 +64,9 @@ class SpQR(BaseBlockwiseQuantization):
             handles = []
             self.subset_init(subset)
 
-            for name in subset["layers"]:
+            for name in subset['layers']:
                 handles.append(
-                    subset["layers"][name].register_forward_hook(
+                    subset['layers'][name].register_forward_hook(
                         functools.partial(
                             self.cache_input_hook, name=name, feat_dict=input_feat
                         )
@@ -74,18 +77,18 @@ class SpQR(BaseBlockwiseQuantization):
                 h.remove()
             torch.cuda.empty_cache()
 
-            self.subset_transform(subset["layers"])
+            self.subset_transform(subset['layers'])
             self.model.replace_module_subset(
                 FakeQuantLinear,
                 block,
                 subset,
                 self.block_idx,
-                self.get_replacement_params(mode="fake_quant", w_only=True),
+                self.get_replacement_params(mode='fake_quant', w_only=True),
             )
 
     @torch.no_grad()
     def block_transform(self, block, input_feat, *block_kwargs):
-        logger.info(f"Start transform the {self.block_idx+1}-th block")
+        logger.info(f'Start transform the {self.block_idx+1}-th block')
 
         if self.true_sequential:
             self.block_transform_true_sequential(block, input_feat)
@@ -95,10 +98,10 @@ class SpQR(BaseBlockwiseQuantization):
             self.model.replace_module_block(
                 FakeQuantLinear,
                 block,
-                self.get_replacement_params(mode="fake_quant", w_only=True),
+                self.get_replacement_params(mode='fake_quant', w_only=True),
             )
 
-        logger.info(f"End transform the {self.block_idx+1}-th block")
+        logger.info(f'End transform the {self.block_idx+1}-th block')
 
     @torch.no_grad()
     def subset_transform(self, layers_dict):
@@ -110,7 +113,7 @@ class SpQR(BaseBlockwiseQuantization):
     @torch.no_grad()
     def layer_transform(self, layer, name):
         self.qparams = {}
-        self.columns = self.layers_cache[name]["columns"]
+        self.columns = self.layers_cache[name]['columns']
         W = layer.weight.data.clone()
         if isinstance(layer, nn.Conv2d):
             W = W.flatten(1)
@@ -123,16 +126,16 @@ class SpQR(BaseBlockwiseQuantization):
 
         self.groups = [None] * (self.columns // self.wquantizer.group_size)
 
-        H = self.layers_cache[name]["H"]
-        del self.layers_cache[name]["H"]
+        H = self.layers_cache[name]['H']
+        del self.layers_cache[name]['H']
 
         if self.actorder:
             self.perm = torch.argsort(torch.diag(H), descending=True)
             W = W[:, self.perm]
             H = H[self.perm][:, self.perm]
             self.invperm = torch.argsort(self.perm)
-            layer.register_buffer("buf_perm", self.perm)
-            layer.register_buffer("buf_invperm", self.invperm)
+            layer.register_buffer('buf_perm', self.perm)
+            layer.register_buffer('buf_invperm', self.invperm)
 
         dead = torch.diag(H) == 0
         if self.percdamp > 0:
@@ -154,8 +157,8 @@ class SpQR(BaseBlockwiseQuantization):
         self.weight_transform(W, Hinv, Losses, tmp, mask)
 
         torch.cuda.synchronize()
-        logger.info(f"time {time.time() - tick}")
-        logger.info(f"error {torch.sum(Losses).item()}")
+        logger.info(f'time {time.time() - tick}')
+        logger.info(f'error {torch.sum(Losses).item()}')
 
         if self.actorder:
             tmp = tmp[:, self.invperm]
@@ -168,12 +171,12 @@ class SpQR(BaseBlockwiseQuantization):
         assert layer.weight.shape == tmp.shape
         layer.weight.data = tmp
 
-        logger.info(f"tmp {tmp}")
-        logger.info(f"outliers {torch.sum(mask)} / {mask.numel()}")
+        logger.info(f'tmp {tmp}')
+        logger.info(f'outliers {torch.sum(mask)} / {mask.numel()}')
 
-        if self.wquantizer.granularity == "per_group":
+        if self.wquantizer.granularity == 'per_group':
             self.set_model_qparams(layer)
-            layer.register_buffer("buf_mask", mask.float().to_sparse())
+            layer.register_buffer('buf_mask', mask.float().to_sparse())
 
     @torch.no_grad()
     def weight_transform(self, W, Hinv, Losses, tmp, mask):
@@ -197,7 +200,7 @@ class SpQR(BaseBlockwiseQuantization):
 
         outlier_scale = (W.var(dim=0) / torch.diag(Hinv).square()).mean().item()
         threshold = self.relative_threshold * outlier_scale
-        logger.info(f"threshold {threshold}")
+        logger.info(f'threshold {threshold}')
 
         for i1 in range(0, self.columns, self.blocksize):
             i2 = min(i1 + self.blocksize, self.columns)
@@ -206,12 +209,12 @@ class SpQR(BaseBlockwiseQuantization):
 
             for i in range(i1, i2):
                 if i % self.wquantizer.group_size == 0:
-                    G = W[:, i : i + self.wquantizer.group_size]
+                    G = W[:, i: i + self.wquantizer.group_size]
 
                     if self.simplified_outliers or threshold == math.inf:
                         self.get_group_qparams(G, i)
                     else:
-                        HinvGD = torch.diag(Hinv)[i : i + self.wquantizer.group_size]
+                        HinvGD = torch.diag(Hinv)[i: i + self.wquantizer.group_size]
                         E = outliers(G, HinvGD)
                         M = (E > threshold).float()
                         mean = torch.sum(G * (1 - M), dim=1, keepdim=True) / torch.sum(
@@ -225,10 +228,10 @@ class SpQR(BaseBlockwiseQuantization):
 
                 q = self.wquantizer.quant_dequant(
                     W[:, i].unsqueeze(1),
-                    self.qparams["scales"],
-                    self.qparams["zeros"],
-                    self.qparams["max_int"],
-                    self.qparams["min_int"],
+                    self.qparams['scales'],
+                    self.qparams['zeros'],
+                    self.qparams['max_int'],
+                    self.qparams['min_int'],
                 ).squeeze(1)
 
                 err = (W[:, i] - q) / Hinv[i, i]
@@ -239,8 +242,8 @@ class SpQR(BaseBlockwiseQuantization):
                     err = (W[:, i] - newq) / Hinv[i, i]
                 tmp[:, i] = W[:, i]
                 Losses1[:, i - i1] = err.square()
-                W[:, i + 1 : i2] -= err.unsqueeze(1).matmul(
-                    Hinv[i, i + 1 : i2].unsqueeze(0)
+                W[:, i + 1: i2] -= err.unsqueeze(1).matmul(
+                    Hinv[i, i + 1: i2].unsqueeze(0)
                 )
                 Err1[:, i - i1] = err
 
@@ -271,12 +274,12 @@ class SpQR(BaseBlockwiseQuantization):
             inp = inp.permute([1, 0, 2])
             inp = inp.flatten(1)
 
-        self.layers_cache[name]["H"] *= self.layers_cache[name]["nsamples"] / (
-            self.layers_cache[name]["nsamples"] + tmp
+        self.layers_cache[name]['H'] *= self.layers_cache[name]['nsamples'] / (
+            self.layers_cache[name]['nsamples'] + tmp
         )
-        self.layers_cache[name]["nsamples"] += tmp
-        inp = math.sqrt(2 / self.layers_cache[name]["nsamples"]) * inp.float()
-        self.layers_cache[name]["H"] += inp.matmul(inp.t())
+        self.layers_cache[name]['nsamples'] += tmp
+        inp = math.sqrt(2 / self.layers_cache[name]['nsamples']) * inp.float()
+        self.layers_cache[name]['H'] += inp.matmul(inp.t())
 
     @torch.no_grad()
     def layer_init(self, layer, name):
@@ -285,15 +288,15 @@ class SpQR(BaseBlockwiseQuantization):
             W = W.flatten(1)
         if isinstance(layer, transformers.Conv1D):
             W = W.t()
-        self.layers_cache[name]["H"] = torch.zeros(
+        self.layers_cache[name]['H'] = torch.zeros(
             (W.shape[1], W.shape[1]), device=self.dev
         )
-        self.layers_cache[name]["nsamples"] = 0
-        self.layers_cache[name]["columns"] = W.shape[1]
+        self.layers_cache[name]['nsamples'] = 0
+        self.layers_cache[name]['columns'] = W.shape[1]
 
     @torch.no_grad()
     def subset_init(self, subset):
-        self.named_layers = subset["layers"]
+        self.named_layers = subset['layers']
         for name in self.named_layers:
             self.layers_cache[name] = {}
             self.layer_init(self.named_layers[name], name)
@@ -309,46 +312,45 @@ class SpQR(BaseBlockwiseQuantization):
     def merge_qparams(self, qparams):
         if isinstance(qparams, int):
             return qparams
-        elif self.wquantizer.granularity == "per_group":
+        elif self.wquantizer.granularity == 'per_group':
             qparams = torch.stack(qparams, dim=1)
             qparams = qparams.reshape(-1, 1)
         return qparams
 
     @torch.no_grad()
     def get_group_qparams(self, c_tensor, idx):
-        """
-        get qparams for a group, idx is the index of a column within a group, c_tensor is a group
-        """
+        """get qparams for a group, idx is the index of a column within a
+        group, c_tensor is a group."""
         _, s, z, max_int, min_int = self.wquantizer.get_tensor_qparams(c_tensor)
         _, ss, zs, Ps, Ns = self.scale_quantizer.get_tensor_qparams(s)
         args = {}
-        args["scales"] = ss
-        args["zeros"] = zs
-        args["min_int"] = Ns
-        args["max_int"] = Ps
+        args['scales'] = ss
+        args['zeros'] = zs
+        args['min_int'] = Ns
+        args['max_int'] = Ps
         scales = self.scale_quantizer.fake_quant_weight_static(s.data, args)
         _, sz, zz, Pz, Nz = self.zero_quantizer.get_tensor_qparams(z)
-        args["scales"] = sz
-        args["zeros"] = zz
-        args["min_int"] = Nz
-        args["max_int"] = Pz
+        args['scales'] = sz
+        args['zeros'] = zz
+        args['min_int'] = Nz
+        args['max_int'] = Pz
         zeros = self.zero_quantizer.fake_quant_weight_static(z.data, args)
-        self.qparams["scales"] = scales
-        self.qparams["zeros"] = zeros
-        self.qparams["max_int"] = max_int
-        self.qparams["min_int"] = min_int
+        self.qparams['scales'] = scales
+        self.qparams['zeros'] = zeros
+        self.qparams['max_int'] = max_int
+        self.qparams['min_int'] = min_int
         qparams = copy.deepcopy(self.qparams)
         self.groups[idx // self.wquantizer.group_size] = qparams
 
     @torch.no_grad()
     def set_model_qparams(self, layer):
         d = defaultdict(list)
-        d["scales"] = self.merge_qparams([g["scales"] for g in self.groups])
-        d["zeros"] = self.merge_qparams([g["zeros"] for g in self.groups])
+        d['scales'] = self.merge_qparams([g['scales'] for g in self.groups])
+        d['zeros'] = self.merge_qparams([g['zeros'] for g in self.groups])
         for k, v in d.items():
-            layer.register_buffer("buf_" + k, copy.deepcopy(v))
-        layer.register_buffer("buf_max_int", torch.tensor(self.groups[0]["max_int"]))
-        layer.register_buffer("buf_min_int", torch.tensor(self.groups[0]["min_int"]))
+            layer.register_buffer('buf_' + k, copy.deepcopy(v))
+        layer.register_buffer('buf_max_int', torch.tensor(self.groups[0]['max_int']))
+        layer.register_buffer('buf_min_int', torch.tensor(self.groups[0]['min_int']))
 
     @torch.no_grad()
     def free(self, name):
@@ -363,29 +365,29 @@ class SpQR(BaseBlockwiseQuantization):
     def w_qdq(self, module, wquantizer):
         mask = module.buf_mask.to_dense()
         weight = module.weight
-        O = (mask * weight).to(self.model_dtype)
-        if hasattr(self, "need_perm"):
+        out = (mask * weight).to(self.model_dtype)
+        if hasattr(self, 'need_perm'):
             perm = module.buf_perm
             weight = weight[:, perm]
 
         args = {}
-        args["scales"] = module.buf_scales
-        args["zeros"] = module.buf_zeros
-        args["max_int"] = module.buf_max_int
-        args["min_int"] = module.buf_min_int
+        args['scales'] = module.buf_scales
+        args['zeros'] = module.buf_zeros
+        args['max_int'] = module.buf_max_int
+        args['min_int'] = module.buf_min_int
 
         weight = wquantizer.fake_quant_weight_static(weight, args).to(self.model_dtype)
 
-        if hasattr(self, "need_perm"):
+        if hasattr(self, 'need_perm'):
             invperm = module.buf_invperm
             weight = weight[:, invperm]
-        weight = (weight * (1 - mask) + O).to(self.model_dtype)
+        weight = (weight * (1 - mask) + out).to(self.model_dtype)
         return weight
 
     @torch.no_grad()
     def deploy(self, quant_format):
-        if quant_format == "real_quant":
-            assert False, "SpQR does not support real quantization"
+        if quant_format == 'real_quant':
+            assert False, 'SpQR does not support real quantization'
         super().deploy(quant_format)
 
     @torch.no_grad()

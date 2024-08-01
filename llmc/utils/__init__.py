@@ -1,1 +1,1 @@
-from .utils import seed_all, check_config, mkdirs, copy_files
+from .utils import check_config, copy_files, mkdirs, seed_all
