@@ -26,7 +26,7 @@
 
 ## News
 
-- **July 23, 2024:** 🍺🍺🍺 We release a brand new version benchmark paper:
+- **Jul 23, 2024:** 🍺🍺🍺 We release a brand new version benchmark paper:
 
   [**LLMC: Benchmarking Large Language Model Quantization with a Versatile Compression Toolkit**](https://arxiv.org/abs/2405.06001v2).
 
