@@ -1,19 +1,10 @@
 base:
-    seed: &seed 0
+    seed: &seed 42
 model:
     type: Llama
     path: model path
     tokenizer_mode: slow
     torch_dtype: auto
-calib:
-    name: pileval
-    download: False
-    path: calib path
-    n_samples: 128
-    bs: 1
-    seq_len: 512
-    preproc: general
-    seed: *seed
 eval:
     eval_pos: [fake_quant]
     name: wikitext2
@@ -30,7 +21,7 @@ quant:
         granularity: per_channel
         group_size: -1
         qmax_to_tensor: True
-        calib_algo: mse
+        calib_algo: minmax
     act:
         bit: 4
         symmetric: False
@@ -39,8 +30,8 @@ quant:
     special:
         rotate_mode: hadamard
         fp32_had: True
-        online_rotate: True
+        online_rotate: False
 save:
-    save_trans: False
+    save_trans: True
     save_fake: False
     save_path: ./save
