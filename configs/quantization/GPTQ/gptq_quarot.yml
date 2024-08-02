@@ -1,17 +1,17 @@
 base:
-    seed: &seed 0
+    seed: &seed 42
 model:
     type: Llama
     path: quarot trans model path
     torch_dtype: auto
 calib:
-    name: c4
+    name: pileval
     download: False
     n_samples: 128
     path: calib data path
     bs: 1
-    seq_len: 2048
-    preproc: c4_gptq
+    seq_len: 512
+    preproc: general
     seed: *seed
 eval:
     eval_pos: [fake_quant]
@@ -23,15 +23,15 @@ eval:
 quant:
     method: GPTQ
     weight:
-        bit: 6
-        symmetric: True
+        bit: 4
+        symmetric: False
         granularity: per_channel
         group_size: -1
         qmax_to_tensor: True
         calib_algo: minmax
     act:
-        bit: 6
-        symmetric: True
+        bit: 4
+        symmetric: False
         granularity: per_token
         qmax_to_tensor: True
         calib_algo: minmax
@@ -41,9 +41,10 @@ quant:
         percdamp: 0.01
         blocksize: 128
         true_sequential: True
-        online_rotate: True
+        online_rotate: False
         fp32_had: True
     quant_out: True
 save:
     save_trans: False
+    save_fake:  True
     save_path: ./save
