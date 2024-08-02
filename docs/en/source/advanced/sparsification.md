@@ -1,6 +1,6 @@
 # Model Sparsification
 
-The llmc is currently gradually supporting sparse methods, having already implemented Magnitude and Wanda, and will support more algorithms in the future.
+The llmc is currently gradually supporting sparse methods, having already implemented Magnitude, Wanda, and ShortGPT, and will support more algorithms in the future.
 
 Here is a sample of Wanda's settings:
 

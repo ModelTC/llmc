@@ -47,7 +47,6 @@ def main(config):
         for ppl_eval in eval_list:
             ppl = ppl_eval.eval(model)
             logger.info(f'{ppl_eval.dataset} ppl : {ppl}')
-    sparsification = None
     if not config.get('calib', False):
         blockwise_opt = ALGO_REGISTRY[config.quant.method](
             model, quant_config=config.quant, input=None, config=config
@@ -61,20 +60,17 @@ def main(config):
         gc.collect()
         torch.cuda.empty_cache()
         if not config.get('sparse', False):
-            sparsification = False
             blockwise_opt = ALGO_REGISTRY[config.quant.method](
                 model, config.quant, model.get_first_block_input(), config
             )
         else:
-            sparsification = True
             blockwise_opt = ALGO_REGISTRY[config.sparse.method](
                 model, config.sparse, model.get_first_block_input(), config
             )
         blockwise_opt.run_block_loop()
 
         if 'eval' in config and 'transformed' in config.eval.eval_pos:
-            if not sparsification:
-                blockwise_opt.deploy('origin_float')
+            blockwise_opt.deploy('origin_float')
             for ppl_eval in eval_list:
                 ppl = ppl_eval.eval(model)
                 logger.info(f'{ppl_eval.dataset} ppl : {ppl}')

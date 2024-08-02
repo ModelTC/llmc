@@ -5,6 +5,8 @@ from collections import defaultdict
 import torch
 from loguru import logger
 
+from llmc.utils import copy_files
+
 from ..blockwise_optimization import BlockwiseOpt
 from .sparse import Sparser
 
@@ -18,15 +20,15 @@ class BaseBlockwiseSparsification(BlockwiseOpt):
         pass
 
     def set_sparsity_config(self):
-        if (
-            'sparsity_out' in self.sparsity_config
-            and self.sparsity_config['sparsity_out']
-        ):
+        if 'sparsity_out' in self.sparsity_config and self.sparsity_config[
+            'sparsity_out'
+        ]:
             self.sparsity_out = True
         else:
             self.sparsity_out = False
         logger.info(f'use sparsity_out {self.sparsity_out}')
-        self.sparser = Sparser(**self.sparsity_config['weight'])
+
+        self.sparser = Sparser(self.sparsity_config['weight'])
 
     def block_forward(self, block, input_data=None):
         output = []
@@ -35,10 +37,9 @@ class BaseBlockwiseSparsification(BlockwiseOpt):
 
         for i in range(len(input_data)):
             input_data[i] = input_data[i].to(device=next(block.parameters()).device)
-            if (
-                'attention_mask' in self.input['kwargs'][i]
-                and self.input['kwargs'][i]['attention_mask'] is not None
-            ):
+            if 'attention_mask' in self.input[
+                'kwargs'
+            ][i] and self.input['kwargs'][i]['attention_mask'] is not None:
                 self.input['kwargs'][i]['attention_mask'] = self.input['kwargs'][i][
                     'attention_mask'
                 ].cuda()
@@ -47,10 +48,10 @@ class BaseBlockwiseSparsification(BlockwiseOpt):
                 output.append(out)
         return output
 
-    def block_opt(self, block, idx):
+    def block_opt(self, block):
         block = block.cuda()
         named_linears = self.model.get_block_linears(block)
-        # logger.info(f"named_linears: {named_linears}")
+        logger.info(f'named_linears: {named_linears}')
         input_feat = defaultdict(list)
         handles = []
         self.block_init(block)
@@ -72,7 +73,7 @@ class BaseBlockwiseSparsification(BlockwiseOpt):
             h.remove()
         torch.cuda.empty_cache()
 
-        self.block_transform(block, input_feat, idx, self.input['kwargs'])
+        self.block_transform(block, input_feat, self.input['kwargs'])
 
         if self.sparsity_out:
             self.input['data'] = self.block_forward(block)
@@ -82,8 +83,8 @@ class BaseBlockwiseSparsification(BlockwiseOpt):
         gc.collect()
         torch.cuda.empty_cache()
 
-    def block_transform(self, block, input_feat, idx, block_kwargs):
-        logger.info(f'Start transform the {idx+1}-th block')
+    def block_transform(self, block, input_feat, block_kwargs):
+        logger.info(f'Start transform the {self.block_idx+1}-th block')
         subsets = self.model.get_subsets_in_block(block)
         for index, subset in enumerate(subsets):
             if not self.filter_subset(subset):
@@ -101,19 +102,35 @@ class BaseBlockwiseSparsification(BlockwiseOpt):
                 prev_op,
                 input_name,
                 inspect_module,
-                subset_kwargs,
-                idx,
+                subset_kwargs
             )
-        logger.info(f'End transform the {idx+1}-th block')
+        logger.info(f'End transform the {self.block_idx+1}-th block')
 
     def filter_subset(self, subset):
         return True
 
-    # todo
     @torch.no_grad()
-    def deploy(self):
+    def deploy(self, deploy_format):
         logger.info('-- deploy_sparsity_model start --')
         logger.info(f'sparsity_config : {self.sparsity_config}')
 
-        # self.model.replace_module_all(module, params_dict)
         logger.info('-- deploy_sparsity_model done --')
+
+    @torch.no_grad()
+    def copy_tokenizer(self, path):
+        for substring in self.config.save.get('tokenizer_file_substring', ['token']):
+            copy_files(self.config.model.path, path, substring)
+        logger.info('copy tokenizer done --')
+
+    @torch.no_grad()
+    def save_model(self, path):
+        if self.config.model.type == 'Llava':
+            self.model.llava_model.language_model = self.model.get_model()
+            self.model.llava_model.save_pretrained(path)
+            logger.info('save model done --')
+            self.copy_tokenizer(path)
+            copy_files(self.config.model.path, path, 'preprocessor_config')
+        else:
+            self.model.get_model().save_pretrained(path)
+            logger.info('save model done --')
+            self.copy_tokenizer(path)
