@@ -41,5 +41,5 @@ quant:
         fp32_had: True
         online_rotate: True
 save:
-    save_fp: False
+    save_trans: False
     save_fake: False
