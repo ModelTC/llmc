@@ -50,7 +50,7 @@ def main(config):
     sparsification = None
     if not config.get('calib', False):
         blockwise_opt = ALGO_REGISTRY[config.quant.method](
-            model, quant_config=config.quant, config=config
+            model, quant_config=config.quant, input=None, config=config
         )
         blockwise_opt.run_block_loop()
     else:

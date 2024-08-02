@@ -11,7 +11,7 @@ from .base_blockwise_quantization import BaseBlockwiseQuantization
 
 @ALGO_REGISTRY
 class HQQ(BaseBlockwiseQuantization):
-    def __init__(self, model, quant_config, input=None, config=None):
+    def __init__(self, model, quant_config, input, config):
         super().__init__(model, quant_config, input, config)
         self.add_quant_config()
 

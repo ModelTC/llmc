@@ -9,7 +9,7 @@ from .module_utils import FakeQuantLinear
 
 @ALGO_REGISTRY
 class LlmInt8(BaseBlockwiseQuantization):
-    def __init__(self, model, quant_config, input=None, config=None):
+    def __init__(self, model, quant_config, input, config):
         super().__init__(model, quant_config, input, config)
         self.add_quant_config()
 
