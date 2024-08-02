@@ -1,6 +1,6 @@
 # 模型稀疏化
 
-llmc目前正在逐渐支持稀疏化方法，目前已经实现了Magnitude和Wanda，将在未来支持更多的算法。
+llmc目前正在逐渐支持稀疏化方法，目前已经实现了Magnitude，Wanda和ShortGPT将在未来支持更多的算法。
 
 以下是Wanda的设置样例：
 

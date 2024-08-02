@@ -38,8 +38,7 @@ class Wanda(BaseBlockwiseSparsification):
         prev_op,
         input_name,
         inspect_module,
-        subset_kwargs,
-        idx,
+        subset_kwargs
     ):
         layers = list(layers_dict.values())
         for layer in layers:
