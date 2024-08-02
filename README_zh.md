@@ -269,35 +269,7 @@
 
 ✅ [Wanda](https://arxiv.org/abs/2306.11695)
 
-## 待办事项列表
-
-### 量化
-
-- [ ] QuIP
-
-- [ ] QuIP#
-
-- [ ] AQLM
-
-**注意:** 一些特定算法如 QUIK、SpQR，需要特殊硬件或内核支持，不能通过多个后端进行简单量化，然后利用这些后端进行推断。然而，用户仍然可以使用我们的工具评估这些算法在其研究中的性能。
-
-### 剪枝
-
-- [ ] SparseGPT
-
-- [ ] LLM-Pruner
-
-这部分即将推出🚀。
-
-### 文档
-
-- [ ] 压缩模型的端到端示例，然后利用多个后端，例如 [Lightllm](https://github.com/ModelTC/lightllm), [TensorRT-LLM](https://github.com/NVIDIA/TensorRT-LLM)，进行推断。
-
-- [ ] 不同算法的 `quant` 部分中的`special` 文档。
-
-- [ ] 用户自己添加新算法的文档。
-
-更详细的文档即将推出🚀。
+✅ [ShortGPT](https://arxiv.org/abs/2403.03853)
 
 ## 致谢
 
