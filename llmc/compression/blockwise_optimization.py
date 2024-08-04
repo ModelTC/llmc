@@ -11,6 +11,7 @@ class BlockwiseOpt(metaclass=ABCMeta):
         self.quant_config = quant_config
         self.sparsity_config = quant_config
         self.input = input
+        self.data_free = False if self.input else True
         self.config = config
         self.block_idx = None
         self.num_blocks = len(self.blocks)

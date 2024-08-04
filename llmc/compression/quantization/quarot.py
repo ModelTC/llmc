@@ -60,7 +60,7 @@ class Quarot(BaseBlockwiseQuantization):
         else:
             raise ValueError(f'Unsupported mode {self.mode}')
 
-    def block_transform(self, block, input_feat, block_kwargs):
+    def block_transform(self, block):
         logger.info(f'Start transform the {self.block_idx+1}-th block')
 
         if self.online_rotate:

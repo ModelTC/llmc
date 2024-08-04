@@ -246,36 +246,39 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
         handles = []
         self.block_init(block)
 
-        for name in named_linears:
-            handles.append(
-                named_linears[name].register_forward_hook(
-                    functools.partial(
-                        self.cache_input_hook, name=name, feat_dict=input_feat
+        if not self.data_free:
+            for name in named_linears:
+                handles.append(
+                    named_linears[name].register_forward_hook(
+                        functools.partial(
+                            self.cache_input_hook, name=name, feat_dict=input_feat
+                        )
                     )
                 )
-            )
 
-        if self.quant_out:
-            self.block_forward(block)
+            if self.quant_out:
+                self.block_forward(block)
+            else:
+                self.input['data'] = self.block_forward(block)
+
+            for h in handles:
+                h.remove()
+            torch.cuda.empty_cache()
+            self.block_transform(block, input_feat, self.input['kwargs'])
         else:
-            self.input['data'] = self.block_forward(block)
+            self.block_transform(block)
 
-        for h in handles:
-            h.remove()
-        torch.cuda.empty_cache()
-
-        self.block_transform(block, input_feat, self.input['kwargs'])
-
-        if self.quant_out:
-            self.model.replace_module_block(
-                FakeQuantLinear,
-                block,
-                self.block_idx,
-                self.get_replacement_params(
-                    mode='fake_quant', w_only=self.w_only, name=None
-                ),
-            )
-            self.input['data'] = self.block_forward(block)
+        if not self.data_free:
+            if self.quant_out:
+                self.model.replace_module_block(
+                    FakeQuantLinear,
+                    block,
+                    self.block_idx,
+                    self.get_replacement_params(
+                        mode='fake_quant', w_only=self.w_only, name=None
+                    ),
+                )
+                self.input['data'] = self.block_forward(block)
 
         block = block.cpu()
         del input_feat
