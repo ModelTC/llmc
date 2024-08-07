@@ -72,3 +72,12 @@ def copy_files(source_dir, target_dir, substring):
             target_file = os.path.join(target_dir, filename)
             shutil.copy(source_file, target_file)
             logger.info(f'Copied {filename} to {target_dir}')
+
+
+def print_important_package_version():
+    from importlib.metadata import version
+    logger.info(f"torch : {version('torch')}")
+    logger.info(f"transformers : {version('transformers')}")
+    logger.info(f"tokenizers : {version('tokenizers')}")
+    logger.info(f"huggingface-hub : {version('huggingface-hub')}")
+    logger.info(f"datasets : {version('datasets')}")

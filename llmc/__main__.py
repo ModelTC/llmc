@@ -15,7 +15,8 @@ from llmc.compression.sparsification import *
 from llmc.data import BaseDataset, BaseTokenizer
 from llmc.eval import PerplexityEval
 from llmc.models import *
-from llmc.utils import check_config, mkdirs, seed_all
+from llmc.utils import (check_config, mkdirs, print_important_package_version,
+                        seed_all)
 from llmc.utils.registry_factory import ALGO_REGISTRY, MODEL_REGISTRY
 
 
@@ -120,6 +121,8 @@ if __name__ == '__main__':
 
     logger.info(f'args: {args}')
     logger.info(f'config:\n{json.dumps(config, ensure_ascii=False, indent=4)}')
+
+    print_important_package_version()
 
     seed_all(config.base.seed)
 
