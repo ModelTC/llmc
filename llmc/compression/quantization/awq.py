@@ -1,6 +1,8 @@
 import gc
+import os
 
 import torch
+import torch.distributed as dist
 import torch.nn as nn
 from loguru import logger
 
@@ -136,6 +138,8 @@ class Awq(BaseBlockwiseQuantization):
                 best_error = loss_mean
                 best_scales = scales_mean
         best_scales = best_scales.view(-1)
+        dist.all_reduce(best_scales, op=dist.ReduceOp.SUM)
+        best_scales /= int(os.environ['WORLD_SIZE'])
         del org_out_dict
         gc.collect()
         torch.cuda.empty_cache()

@@ -1,3 +1,4 @@
+import os
 from abc import ABCMeta
 
 import torch
@@ -84,6 +85,10 @@ class BaseDataset(metaclass=ABCMeta):
 
     def get_calib_dataset(self):
         samples = self.get_calib_samples()
+        logger.info(f'len(samples) all : {len(samples)}')
+        assert len(samples) % int(os.environ['WORLD_SIZE']) == 0
+        samples = samples[int(os.environ['RANK'])::int(os.environ['WORLD_SIZE'])]
+        logger.info(f'len(samples) rank : {len(samples)}')
         calib_samples = []
         if self.calib_bs < 0:
             batch = torch.cat(samples, dim=0)

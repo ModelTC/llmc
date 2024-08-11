@@ -9,6 +9,7 @@ import torch
 import yaml
 from easydict import EasyDict
 from loguru import logger
+from torch.distributed import destroy_process_group, init_process_group
 
 from llmc.compression.quantization import *
 from llmc.compression.sparsification import *
@@ -111,11 +112,18 @@ if __name__ == '__main__':
     llmc_start_time = time.time()
     parser = argparse.ArgumentParser()
     parser.add_argument('--config', type=str, required=True)
+    parser.add_argument('--task_id', type=str, required=True)
     args = parser.parse_args()
 
     with open(args.config, 'r') as file:
         config = yaml.safe_load(file)
     config = EasyDict(config)
+
+    init_process_group(backend='nccl')
+    torch.cuda.set_device(int(os.environ['LOCAL_RANK']))
+
+    if int(os.environ['RANK']) != 0:
+        logger.remove()
 
     check_config(config)
 
@@ -124,7 +132,9 @@ if __name__ == '__main__':
 
     print_important_package_version()
 
-    seed_all(config.base.seed)
+    logger.info(f'WORLD_SIZE : {int(os.environ["WORLD_SIZE"])}')
+
+    seed_all(config.base.seed + int(os.environ['RANK']))
 
     # mkdirs
     if 'save' in config:
@@ -148,6 +158,8 @@ if __name__ == '__main__':
             mkdirs(save_fake_path)
 
     main(config)
+
+    destroy_process_group()
 
     llmc_end_time = time.time()
     llmc_duration_time = llmc_end_time - llmc_start_time
