@@ -1,10 +1,12 @@
 import functools
 import gc
 import json
+import os
 from collections import defaultdict
 from functools import partial
 
 import torch
+import torch.distributed as dist
 import torch.nn as nn
 from loguru import logger
 
@@ -487,6 +489,12 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
                     n_sample_token=n_sample_token,
                 )
 
+                dist.all_reduce(max_val, op=dist.ReduceOp.SUM)
+                max_val /= int(os.environ['WORLD_SIZE'])
+
+                dist.all_reduce(min_val, op=dist.ReduceOp.SUM)
+                min_val /= int(os.environ['WORLD_SIZE'])
+
                 self.apply_clip(m, min_val, max_val, n)
 
     @torch.no_grad()
@@ -802,6 +810,8 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
 
     @torch.no_grad()
     def save_model(self, path):
+        if int(os.environ['RANK']) != 0:
+            return
         if self.online_rotate:
             self.contiguous_params()
         if self.config.model.type == 'Llava':
