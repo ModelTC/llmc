@@ -40,7 +40,15 @@ def main():
                 "modifications": [
                     (
                         "torch.cuda.empty_cache()",
-                        "if use_cuda: torch.cuda.empty_cache()",
+                        "if use_cuda: torch.cuda.empty_cache()"
+                    ),
+                    (
+                        "init_process_group(backend='nccl')",
+                        "init_process_group(backend='gloo')"
+                    ),
+                    (
+                        "torch.cuda.set_device(int(os.environ['LOCAL_RANK']))",
+                        "# torch.cuda.set_device(int(os.environ['LOCAL_RANK']))"
                     )
                 ],
             }
