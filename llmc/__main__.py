@@ -71,27 +71,27 @@ def main(config):
             )
         blockwise_opt.run_block_loop()
 
-        if 'eval' in config and 'transformed' in config.eval.eval_pos:
-            blockwise_opt.deploy('origin_float')
-            for ppl_eval in eval_list:
-                ppl = ppl_eval.eval(model)
-                logger.info(f'{ppl_eval.dataset} ppl : {ppl}')
+    if 'eval' in config and 'transformed' in config.eval.eval_pos:
+        blockwise_opt.deploy('origin_float')
+        for ppl_eval in eval_list:
+            ppl = ppl_eval.eval(model)
+            logger.info(f'{ppl_eval.dataset} ppl : {ppl}')
 
-        if 'cvt' in config and config.get('cvt', True):
-            blockwise_opt.run_block_cvt()
+    if 'cvt' in config and config.get('cvt', True):
+        blockwise_opt.run_block_cvt()
 
-        if 'save' in config and config.save.get('save_trans', False):
-            blockwise_opt.save_model(save_trans_path)
+    if 'save' in config and config.save.get('save_trans', False):
+        blockwise_opt.save_model(save_trans_path)
 
-        if 'save' in config and config.save.get('save_trtllm', False):
-            blockwise_opt.save_model(save_trtllm_trans_path)
-            from llmc.utils.export_trtllm import cvt_trtllm_engine
+    if 'save' in config and config.save.get('save_trtllm', False):
+        blockwise_opt.save_model(save_trtllm_trans_path)
+        from llmc.utils.export_trtllm import cvt_trtllm_engine
 
-            cvt_trtllm_engine(
-                save_trtllm_trans_path,
-                save_trtllm_engine_path,
-                config.save.get('trtllm_cfg'),
-            )
+        cvt_trtllm_engine(
+            save_trtllm_trans_path,
+            save_trtllm_engine_path,
+            config.save.get('trtllm_cfg'),
+        )
 
     if 'eval' in config and 'fake_quant' in config.eval.eval_pos:
         blockwise_opt.deploy('fake_quant')

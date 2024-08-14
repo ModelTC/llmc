@@ -169,7 +169,7 @@ To help users design their configs, we now explain some universal configurations
       # utilize naive quantization to the transformed model to obtain the same performance as
       # the specifical-algorithm-quantized model.
       save_trans: False
-      # ``save_lightllm`` is True, which means you want to export a real quant model, e.g.,
+      # ``save_lightllm`` or ``save_trtllm`` is True, which means you want to export a real quant model, e.g.,
       # low-bit weights with weight and activation quantization parameters.
       save_lightllm: False
       # ``save_fake`` is True means you want to export fake_quant model, e.g.,

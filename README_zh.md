@@ -159,7 +159,7 @@
   save:
       # 如果``save_trans``为 True，这意味着你想要导出转换模型，例如，参数修改的模型，其性能和结构与原始模型相同，用户可以对转换模型进行简单量化，以获得与特定算法量化模型相同的性能。
       save_trans: False
-      # 如果``save_lightllm``为 True，这意味着你想要导出真实的量化模型，例如，低位权重和权重及激活量化参数。
+      # 如果``save_lightllm`` 或者 ``save_trtllm`` 为 True，这意味着你想要导出真实的量化模型，例如，低位权重和权重及激活量化参数。
       save_lightllm: False
       # 如果``save_fake``为 True，意味着你想要导出假量化模型，例如，去量化的权重和激活量化参数。
       save_fake: False
