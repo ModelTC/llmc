@@ -21,8 +21,17 @@ class Quarot(BaseBlockwiseQuantization):
         self.preprocess()
 
     def preprocess(self):
-        assert self.config['model']['type'] in ['Opt', 'Llama']
+        assert self.config['model']['type'] in ['Opt', 'Llama', 'Qwen2']
         # if self.config["model"]["type"] in ["Opt"]:
+        if torch.equal(
+            self.model.get_head_layers()[0].weight,
+            self.model.get_embed_layers()[0].weight,
+        ):
+            logger.info('Tie weight! Skip rotating head layer!')
+            del self.model.get_head_layers()[0].weight
+            w = self.model.get_embed_layers()[0].weight.clone()
+            self.model.get_head_layers()[0].weight = nn.Parameter(w)
+
         self.remove_mean_from_embed()
 
         self.Q = self.get_orthogonal_matrix()

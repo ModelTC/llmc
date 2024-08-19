@@ -80,7 +80,15 @@ class Quantizer:
         return (min_val, max_val)
 
     def get_mse_range(self, tensor, grid=100, norm=2.4, maxshrink=0.8, bs=256):
-        assert tensor.shape[0] % bs == 0
+        # assert tensor.shape[0] % bs == 0
+        if tensor.shape[0] % bs != 0:
+            logger.warning(
+                'Batch size is not a multiple of the tensor size,'
+                'set batch size to {}'.format(
+                    tensor.shape[0]
+                )
+            )
+            bs = tensor.shape[0]
         tensor = tensor.float()
         min_val, max_val = self.get_minmax_range(tensor)
 

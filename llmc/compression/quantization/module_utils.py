@@ -8,9 +8,8 @@ from loguru import logger
 from transformers.models.llama.modeling_llama import LlamaRMSNorm
 from transformers.models.mistral.modeling_mistral import MistralRMSNorm
 from transformers.models.mixtral.modeling_mixtral import MixtralRMSNorm
+from transformers.models.qwen2.modeling_qwen2 import Qwen2RMSNorm
 from transformers.pytorch_utils import ALL_LAYERNORM_LAYERS
-
-# from transformers.models.qwen2.modeling_qwen2 import Qwen2RMSNorm
 
 try:
     import fast_hadamard_transform
@@ -615,7 +614,7 @@ class RealQuantLinear(nn.Module):
 _TRANSFORMERS_LN_TYPES_ = ALL_LAYERNORM_LAYERS + [
     MistralRMSNorm,
     MixtralRMSNorm,
-    # Qwen2RMSNorm,
+    Qwen2RMSNorm,
     LlamaRMSNorm,
     nn.LayerNorm,
 ]
