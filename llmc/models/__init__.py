@@ -4,8 +4,12 @@ from .gemma2 import Gemma2
 from .internlm2 import InternLM2
 from .llama import Llama
 from .llava import Llava
+from .minicpm import MiniCPM
 from .mistral import Mistral
 from .mixtral import Mixtral
 from .opt import Opt
+from .phi import Phi
 from .qwen2 import Qwen2
+from .smollm import SmolLM
+from .stablelm import StableLm
 from .starcoder import Starcoder

@@ -21,7 +21,9 @@ class Quarot(BaseBlockwiseQuantization):
         self.preprocess()
 
     def preprocess(self):
-        assert self.config['model']['type'] in ['Opt', 'Llama', 'Qwen2']
+        assert self.config['model']['type'] in [
+            'Opt', 'Llama', 'Qwen2', 'InternLM2',
+            'MiniCPM', 'StableLm', 'SmolLM']
         # if self.config["model"]["type"] in ["Opt"]:
         if torch.equal(
             self.model.get_head_layers()[0].weight,
@@ -83,6 +85,16 @@ class Quarot(BaseBlockwiseQuantization):
         logger.info(f'block:{block}')
         logger.info(f'End transform the {self.block_idx+1}-th block')
 
+    def bake_mean_into_linear(self, linear):
+        linear_dtype = linear.weight.dtype
+        W_ = linear.weight.data.double()
+        linear.weight.data = W_ - W_.mean(dim=-2, keepdim=True)
+        linear.weight.data = linear.weight.data.to(linear_dtype)
+        if linear.bias is not None:
+            b_ = linear.bias.data.double()
+            linear.bias.data = b_ - b_.mean()
+            linear.bias.data = linear.bias.data.to(linear_dtype)
+
     @torch.no_grad()
     def subset_transform(self, block, subset):
         prev_op = subset['prev_op']
@@ -97,7 +109,7 @@ class Quarot(BaseBlockwiseQuantization):
             self.fuse_ln_fcs(prev_op[0], layers)
             self.rotate_pre_layers(layers, self.Q)
         else:
-            if self.config['model']['type'] in ['Opt']:
+            if self.config['model']['type'] in ['Opt', 'StableLm']:
                 self.bake_mean_into_linear(layers[0])
 
             if 'is_mlp' in subset and subset['is_mlp']:
@@ -105,6 +117,9 @@ class Quarot(BaseBlockwiseQuantization):
                     layers, self.Q, exact_had=True if self.online_rotate else False
                 )
             else:
+                for n, m in layers_dict.items():
+                    logger.info(f'layer: {n} {m.weight.shape}')
+                logger.info(f'{self.Q.shape}')
                 self.rotate_post_layers(layers, self.Q, exact_had=False)
                 if self.online_rotate:
                     apply_exact_had_to_linear(
