@@ -1,3 +1,4 @@
+from llmc.compression.quantization.module_utils import _TRANSFORMERS_LN_TYPES_
 from llmc.utils.registry_factory import MODEL_REGISTRY
 
 from .base_model import BaseModel
@@ -7,6 +8,8 @@ from .base_model import BaseModel
 class InternLM2(BaseModel):
     def __init__(self, model_path, torch_dtype):
         super().__init__(model_path, torch_dtype)
+        global _TRANSFORMERS_LN_TYPES_
+        _TRANSFORMERS_LN_TYPES_ += [type(self.model.model.norm)]
 
     def find_blocks(self):
         self.blocks = self.model.model.layers
@@ -19,6 +22,12 @@ class InternLM2(BaseModel):
 
     def get_embed_layers(self):
         return [self.tok_embeddings]
+
+    def get_head_layers(self):
+        return [self.model.output]
+
+    def get_pre_head_layernorm_layers(self):
+        return [self.model.model.norm]
 
     def get_layers_except_blocks(self):
         return [self.tok_embeddings, self.model.model.norm, self.model.output]
@@ -57,6 +66,7 @@ class InternLM2(BaseModel):
                 'input': ['feed_forward.w1'],
                 'inspect': block.feed_forward,
                 'has_kwargs': False,
+                'is_mlp': True,
             },
             {
                 'layers': {'feed_forward.w2': block.feed_forward.w2},
@@ -64,5 +74,6 @@ class InternLM2(BaseModel):
                 'input': ['feed_forward.w2'],
                 'inspect': block.feed_forward.w2,
                 'has_kwargs': False,
+                'is_mlp': True,
             },
         ]

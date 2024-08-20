@@ -1,34 +1,15 @@
-from loguru import logger
-
+from llmc.compression.quantization.module_utils import _TRANSFORMERS_LN_TYPES_
 from llmc.utils.registry_factory import MODEL_REGISTRY
-
-try:
-    from transformers.models.gemma2.modeling_gemma2 import Gemma2RMSNorm
-except Exception:
-    logger.warning('Gemma2 not found')
-from types import MethodType
-
-import torch.nn as nn
 
 from .base_model import BaseModel
 
 
-def gemma2_rms_norm_forward(self, x):
-    output = self._norm(x.float())
-    output = output * self.weight.float()
-    return output.type_as(x)
-
-
 @MODEL_REGISTRY
-class Gemma2(BaseModel):
+class MiniCPM(BaseModel):
     def __init__(self, model_path, torch_dtype):
         super().__init__(model_path, torch_dtype)
-        for m in self.model.modules():
-            if isinstance(m, Gemma2RMSNorm):
-                w = m.weight.data
-                del m.weight
-                m.weight = nn.Parameter(w + 1.0)
-                m.forward = MethodType(gemma2_rms_norm_forward, m)
+        global _TRANSFORMERS_LN_TYPES_
+        _TRANSFORMERS_LN_TYPES_ += [type(self.model.model.norm)]
 
     def find_blocks(self):
         self.blocks = self.model.model.layers
@@ -58,7 +39,7 @@ class Gemma2(BaseModel):
     def get_layernorms_in_block(self, block):
         return {
             'input_layernorm': block.input_layernorm,
-            'pre_feedforward_layernorm': block.pre_feedforward_layernorm,
+            'post_attention_layernorm': block.post_attention_layernorm,
         }
 
     def get_subsets_in_block(self, block):
@@ -86,7 +67,7 @@ class Gemma2(BaseModel):
                     'mlp.gate_proj': block.mlp.gate_proj,
                     'mlp.up_proj': block.mlp.up_proj,
                 },
-                'prev_op': [block.pre_feedforward_layernorm],
+                'prev_op': [block.post_attention_layernorm],
                 'input': ['mlp.gate_proj'],
                 'inspect': block.mlp,
                 'has_kwargs': False,

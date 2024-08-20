@@ -9,6 +9,17 @@ from transformers.models.llama.modeling_llama import LlamaRMSNorm
 from transformers.models.mistral.modeling_mistral import MistralRMSNorm
 from transformers.models.mixtral.modeling_mixtral import MixtralRMSNorm
 from transformers.models.qwen2.modeling_qwen2 import Qwen2RMSNorm
+
+try:
+    from transformers.models.gemma2.modeling_gemma2 import Gemma2RMSNorm
+except Exception:
+    logger.info(
+        'Gemma2RMSNorm not installed. '
+        'If you need it, please update your transformers lib.'
+    )
+
+    class Gemma2RMSNorm(nn.Module):
+        pass
 from transformers.pytorch_utils import ALL_LAYERNORM_LAYERS
 
 try:
@@ -17,7 +28,7 @@ try:
     from .hadamard_utils import matmul_hadU_cuda
 except Exception:
     logger.info(
-        'fast_hadamard_transform not installed.'
+        'fast_hadamard_transform not installed. '
         'If you need it, please install it firstly.'
     )
 
@@ -122,7 +133,10 @@ class LlmcRMSNorm(nn.Module):
     @classmethod
     @torch.no_grad()
     def new(cls, module):
-        eps = module.variance_epsilon
+        if hasattr(module, 'eps'):
+            eps = module.eps
+        else:
+            eps = module.variance_epsilon
         weight = module.weight
         new_module = cls(weight, eps)
         return new_module
@@ -161,6 +175,22 @@ class LlmcInternLM2RMSNorm(LlmcLlamaRMSNorm):
 
     def __repr__(self):
         return 'LlmcInternLM2RMSNorm()'
+
+
+class LlmcGemma2RMSNorm(LlmcLlamaRMSNorm):
+    def __init__(self, weight, eps=1e-6):
+        super().__init__(weight, eps)
+
+    def __repr__(self):
+        return 'LlmcGemma2RMSNorm()'
+
+
+class LlmcMiniCPMRMSNorm(LlmcLlamaRMSNorm):
+    def __init__(self, weight, eps=1e-6):
+        super().__init__(weight, eps)
+
+    def __repr__(self):
+        return 'LlmcMiniCPMRMSNorm()'
 
 
 class OriginFloatLinear(nn.Module):
@@ -616,6 +646,7 @@ _TRANSFORMERS_LN_TYPES_ = ALL_LAYERNORM_LAYERS + [
     MixtralRMSNorm,
     Qwen2RMSNorm,
     LlamaRMSNorm,
+    Gemma2RMSNorm,
     nn.LayerNorm,
 ]
 _TRANSFORMERS_LINEAR_TYPES_ = [nn.Linear]
@@ -627,6 +658,8 @@ _MODEL_LN_TYPES_PAIRS_ = {
     'Mixtral': LlmcMixtralRMSNorm,
     'Interlm2': LlmcInternLM2RMSNorm,
     'Qwen2': LlmcQwen2RMSNorm,
+    'Gemma2': LlmcGemma2RMSNorm,
+    'MiniCPM': LlmcMiniCPMRMSNorm,
     'Starcoder': LlmcLayerNorm,
     'Opt': LlmcLayerNorm,
     'Bloom': LlmcLayerNorm,
@@ -641,6 +674,8 @@ _LLMC_LN_TYPES_ = [
     LlmcMistralRMSNorm,
     LlmcMixtralRMSNorm,
     LlmcInternLM2RMSNorm,
+    LlmcGemma2RMSNorm,
+    LlmcMiniCPMRMSNorm,
 ]
 
 

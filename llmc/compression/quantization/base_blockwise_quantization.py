@@ -748,7 +748,8 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
                     fc.bias = torch.nn.Parameter(
                         torch.zeros(fc.out_features, dtype=torch.float64)
                     )
-                fc.bias.data = fc.bias.data.double() + torch.matmul(W, ln.bias.double())
+                fc.bias.data = fc.bias.data.double().to(device=W.device) \
+                    + torch.matmul(W, ln.bias.double())
                 fc.bias.data = fc.bias.data.to(fc_dtype)
 
     def remove_mean_from_embed(self):
