@@ -180,6 +180,11 @@ class HFLM(TemplateLM):
 
         # if we passed `pretrained` as a string, initialize our model now
         if isinstance(pretrained, str):
+            from copy import deepcopy
+            new_kwargs = deepcopy(kwargs)
+            del new_kwargs["config"]
+            # del new_kwargs["online_rotate"]
+            del new_kwargs["quarot"]
             self._create_model(
                 pretrained=pretrained,
                 revision=revision,
@@ -193,13 +198,78 @@ class HFLM(TemplateLM):
                 peft=peft,
                 delta=delta,
                 autogptq=autogptq,
-                **kwargs,
+                **new_kwargs,
             )
 
         # access self._model through self.model property outside this method
         if isinstance(self.model, torch.nn.Module):
             self.model.eval()
             self.model.tie_weights()
+
+        eval_logger.info(
+            f"Prepare for LLMC load"
+        )
+        config = kwargs.get("config", None)
+        assert config is not None, "Config is required for LLMC"
+        import yaml
+        from easydict import EasyDict
+        from llmc.utils.registry_factory import ALGO_REGISTRY
+        import sys
+        if config.get('quant', None) is not None and config.quant.method != "RTN":
+            eval_logger.error("Only RTN/None is supported for now")
+            sys.exit(1)
+        if config.get('quant', None) is not None:
+
+            def get_blocks(self):
+                    try:
+                        layers = self.model.layers
+                    except:
+                        layers = self.model.decoder.layers
+                    return layers
+
+            from types import MethodType
+            self.model.get_blocks = MethodType(get_blocks, self.model)
+            self.model.blocks = self.model.get_blocks()
+            self.model.model_config = self.config
+            blockwise_opt = ALGO_REGISTRY[config.quant.method](
+                self.model, quant_config=config.quant, input=None, config=config
+            )
+            device = self.model.device
+            from llmc.models.base_model import BaseModel
+            self.model.replace_module_all = MethodType(BaseModel.replace_module_all, self.model)
+            self.model.replace_module_subset = MethodType(BaseModel.replace_module_subset, self.model)
+            self.model.replace_module_block = MethodType(BaseModel.replace_module_block, self.model)
+            self.model.get_block_linears = MethodType(BaseModel.get_block_linears, self.model)
+            def get_model(self):
+                return self
+            self.model.get_model = MethodType(get_model, self.model)
+            if config.quant.get('special', None) is not None and config.quant.special.get('online_rotate', False):
+                eval_logger.warning("Online rotate is for transformed/fake_quant QuaRot OPT/Llama!")
+                for layer in self.model.blocks:
+                    blockwise_opt.replace_rotate_linears(layer)
+
+            blockwise_opt.run_block_loop()
+            blockwise_opt.deploy('fake_quant')
+        eval_logger.info(self.model)
+        self.model.to(device)
+        # from llmc.eval import PerplexityEval
+        # eval_list = []
+        # name_list = (
+        #     config.eval.name
+        #     if not isinstance(config.eval.name, str)
+        #     else [config.eval.name]
+        # )
+        # for name in name_list:
+        #     eval_config = copy.deepcopy(config.eval)
+        #     eval_config.name = name
+        #     if len(name_list) != 1:  # eval multi datasets
+        #         eval_config.path = os.path.join(config.eval.path, name)
+        #     ppl_eval = PerplexityEval(self.tokenizer, eval_config)
+        #     eval_list.append(ppl_eval)
+        # for ppl_eval in eval_list:
+        #     ppl = ppl_eval.eval(self.model)
+        #     eval_logger.info(f'{ppl_eval.dataset} ppl : {ppl}')
+        # sys.exit(0)
 
         self.truncation = truncation
         self.logits_cache = logits_cache

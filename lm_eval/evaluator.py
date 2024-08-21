@@ -24,6 +24,7 @@ from lm_eval.evaluator_utils import (
     print_writeout,
     run_task_tests,
 )
+from easydict import EasyDict
 from lm_eval.loggers import EvaluationTracker
 from lm_eval.loggers.utils import add_env_info, add_tokenizer_info, get_git_commit_hash
 from lm_eval.tasks import (
@@ -74,6 +75,9 @@ def simple_evaluate(
     numpy_random_seed: int = 1234,
     torch_random_seed: int = 1234,
     fewshot_random_seed: int = 1234,
+    # online_rotate: bool = False,
+    quarot: bool = False,
+    config: EasyDict = None,
 ):
     """Instantiate and evaluate a model on a list of tasks.
 
@@ -191,6 +195,9 @@ def simple_evaluate(
                     "batch_size": batch_size,
                     "max_batch_size": max_batch_size,
                     "device": device,
+                    "config": config,
+                    # "online_rotate": online_rotate,
+                    "quarot": quarot,
                 },
             )
 
@@ -204,6 +211,9 @@ def simple_evaluate(
                     "batch_size": batch_size,
                     "max_batch_size": max_batch_size,
                     "device": device,
+                    "config": config,
+                    # "online_rotate": online_rotate,
+                    "quarot": quarot,
                 },
             )
     else:

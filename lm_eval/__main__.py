@@ -411,6 +411,9 @@ def cli_evaluate(args: Union[argparse.Namespace, None] = None) -> None:
         numpy_random_seed=args.seed[1],
         torch_random_seed=args.seed[2],
         fewshot_random_seed=args.seed[3],
+        # online_rotate=args.online_rotate,
+        quarot=args.quarot,
+        config=args.config,
         **request_caching_args,
     )
 
