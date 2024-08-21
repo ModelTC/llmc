@@ -208,7 +208,10 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
 
     def replace_rotate_linears(self, block):
         for n, m in block.named_modules():
-            if isinstance(m, nn.Linear) and ('down_proj' in n or 'o_proj' in n):
+            if isinstance(m, nn.Linear) and ('down_proj' in n
+                                             or 'o_proj' in n
+                                             or 'fc2' in n
+                                             or 'out_proj' in n):
                 subset = {'layers': {n: m}}
                 self.model.replace_module_subset(
                     RotateLinear,

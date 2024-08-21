@@ -25,6 +25,8 @@
 
 ## 新闻
 
+- **2024年8月22日：** 🔥我们支持包括当前最先进的 [SmolLM](https://huggingface.co/collections/HuggingFaceTB/smollm-6695016cad7167254ce15966)（请参阅 [支持的模型列表](#supported-model-list)）在内的许多小型语言模型。此外，我们还通过修改后的[lm-evaluation-harness](https://github.com/EleutherAI/lm-evaluation-harness) 🤗 支持下游任务评估。具体来说，人们可以首先使用`save_trans`模式（请参阅 [配置](#配置) 中的 `save` 部分）来保存修改后的模型权重。获取转换后的模型后，可以直接参考  [run_lm_eval.sh](scripts/run_lm_eval.sh)来评估量化模型。更多详情可在[这里](https://llmc-zhcn.readthedocs.io/en/latest/advanced/model_test.html#id2)找到。
+
 - **2024 年 7 月 23 日：** 🍺🍺🍺 我们发布了全新版本的基准论文：
 
   [**LLMC：使用多功能压缩工具包对大型语言模型量化进行基准测试**](https://arxiv.org/abs/2405.06001v2)。
@@ -70,9 +72,7 @@
 - 量化大型语言模型，如 Llama2-70B、OPT-175B，并在仅一个 A100/H100/H800 GPU上评估其 PPL💥。
 - 为用户提供选择的最新的[与原论文代码仓库精度对齐](benchmark/align.md)的压缩算法，并且用户可以在一个大型语言模型上依次使用多个算法💥。
 - 由我们工具通过特定压缩算法导出的转换模型（`save_trans`模式在`quant`部分的[配置](#配置)）可以通过多个后端进行简单量化，得到经过特定压缩算法优化的模型，相应的后端可以进行推断💥。
-- 我们的压缩模型（`save_lightllm`模式在`quant`部分的\[配置\](#
-
-配置)）具有较低的内存占用，可以直接通过[Lightllm](https://github.com/ModelTC/lightllm)进行推断💥。
+- 我们的压缩模型（`save_lightllm`模式在`quant`部分的\[配置\](#配置)）具有较低的内存占用，可以直接通过[Lightllm](https://github.com/ModelTC/lightllm)进行推断💥。
 
 ## 使用方式
 
@@ -227,6 +227,26 @@
 
 ✅ [LLaMA V3](https://huggingface.co/meta-llama)
 
+✅ [Mixtral](https://huggingface.co/docs/transformers/model_doc/mixtral)
+
+✅ [Qwen V2](https://github.com/QwenLM/Qwen2)
+
+✅ [LLaVA](https://github.com/haotian-liu/LLaVA)
+
+✅ [InternLM2.5](https://huggingface.co/internlm)
+
+✅ [StableLM](https://github.com/Stability-AI/StableLM)
+
+✅ [Gemma2](https://huggingface.co/docs/transformers/main/en/model_doc/gemma2)
+
+✅ [Phi2](https://huggingface.co/microsoft/phi-2)
+
+✅ [Phi 1.5](https://huggingface.co/microsoft/phi-1_5)
+
+✅ [MiniCPM](https://github.com/OpenBMB/MiniCPM)
+
+✅ [SmolLM](https://huggingface.co/collections/HuggingFaceTB/smollm-6695016cad7167254ce15966)
+
 你可以参考 `llmc/models/*.py` 下的文件添加你自己的模型类型。
 
 ## 支持的算法列表
@@ -287,6 +307,7 @@
 - https://github.com/TimDettmers/bitsandbytes
 - https://github.com/mobiusml/hqq
 - [https://github.com/locuslab/wanda](https://github.com/locuslab/wanda)
+- [https://github.com/EleutherAI/lm-evaluation-harness](https://github.com/EleutherAI/lm-evaluation-harness)
 
 ## 星标历史
 

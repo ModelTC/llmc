@@ -1,4 +1,6 @@
 import gc
+import json
+import os
 
 import torch
 import torch.nn as nn
@@ -30,6 +32,11 @@ class Quarot(BaseBlockwiseQuantization):
             self.model.get_embed_layers()[0].weight,
         ):
             logger.info('Tie weight! Copy embed_layer for head_layer!')
+            path = os.join(self.config.model.path, 'config.json')
+            with open(path, 'w') as f:
+                config = json.load(f)
+                config['tie_word_embeddings'] = False
+                json.dump(config, f, indent=4)
             del self.model.get_head_layers()[0].weight
             w = self.model.get_embed_layers()[0].weight.clone()
             self.model.get_head_layers()[0].weight = nn.Parameter(w)

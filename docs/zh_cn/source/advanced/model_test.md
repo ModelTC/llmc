@@ -152,6 +152,31 @@ python run.py configs/eval_lightllm.py
 ```
 当模型完成推理和指标计算后，我们便可获得模型的评测结果。其中会在当前目录下生成output文件夹，logs子文件夹记录着评测中的日志，最后生成summary子文件会记录所测数据集的精度
 
+## lm-evaluation-harness评测工具的使用
+
+我们保留了[lm-evaluation-harness](https://github.com/EleutherAI/lm-evaluation-harness)中的命令。只添加了两个参数``--config``和``--quarot``。前者用于加载由``save_trans``保存的转换模型或根据模型路径的原始huggingface模型。如果不使用``quant``部分，则配置中将移除该部分以对全精度模型进行评估，我们只支持RTN量化，其中所有相关的量化粒度需要与转换模型的设置对齐。如果模型经过[QuaRot](https://arxiv.org/abs/2404.00456)转换，则使用后者。
+
+```
+export CUDA_VISIBLE_DEVICES=4,5,6,7
+llmc=./llmc
+lm_eval=./llmc/lm-evaluation-harness
+export PYTHONPATH=$llmc:$PYTHONPATH
+export PYTHONPATH=$llmc:$lm_eval:$PYTHONPATH
+# Replace the config file (i.e., RTN with algorithm-transformed model path or notate quant with original model path) 
+# with the one you want to use. `--quarot` is depend on the transformation algorithm used before.
+accelerate launch --multi_gpu --num_processes 4 llmc/tools/llm_eval.py \
+    --config llmc/configs/quantization/RTN/rtn_quarot.yml \
+    --model hf \
+    --quarot \
+    --tasks lambada_openai,arc_easy \
+    --model_args parallelize=False \
+    --batch_size 64 \
+    --output_path ./save/lm_eval \
+    --log_samples
+```
+
+*备注：请在``--model_args``不使用pretrained=\*同时进行评估时取消并行化（或paralleize=False）。*
+
 ## 常见问题
 
 **<font color=red> 问题1 </font>** 
