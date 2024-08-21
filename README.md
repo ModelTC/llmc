@@ -26,6 +26,8 @@
 
 ## News
 
+- **Aug 22, 2024:** 🔥We support lots of small language models, including current SOTA [SmolLM](https://huggingface.co/collections/HuggingFaceTB/smollm-6695016cad7167254ce15966)(see [Supported Model List](#supported-model-list)). Additionally, we also support down stream task evaluation through our modified [lm-evaluation-harness](https://github.com/EleutherAI/lm-evaluation-harness) 🤗. Specifically, people can first employ `save_trans` mode(see `save` part in [Configuration](#configuration)) to save a weight modified model. After obtaining the transformed model, they can directly evaluate the quantized model referring to [run_lm_eval.sh](scripts/run_lm_eval.sh). More details can be found in [here](https://llmc-en.readthedocs.io/en/latest/advanced/model_test.html).
+
 - **Jul 23, 2024:** 🍺🍺🍺 We release a brand new version benchmark paper:
 
   [**LLMC: Benchmarking Large Language Model Quantization with a Versatile Compression Toolkit**](https://arxiv.org/abs/2405.06001v2).
@@ -247,6 +249,20 @@ To help users design their configs, we now explain some universal configurations
 
 ✅ [LLaVA](https://github.com/haotian-liu/LLaVA)
 
+✅ [InternLM2.5](https://huggingface.co/internlm)
+
+✅ [StableLM](https://github.com/Stability-AI/StableLM)
+
+✅ [Gemma2](https://huggingface.co/docs/transformers/main/en/model_doc/gemma2)
+
+✅ [Phi2](https://huggingface.co/microsoft/phi-2)
+
+✅ [Phi 1.5](https://huggingface.co/microsoft/phi-1_5)
+
+✅ [MiniCPM](https://github.com/OpenBMB/MiniCPM)
+
+✅ [SmolLM](https://huggingface.co/collections/HuggingFaceTB/smollm-6695016cad7167254ce15966)
+
 You can add your own model type referring to files under `llmc/models/*.py`.
 
 ## Supported Algorithm List
@@ -308,6 +324,7 @@ We develop our code referring to the following repos:
 - https://github.com/mobiusml/hqq
 - [https://github.com/spcl/QuaRot](https://github.com/spcl/QuaRot)
 - [https://github.com/locuslab/wanda](https://github.com/locuslab/wanda)
+- [https://github.com/EleutherAI/lm-evaluation-harness](https://github.com/EleutherAI/lm-evaluation-harness)
 
 ## Star History
 

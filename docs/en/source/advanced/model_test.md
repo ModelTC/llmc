@@ -153,6 +153,33 @@ python run.py configs/eval_lightllm.py
 ```
 When the model has completed the inference and metric calculations, we can get the evaluation results of the model. The output folder will be generated in the current directory, the logs subfolder will record the logs in the evaluation, and the summary subfile will record the accuracy of the measured data set
 
+## Use of the lm-evaluation-harness evaluation tool
+
+Besides the above-mentioned methods, we also recommend people use [lm-evaluation-harness](https://github.com/EleutherAI/lm-evaluation-harness). We have already integrated this tool in ours. After cloning the submodules of our llmc, people can refer to the following commands to evaluate the quantized model/full precision model:
+
+```
+export CUDA_VISIBLE_DEVICES=4,5,6,7
+llmc=./llmc
+lm_eval=./llmc/lm-evaluation-harness
+export PYTHONPATH=$llmc:$PYTHONPATH
+export PYTHONPATH=$llmc:$lm_eval:$PYTHONPATH
+# Replace the config file (i.e., RTN with algorithm-transformed model path or notate quant with original model path) 
+# with the one you want to use. `--quarot` depends on the transformation algorithm used before.
+accelerate launch --multi_gpu --num_processes 4 llmc/tools/llm_eval.py \
+    --config llmc/configs/quantization/RTN/rtn_quarot.yml \
+    --model hf \
+    --quarot \
+    --tasks lambada_openai,arc_easy \
+    --model_args parallelize=False \
+    --batch_size 64 \
+    --output_path ./save/lm_eval \
+    --log_samples
+```
+
+We preserve the command in [lm-evaluation-harness](https://github.com/EleutherAI/lm-evaluation-harness). There are only two more arguments ``--config`` and ``--quarot``. The former is for loading the transformed model (saved by ``save_trans``) or the original hugginface model, depending on the model path. Otherwise, remove ``quant`` part in the config to perform evaluation for the full-precision model, and we only support RTN quant, where all related quantization granularities need to align with the setting of the transformed model. The latter is employed if the model is transformed by [QuaRot](https://arxiv.org/abs/2404.00456).
+
+*Remark: Please cancel the paralleize (or paralleize=False) and pretrained=\* in ``--model_args`` for evaluation.*
+
 ## FAQ
 
 **<font color=red> Q1 </font>** 
@@ -169,7 +196,7 @@ The test accuracy of the Humaneval of the LLAMA model is too low
 
 **<font color=green> Solution </font>** 
 
-You may need to delete the \n at the end of each entry in the Humaneval jsonl file in the dataset provided by OpenCompass and retest it
+You may need to delete the \n at the end of each entry in the Humaneval json file in the dataset provided by OpenCompass and retest it
 
 **<font color=red> Q3 </font>** 
 

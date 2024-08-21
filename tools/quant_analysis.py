@@ -9,7 +9,7 @@ from loguru import logger
 from tqdm import tqdm
 from transformers import AutoConfig, AutoModelForCausalLM
 
-sys.path.append('..')
+sys.path.append(os.path.join(os.path.dirname(__file__), '../'))
 import matplotlib.pyplot as plt
 import torch.nn as nn
 

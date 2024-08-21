@@ -26,6 +26,8 @@
 
 ## ニュース
 
+- **2024年8月22日：** 🔥私たちは、現在の最先端技術である[SmolLM](https://huggingface.co/collections/HuggingFaceTB/smollm-6695016cad7167254ce15966)（[サポートされているモデルリスト](#supported-model-list)を参照）を含む多くの小型言語モデルをサポートしています。さらに、改良された[lm-evaluation-harness](https://github.com/EleutherAI/lm-evaluation-harness) 🤗 を通じてダウンストリームタスクの評価もサポートしています。具体的には、まず `save_trans` モード（[設定](#設定)の `save` 部分を参照）を使用して、変更されたモデルの重みを保存します。変換後のモデルを取得した後、[run_lm_eval.sh](scripts/run_lm_eval.sh)を参照して量子化モデルを直接評価することができます。詳細は[こちら](https://llmc-en.readthedocs.io/en/latest/advanced/model_test.html)で確認できます。
+
 - **2024 年 7 月 23 日:** 🍺🍺🍺 新しいバージョンのベンチマーク ペーパーをリリースします:
 
   [**LLMC: 多用途の圧縮ツールキットを使用した大規模言語モデル量子化のベンチマーク**](https://arxiv.org/abs/2405.06001v2)。
@@ -231,6 +233,26 @@
 
 ✅ [LLaVA](https://github.com/haotian-liu/LLaVA)
 
+✅ [Mixtral](https://huggingface.co/docs/transformers/model_doc/mixtral)
+
+✅ [Qwen V2](https://github.com/QwenLM/Qwen2)
+
+✅ [LLaVA](https://github.com/haotian-liu/LLaVA)
+
+✅ [InternLM2.5](https://huggingface.co/internlm)
+
+✅ [StableLM](https://github.com/Stability-AI/StableLM)
+
+✅ [Gemma2](https://huggingface.co/docs/transformers/main/en/model_doc/gemma2)
+
+✅ [Phi2](https://huggingface.co/microsoft/phi-2)
+
+✅ [Phi 1.5](https://huggingface.co/microsoft/phi-1_5)
+
+✅ [MiniCPM](https://github.com/OpenBMB/MiniCPM)
+
+✅ [SmolLM](https://huggingface.co/collections/HuggingFaceTB/smollm-6695016cad7167254ce15966)
+
 `llmc/models/*.py`の下のファイルを参照して、独自のモデルタイプを追加できます。
 
 ## サポートされているアルゴリズムリスト
@@ -292,6 +314,7 @@
 - https://github.com/mobiusml/hqq
 - [https://github.com/spcl/QuaRot](https://github.com/spcl/QuaRot)
 - [https://github.com/locuslab/wanda](https://github.com/locuslab/wanda)
+- [https://github.com/EleutherAI/lm-evaluation-harness](https://github.com/EleutherAI/lm-evaluation-harness)
 
 ## スター履歴
 
