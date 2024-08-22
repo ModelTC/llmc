@@ -92,15 +92,6 @@ class Quarot(BaseBlockwiseQuantization):
         logger.info(f'block:{block}')
         logger.info(f'End transform the {self.block_idx+1}-th block')
 
-    def bake_mean_into_linear(self, linear):
-        linear_dtype = linear.weight.dtype
-        W_ = linear.weight.data.double()
-        linear.weight.data = W_ - W_.mean(dim=-2, keepdim=True)
-        linear.weight.data = linear.weight.data.to(linear_dtype)
-        if linear.bias is not None:
-            b_ = linear.bias.data.double()
-            linear.bias.data = b_ - b_.mean()
-            linear.bias.data = linear.bias.data.to(linear_dtype)
 
     @torch.no_grad()
     def subset_transform(self, block, subset):
@@ -117,7 +108,7 @@ class Quarot(BaseBlockwiseQuantization):
             self.rotate_pre_layers(layers, self.Q)
         else:
             if self.config['model']['type'] in ['Opt', 'StableLm']:
-                self.bake_mean_into_linear(layers[0])
+                self.bake_mean_into_fc(layers[0])
 
             if 'is_mlp' in subset and subset['is_mlp']:
                 self.rotate_post_layers(
