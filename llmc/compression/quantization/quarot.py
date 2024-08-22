@@ -92,7 +92,6 @@ class Quarot(BaseBlockwiseQuantization):
         logger.info(f'block:{block}')
         logger.info(f'End transform the {self.block_idx+1}-th block')
 
-
     @torch.no_grad()
     def subset_transform(self, block, subset):
         prev_op = subset['prev_op']
