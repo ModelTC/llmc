@@ -14,7 +14,7 @@ class Wanda(BaseBlockwiseSparsification):
 
     @torch.no_grad()
     def get_row_scale(self, layer, act):
-        if len(act) == 2:
+        if len(act.shape) == 2:
             act = act.unsqueeze(0)
         nsamples = act.shape[0]
         if isinstance(layer, nn.Linear):
