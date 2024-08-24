@@ -32,10 +32,11 @@ class Quarot(BaseBlockwiseQuantization):
             self.model.get_embed_layers()[0].weight,
         ):
             logger.info('Tie weight! Copy embed_layer for head_layer!')
-            path = os.join(self.config.model.path, 'config.json')
-            with open(path, 'w') as f:
+            path = os.path.join(self.config.model.path, 'config.json')
+            with open(path, 'r') as f:
                 config = json.load(f)
-                config['tie_word_embeddings'] = False
+            config['tie_word_embeddings'] = False
+            with open(path, 'w') as f:
                 json.dump(config, f, indent=4)
             del self.model.get_head_layers()[0].weight
             w = self.model.get_embed_layers()[0].weight.clone()
