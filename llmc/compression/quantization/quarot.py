@@ -32,12 +32,6 @@ class Quarot(BaseBlockwiseQuantization):
             self.model.get_embed_layers()[0].weight,
         ):
             logger.info('Tie weight! Copy embed_layer for head_layer!')
-            path = os.path.join(self.config.model.path, 'config.json')
-            with open(path, 'r') as f:
-                config = json.load(f)
-            config['tie_word_embeddings'] = False
-            with open(path, 'w') as f:
-                json.dump(config, f, indent=4)
             del self.model.get_head_layers()[0].weight
             w = self.model.get_embed_layers()[0].weight.clone()
             self.model.get_head_layers()[0].weight = nn.Parameter(w)
@@ -124,3 +118,14 @@ class Quarot(BaseBlockwiseQuantization):
                         prev_op[0], had_dim=self.head_dim, output=True
                     )
                     apply_exact_had_to_linear(layers[0], had_dim=-1, output=False)
+
+    @torch.no_grad()
+    def save_model(self, path):
+        super().save_model(path)
+        path = os.path.join(path, 'config.json')
+        with open(path, 'r') as f:
+            config = json.load(f)
+        if 'tie_word_embeddings' in config:
+            config['tie_word_embeddings'] = False
+        with open(path, 'w') as f:
+            json.dump(config, f, indent=4)
