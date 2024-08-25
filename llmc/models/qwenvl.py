@@ -1,21 +1,13 @@
 from loguru import logger
-from transformers import AutoConfig
+from transformers import AutoConfig, AutoModelForCausalLM
 
 from llmc.utils.registry_factory import MODEL_REGISTRY
 
-from .llama import Llama
-
-try:
-    from transformers import LlavaForConditionalGeneration
-except Exception:
-    logger.info(
-        'LlavaForConditionalGeneration is not supported in this version of transfomers.'
-        'Update transfomers if you need.'
-    )
+from .qwen import Qwen
 
 
 @MODEL_REGISTRY
-class Llava(Llama):
+class QwenVL(Qwen):
     def __init__(self, model_path, torch_dtype):
         super().__init__(model_path, torch_dtype)
 
@@ -23,13 +15,16 @@ class Llava(Llama):
         self.vlm_model_config = AutoConfig.from_pretrained(
             self.model_path, trust_remote_code=True
         )
-        self.vlm_model_config.text_config.use_cache = False
+        if hasattr(self.vlm_model_config, 'use_cache'):
+            self.vlm_model_config.use_cache = False
         logger.info(f'self.vlm_model_config : {self.vlm_model_config}')
-        self.vlm_model = LlavaForConditionalGeneration.from_pretrained(
+        self.vlm_model = AutoModelForCausalLM.from_pretrained(
             self.model_path,
             config=self.vlm_model_config,
+            trust_remote_code=True,
             torch_dtype=self.torch_dtype,
             low_cpu_mem_usage=True,
         )
-        self.model = self.vlm_model.language_model
-        self.model_config = self.vlm_model_config.text_config
+        self.model = self.vlm_model
+        self.model_config = self.vlm_model_config
+        self.vision_model = self.vlm_model.transformer.visual
