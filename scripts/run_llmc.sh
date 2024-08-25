@@ -12,11 +12,21 @@ nnodes=1
 nproc_per_node=1
 
 
-MASTER_ADDR=127.0.0.1
-MASTER_PORT=$((10000 + RANDOM % 20000))
+find_unused_port() {
+    while true; do
+        port=$(shuf -i 10000-60000 -n 1)
+        if ! ss -tuln | grep -q ":$port "; then
+            echo "$port"
+            return 0
+        fi
+    done
+}
+UNUSED_PORT=$(find_unused_port)
 
-RANDOM=$(python -c 'import uuid; print(uuid.uuid4())')
-task_id=$RANDOM
+
+MASTER_ADDR=127.0.0.1
+MASTER_PORT=$UNUSED_PORT
+task_id=$UNUSED_PORT
 
 nohup \
 torchrun \
