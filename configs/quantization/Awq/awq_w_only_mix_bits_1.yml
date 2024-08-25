@@ -43,4 +43,3 @@ quant:
 save:
     save_trans: False
     save_path: ./save
-    tokenizer_file_substring: ["token"]

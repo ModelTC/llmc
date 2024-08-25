@@ -365,7 +365,7 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
     def scale_fc_fc(self, fc1, fc2, scales):
         scales = scales.to(fc1.weight.device)
         if fc1.out_features == fc2.in_features * 3:
-            num_heads = self.model.get_model_config().to_dict().get('n_head', None)
+            num_heads = self.model.get_num_attention_heads()
             fc1.weight.t_()
             org_shape = fc1.weight.shape
             fc1.weight.data = fc1.weight.data.reshape(org_shape[0] * num_heads, 3, -1)
@@ -798,7 +798,8 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
 
     @torch.no_grad()
     def copy_tokenizer(self, path):
-        for substring in self.config.save.get('tokenizer_file_substring', ['token']):
+        for substring in self.config.save.get('tokenizer_file_substring',
+                                              ['token', 'merges', 'vocab']):
             copy_files(self.config.model.path, path, substring)
         logger.info('copy tokenizer done --')
 
@@ -818,9 +819,9 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
             return
         if self.online_rotate:
             self.contiguous_params()
-        if self.config.model.type == 'Llava':
-            self.model.llava_model.language_model = self.model.get_model()
-            self.model.llava_model.save_pretrained(path)
+        if self.config.model.type in ['Llava', 'InternVL2']:
+            self.model.vlm_model.language_model = self.model.get_model()
+            self.model.vlm_model.save_pretrained(path)
             logger.info('save model done --')
             self.copy_tokenizer(path)
             copy_files(self.config.model.path, path, 'preprocessor_config')
