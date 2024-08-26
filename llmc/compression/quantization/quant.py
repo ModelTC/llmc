@@ -433,7 +433,7 @@ class Quantizer:
         else:
             dtype = torch.int32
         weight = weight.to(dtype)
-        if zeros != torch.tensor(0.0) and self.round_zp:
+        if (zeros != torch.tensor(0.0)).all() and self.round_zp:
             zeros = zeros.to(dtype)
         else:
             zeros = None
@@ -454,7 +454,7 @@ class Quantizer:
         else:
             dtype = torch.int32
         weight = weight.to(dtype)
-        if zeros != torch.tensor(0.0) and self.round_zp:
+        if (zeros != torch.tensor(0.0)).all() and self.round_zp:
             zeros = zeros.to(dtype)
         else:
             zeros = None
