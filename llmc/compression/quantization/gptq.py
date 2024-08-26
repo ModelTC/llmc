@@ -239,12 +239,18 @@ class GPTQ(BaseBlockwiseQuantization):
                 w, d = W1[:, i], Hinv1[i, i]
                 idx = i1 + i
 
-                if self.wquantizer.granularity == 'per_group':
-                    if not self.static_groups and idx % self.wquantizer.group_size == 0:
-                        col_end = min(
-                            idx + self.wquantizer.group_size, self.columns - self.n_out
-                        )
-                        self.search_column_qparams(W[:, idx:col_end], idx)
+                if self.wquantizer.granularity == "per_group":
+                    idx = i1 + i
+                    if not self.static_groups:
+                        if (i1 + i) % self.wquantizer.group_size == 0:
+                            column_tensors = W[
+                                :,
+                                (i1 + i) : min(
+                                    (i1 + i + self.wquantizer.group_size),
+                                    (self.columns - self.n_out),
+                                ),
+                            ]
+                            self.search_column_qparams(column_tensors, idx)
                     else:
                         if self.actorder:
                             idx = self.perm[idx]

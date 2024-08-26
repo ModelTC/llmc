@@ -14,7 +14,7 @@ from torch.distributed import destroy_process_group, init_process_group
 from llmc.compression.quantization import *
 from llmc.compression.sparsification import *
 from llmc.data import BaseDataset, BaseTokenizer
-from llmc.eval import PerplexityEval
+from llmc.eval import PerplexityEval, TokenConsistencyEval
 from llmc.models import *
 from llmc.utils import (check_config, mkdirs, print_important_package_version,
                         seed_all)
@@ -98,6 +98,16 @@ def main(config):
         for ppl_eval in eval_list:
             ppl = ppl_eval.eval(model)
             logger.info(f'{ppl_eval.dataset} ppl : {ppl}')
+
+        if 'eval_token_consist' in config.eval:
+            org_model = MODEL_REGISTRY[config.model.type](
+                config.model.path, config.model.torch_dtype
+            )
+            token_consist_eval = TokenConsistencyEval(tokenizer.get_tokenizer(), eval_config)
+            consistency_ratio = token_consist_eval.eval(model, org_model)
+            logger.info(f'Token consistency ratio: {consistency_ratio}')
+            del org_model
+            del org_tokenizer
 
     if 'save' in config and config.save.get('save_fake', False):
         blockwise_opt.deploy('fake_quant')
