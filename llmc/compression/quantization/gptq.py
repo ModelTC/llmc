@@ -354,8 +354,8 @@ class GPTQ(BaseBlockwiseQuantization):
     @torch.no_grad()
     def split_qparams(self, qparams):
         group_qparams = []
-        group_num = self.columns // self.wquantizer.group_size
-        qparams = qparams.reshape(qparams.shape[0] // group_num, -1)
+        group_num = math.ceil(self.columns / self.wquantizer.group_size)
+        qparams = qparams.reshape(math.ceil(qparams.shape[0] / group_num), -1)
         qparams = qparams.t()
         group_qparams = list(torch.split(qparams, 1, dim=0))
         for i in range(len(group_qparams)):

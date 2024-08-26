@@ -245,7 +245,17 @@ class Quantizer:
     def reshape_tensor(self, tensor):
         if self.granularity == 'per_group':
             if tensor.shape[1] >= self.group_size:
-                t = tensor.reshape(-1, self.group_size)
+                if tensor.shape[1] % self.group_size == 0:
+                    t = tensor.reshape(-1, self.group_size)
+                else:
+                    deficiency = self.group_size - tensor.shape[1] % self.group_size
+                    prefix = tensor.shape[:-1]
+                    pad_zeros = torch.zeros(
+                        (*prefix, deficiency),
+                        device=tensor.device, dtype=tensor.dtype)
+                    t = torch.cat(
+                        (tensor, pad_zeros),
+                        dim=-1).reshape(-1, self.group_size)
             else:
                 t = tensor
         elif self.granularity == 'per_head':
@@ -258,7 +268,11 @@ class Quantizer:
         if tensor.shape == shape:
             t = tensor
         else:
-            t = tensor.reshape(shape)
+            try:
+                t = tensor.reshape(shape)
+            except RuntimeError:
+                deficiency = self.group_size - shape[1] % self.group_size
+                t = tensor.reshape(*shape[:-1], -1)[..., :-deficiency]
         return t
 
     def fake_quant_act_static(self, act, args={}):
