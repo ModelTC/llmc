@@ -10,7 +10,10 @@ from transformers import AutoTokenizer, AutoModelForCausalLM
 from loguru import logger
 
 def attention_visualization(model, tokenizer, args):
-    layer_index, head_index, input_text, save_img_path = args.layer_idx, args.head_idx, args.input_text, args.save_img_path
+    layer_index = args.layer_idx
+    head_index = args.head_idx
+    input_text = args.input_text
+    save_img_path = args.save_img_path
 
     inputs = tokenizer(input_text, return_tensors="pt")
 
