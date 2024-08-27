@@ -10,7 +10,7 @@ accelerate launch --multi_gpu --num_processes 4 llmc/tools/llm_eval.py \
     --model hf \
     --quarot \
     --tasks lambada_openai,arc_easy \
-    --model_args parallelize=False \
+    --model_args parallelize=False,trust_remote_code=True \
     --batch_size 64 \
     --output_path ./save/lm_eval \
     --log_samples
