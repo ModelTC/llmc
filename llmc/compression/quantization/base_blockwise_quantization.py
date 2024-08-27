@@ -825,6 +825,12 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
             logger.info('save model done --')
             self.copy_tokenizer(path)
             copy_files(self.config.model.path, path, 'preprocessor_config')
+        elif self.config.model.type in ['InternOmni']:
+            self.model.avlm_model.language_model = self.model.get_model()
+            self.model.avlm_model.save_pretrained(path)
+            logger.info('save model done --')
+            self.copy_tokenizer(path)
+            copy_files(self.config.model.path, path, 'preprocessor_config')
         else:
             self.model.get_model().save_pretrained(path)
             logger.info('save model done --')
