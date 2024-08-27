@@ -15,8 +15,6 @@ class InternVL2(InternLM2):
         self.vlm_model_config = AutoConfig.from_pretrained(
             self.model_path, trust_remote_code=True
         )
-        if hasattr(self.vlm_model_config, 'use_cache'):
-            self.vlm_model_config.use_cache = False
         logger.info(f'self.vlm_model_config : {self.vlm_model_config}')
         self.vlm_model = AutoModelForCausalLM.from_pretrained(
             self.model_path,
@@ -27,3 +25,5 @@ class InternVL2(InternLM2):
         )
         self.model = self.vlm_model.language_model
         self.model_config = self.vlm_model_config.llm_config
+        if hasattr(self.model_config, 'use_cache'):
+            self.model_config.use_cache = False

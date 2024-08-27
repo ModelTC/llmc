@@ -2,6 +2,7 @@ from .bloom import Bloom
 from .falcon import Falcon
 from .gemma2 import Gemma2
 from .internlm2 import InternLM2
+from .internomni import InternOmni
 from .internvl2 import InternVL2
 from .llama import Llama
 from .llava import Llava

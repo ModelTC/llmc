@@ -829,7 +829,6 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
             if not param.is_contiguous():
                 param.data = param.data.contiguous()
 
-    @torch.no_grad()
     def save_model(self, path):
         if int(os.environ['RANK']) != 0:
             return
@@ -838,6 +837,12 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
         if self.config.model.type in ['Llava', 'InternVL2']:
             self.model.vlm_model.language_model = self.model.get_model()
             self.model.vlm_model.save_pretrained(path)
+            logger.info('save model done --')
+            self.copy_tokenizer(path)
+            copy_files(self.config.model.path, path, 'preprocessor_config')
+        elif self.config.model.type in ['InternOmni']:
+            self.model.avlm_model.language_model = self.model.get_model()
+            self.model.avlm_model.save_pretrained(path)
             logger.info('save model done --')
             self.copy_tokenizer(path)
             copy_files(self.config.model.path, path, 'preprocessor_config')
