@@ -77,9 +77,6 @@ def main(config):
             ppl = ppl_eval.eval(model)
             logger.info(f'{ppl_eval.dataset} ppl : {ppl}')
 
-    if 'cvt' in config and config.get('cvt', True):
-        blockwise_opt.run_block_cvt()
-
     if 'save' in config and config.save.get('save_trans', False):
         blockwise_opt.save_model(save_trans_path)
 
@@ -99,15 +96,15 @@ def main(config):
             ppl = ppl_eval.eval(model)
             logger.info(f'{ppl_eval.dataset} ppl : {ppl}')
 
-        if 'eval_token_consist' in config.eval:
+        if 'eval_token_consist' in config.eval and config.eval.eval_token_consist:
             org_model = MODEL_REGISTRY[config.model.type](
                 config.model.path, config.model.torch_dtype
             )
-            token_consist_eval = TokenConsistencyEval(tokenizer.get_tokenizer(), eval_config)
+            token_consist_eval = TokenConsistencyEval(tokenizer.get_tokenizer(),
+                                                      eval_config)
             consistency_ratio = token_consist_eval.eval(model, org_model)
             logger.info(f'Token consistency ratio: {consistency_ratio}')
             del org_model
-            del org_tokenizer
 
     if 'save' in config and config.save.get('save_fake', False):
         blockwise_opt.deploy('fake_quant')

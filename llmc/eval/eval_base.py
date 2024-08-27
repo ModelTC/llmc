@@ -103,7 +103,7 @@ class BaseEval:
         else:
             model_fp = None
 
-        eval_res = self.eval_func(model_fp, model)
+        eval_res = self.eval_func(model_fp, model, self.testenc, self.seq_len, self.bs)
         if self.inference_per_block:
             for h in handles + handles_org:
                 h.remove()
