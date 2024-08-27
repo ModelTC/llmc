@@ -100,11 +100,12 @@ def main(config):
             org_model = MODEL_REGISTRY[config.model.type](
                 config.model.path, config.model.torch_dtype
             )
-            token_consist_eval = TokenConsistencyEval(tokenizer.get_tokenizer(), eval_config)
+            token_consist_eval = TokenConsistencyEval(tokenizer.get_tokenizer(),
+                                                      eval_config)
             consistency_ratio = token_consist_eval.eval(model, org_model)
             logger.info(f'Token consistency ratio: {consistency_ratio}')
             del org_model
-            
+
     if 'save' in config and config.save.get('save_fake', False):
         blockwise_opt.deploy('fake_quant')
         blockwise_opt.save_model(save_fake_path)
