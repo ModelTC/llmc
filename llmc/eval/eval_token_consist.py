@@ -5,7 +5,9 @@ import torch
 import torch.nn as nn
 from datasets import load_dataset, load_from_disk
 from loguru import logger
+
 from .eval_base import BaseEval
+
 
 class TokenConsistencyEval(BaseEval):
 
@@ -48,10 +50,8 @@ class TokenConsistencyEval(BaseEval):
         return consistency_ratio
 
 
-
 if __name__ == '__main__':
     import sys
-
     sys.path.append('../../')
     import argparse
 
@@ -66,7 +66,7 @@ if __name__ == '__main__':
     parser.add_argument('--model_path_2', type=str, required=True)
     args = parser.parse_args()
 
-    tokenizer = BaseTokenizer(args.model_path_1, tokenizer_mode="slow")
+    tokenizer = BaseTokenizer(args.model_path_1, tokenizer_mode='slow')
     org_model = MODEL_REGISTRY[args.model_type_1](args.model_path_1, 'auto')
     model = MODEL_REGISTRY[args.model_type_2](args.model_path_2, 'auto')
 
@@ -75,7 +75,7 @@ if __name__ == '__main__':
         'seq_len': 2048,
         'bs': 1,
         'download': False,
-        'path': "data_path",
+        'path': 'data_path',
         'inference_per_block': False,
     }
     token_consistency_eval = TokenConsistencyEval(tokenizer.get_tokenizer(), eval_cfg)
