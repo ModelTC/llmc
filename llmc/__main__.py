@@ -99,7 +99,7 @@ def main(config):
             ppl = ppl_eval.eval(model)
             logger.info(f'{ppl_eval.dataset} ppl : {ppl}')
 
-        if 'eval_token_consist' in config.eval:
+        if 'eval_token_consist' in config.eval and config.eval.eval_token_consist:
             org_model = MODEL_REGISTRY[config.model.type](
                 config.model.path, config.model.torch_dtype
             )

@@ -89,7 +89,7 @@ def main():
                     ),
                 ],
             }
-        elif file_path == "../llmc/eval/eval_ppl.py":
+        elif "eval" in file_path:
             modifications = {
                 "header": [
                     'device_zbl = "cpu"\n',

@@ -829,6 +829,7 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
             if not param.is_contiguous():
                 param.data = param.data.contiguous()
 
+    @torch.no_grad()
     def save_model(self, path):
         if int(os.environ['RANK']) != 0:
             return
