@@ -132,6 +132,7 @@ def main():
                         "torch.cuda.empty_cache()",
                         "if use_cuda: torch.cuda.empty_cache()",
                     ),
+                    ("for i in range(0, nsamples, bs):", "for i in range(0, 1, 1):"),
                 ],
             }
         else:
