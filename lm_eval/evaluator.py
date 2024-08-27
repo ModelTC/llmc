@@ -76,6 +76,7 @@ def simple_evaluate(
     torch_random_seed: int = 1234,
     fewshot_random_seed: int = 1234,
     # online_rotate: bool = False,
+    use_fast_tokenizer: bool = False,
     quarot: bool = False,
     config: EasyDict = None,
 ):
@@ -197,6 +198,7 @@ def simple_evaluate(
                     "device": device,
                     "config": config,
                     # "online_rotate": online_rotate,
+                    "use_fast_tokenizer": use_fast_tokenizer,
                     "quarot": quarot,
                 },
             )
@@ -213,6 +215,7 @@ def simple_evaluate(
                     "device": device,
                     "config": config,
                     # "online_rotate": online_rotate,
+                    "use_fast_tokenizer": use_fast_tokenizer,
                     "quarot": quarot,
                 },
             )

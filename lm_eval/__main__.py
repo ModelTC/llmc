@@ -257,6 +257,11 @@ def setup_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Sets trust_remote_code to True to execute code to create HF Datasets from the Hub",
     )
+    parser.add_argument(
+        "--use_fast_tokenizer",
+        action="store_true",
+        help="Use fast tokenizer for model inference",
+    )
     return parser
 
 
@@ -412,6 +417,7 @@ def cli_evaluate(args: Union[argparse.Namespace, None] = None) -> None:
         torch_random_seed=args.seed[2],
         fewshot_random_seed=args.seed[3],
         # online_rotate=args.online_rotate,
+        use_fast_tokenizer=args.use_fast_tokenizer,
         quarot=args.quarot,
         config=args.config,
         **request_caching_args,

@@ -215,7 +215,8 @@ class HFLM(TemplateLM):
         from easydict import EasyDict
         from llmc.utils.registry_factory import ALGO_REGISTRY
         import sys
-        if config.get('quant', None) is not None and config.quant.method != "RTN":
+        if config.get('quant') and config.quant.method != "RTN":
+            eval_logger.error(config.quant)
             eval_logger.error("Only RTN/None is supported for now")
             sys.exit(1)
         if config.get('quant', None) is not None:
