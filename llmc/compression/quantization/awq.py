@@ -40,7 +40,10 @@ class Awq(BaseBlockwiseQuantization):
         )
         weights = wquantizer.reshape_tensor(weights)
         scale = weights.abs() / weights.abs().amax(dim=1, keepdim=True)
-        scale = scale.view(org_shape)
+        try:
+            scale = scale.view(org_shape)
+        except RuntimeError:
+            scale = wquantizer.restore_tensor(scale, org_shape)
         scale = scale.mean(0)
         del weights
         gc.collect()

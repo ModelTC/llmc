@@ -447,7 +447,7 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
         scales = scales.to(ln.weight.device)
         ln.weight.div_(scales)
 
-        if self.model.has_bias():
+        if hasattr(ln, 'bias') and ln.bias is not None:
             ln.bias.div_(scales)
 
         for fc in fcs:
@@ -505,12 +505,20 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
         if self.clip_version == 'v1':
             max_val = max_val.to(layer.weight.device)
             org_shape = layer.weight.shape
-            layer.weight.data = layer.weight.data.reshape(*max_val.shape[:2], -1)
+            try:
+                layer.weight.data = layer.weight.data.reshape(*max_val.shape[:2], -1)
+            except RuntimeError:
+                layer.weight.data = self.wquantizer.reshape_tensor(layer.weight.data)
+                layer.weight.data = layer.weight.data.reshape(*max_val.shape[:2], -1)
             if self.clip_sym:
                 min_val = -max_val
 
             layer.weight.data = torch.clamp(layer.weight.data, min_val, max_val)
-            layer.weight.data = layer.weight.data.reshape(org_shape)
+            try:
+                layer.weight.data = layer.weight.data.reshape(org_shape)
+            except RuntimeError:
+                layer.weight.data = self.wquantizer \
+                    .restore_tensor(layer.weight.data, org_shape)
         elif self.clip_version == 'v2':
             up_factor, low_factor = self.get_clip_factor(
                 layer, min_val, max_val, layer_name
@@ -585,7 +593,11 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
         else:
             group_size = w.shape[1]
 
-        w = w.reshape(w.shape[0], 1, -1, group_size)
+        try:
+            w = w.reshape(w.shape[0], 1, -1, group_size)
+        except RuntimeError:
+            w = self.wquantizer.reshape_tensor(w)
+            w = w.reshape(w.shape[0], 1, -1, group_size)
         oc_batch_size = 256 if w.shape[0] % 256 == 0 else 64  # prevent OOM
         assert w.shape[0] % oc_batch_size == 0
 
@@ -622,7 +634,11 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
                     input[i] = input[i].to(w.device)
                     x = input[i]
                     x = x.view(-1, x.shape[-1])
-                    x = x.reshape(1, x.shape[0], -1, group_size)
+                    try:
+                        x = x.reshape(1, x.shape[0], -1, group_size)
+                    except RuntimeError:
+                        x = self.wquantizer.reshape_tensor(x)
+                        x = x.reshape(1, x.shape[0], -1, group_size)
                     x = x[:, 0:: x.shape[1] // n_sample_token]
                     if i in org_out_dict:
                         org_out = org_out_dict[i]
@@ -813,7 +829,6 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
             if not param.is_contiguous():
                 param.data = param.data.contiguous()
 
-    @torch.no_grad()
     def save_model(self, path):
         if int(os.environ['RANK']) != 0:
             return
