@@ -2,7 +2,6 @@ import copy
 import functools
 import gc
 import math
-import pdb
 import random
 from contextlib import nullcontext
 from math import inf
@@ -214,7 +213,6 @@ class OmniQuant(BaseBlockwiseQuantization):
 
                 if not math.isfinite(loss.item()):
                     logger.info('Loss is NAN, stopping training')
-                    pdb.set_trace()
 
                 loss_list.append(loss.data)
                 optimizer.zero_grad()
