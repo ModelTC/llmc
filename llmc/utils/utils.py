@@ -38,6 +38,16 @@ def check_config(config):
         if config.quant.weight.get('w_2', False):
             weight_setting = config.quant.weight.w_2
             check_weight_setting(weight_setting)
+        if config.quant.get('tp', False):
+            tp = config.quant.tp
+            assert isinstance(tp, int) and tp > 0, (
+                f'tp must be a positive integer, but got {tp}'
+            )
+            if config.quant.weight.get('granularity', False):
+                if config.quant.weight.granularity == 'per_head':
+                    raise NotImplementedError(
+                        'tp not yet supported granularity:per_head.'
+                    )
     if 'eval' in config and 'fake_quant' in config.eval.eval_pos:
         if 'save' in config:
             assert not config.save.get(

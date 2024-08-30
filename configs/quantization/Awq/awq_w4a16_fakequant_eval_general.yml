@@ -26,6 +26,7 @@ eval:
     seq_len: 2048
 quant:
     method: Awq
+    tp: 1
     weight:
         bit: 4
         symmetric: False
