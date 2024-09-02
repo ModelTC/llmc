@@ -71,3 +71,7 @@ pip install human-eval
 According to the opencompass [documentation](https://opencompass.readthedocs.io/en/latest/get_started/installation.html#dataset-preparation), prepare the dataset and place it in the current directory where you execute the command.
 
 Finally, you can load the above configuration and perform model compression and accuracy testing just like running a regular llmc program.
+
+Note: If the model is too large to fit on a single GPU for evaluation, and multi-GPU evaluation is needed, we support using pipeline parallelism when running opencompass.
+
+What you need to do is identify which GPUs are available, add them to CUDA_VISIBLE_DEVICES at the beginning of your run script, and then modify the file pointed to by cfg_path under opencompass, setting the num_gpus to the desired number.
