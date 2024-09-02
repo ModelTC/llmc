@@ -1,4 +1,4 @@
-# Model accuracy test
+# Model accuracy test V1
 
 ## Accuracy test pipeline
 
@@ -143,7 +143,7 @@ The above code snippet, which represents the test humaneval dataset, can be foun
 
 **Dataset download**
 
-It is necessary to prepare the best dataset according to the OpenCompass [documentation](https://opencompass.readthedocs.io/en/latest/get_started/installation.html#dataset-preparation).
+It is necessary to prepare the dataset according to the OpenCompass [documentation](https://opencompass.readthedocs.io/en/latest/get_started/installation.html#dataset-preparation).
 
 **Run accuracy tests**
 

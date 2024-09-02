@@ -30,7 +30,8 @@ arxiv链接: https://arxiv.org/abs/2405.06001
    :maxdepth: 2
    :caption: 进阶用法
 
-   advanced/model_test.md
+   advanced/model_test_v1.md
+   advanced/model_test_v2.md
    advanced/custom_dataset.md
    advanced/mix_bits.md
    advanced/sparsification.md
