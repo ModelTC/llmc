@@ -10,10 +10,9 @@ datasets = [*humaneval_datasets]
 models = [
     dict(
         type=HuggingFaceBaseModel,
-        abbr="LLMC-OPENCOMPASS",
+        abbr='LLMC-OPENCOMPASS',
         max_out_len=1024,
         batch_size=8,
         run_cfg=dict(num_gpus=1),
     )
 ]
-

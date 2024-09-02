@@ -884,7 +884,9 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
 
         module = module_mapping[quant_format]
         self.model.replace_module_all(
-            module, self.get_replacement_params(mode=quant_format, w_only=self.w_only), keep_device=keep_device
+            module,
+            self.get_replacement_params(mode=quant_format, w_only=self.w_only),
+            keep_device=keep_device
         )
 
         logger.info(f'-- deploy_{quant_format}_model done --')

@@ -119,8 +119,13 @@ def main(config):
         cfg_path = config['opencompass']['cfg_path']
         output_path = config['opencompass']['output_path']
         eval_model_path = os.path.abspath(save_trans_path)
-        opencompass_cmd = f"opencompass {cfg_path} -w {output_path} --llmc_cfg {args.config} --llmc_eval_mode quant --llmc_model_path {eval_model_path}"
-        logger.info(f"opencompass_cmd : {opencompass_cmd}")
+        opencompass_cmd = (
+            f'opencompass {cfg_path} -w {output_path} '
+            f'--llmc_cfg {args.config} '
+            f'--llmc_eval_mode quant '
+            f'--llmc_model_path {eval_model_path}'
+        )
+        logger.info(f'opencompass_cmd : {opencompass_cmd}')
         os.system(opencompass_cmd)
 
 
