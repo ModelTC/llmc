@@ -72,7 +72,7 @@ According to the opencompass [documentation](https://opencompass.readthedocs.io/
 
 Finally, you can load the above configuration and perform model compression and accuracy testing just like running a regular llmc program.
 
-## Note: 
+## Multi-GPU parallel test 
 
 If the model is too large to fit on a single GPU for evaluation, and multi-GPU evaluation is needed, we support using pipeline parallelism when running opencompass.
 

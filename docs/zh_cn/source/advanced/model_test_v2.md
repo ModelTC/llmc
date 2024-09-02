@@ -72,7 +72,7 @@ pip install human-eval
 
 最后你就可以像运行一个正常的llmc程序一样，载入上述的config，进行模型压缩和精度测试
 
-## 注意：
+## 多卡并行测试
 
 如果模型太大，单卡评测放不下，需要使用多卡评测精度，我们支持在运行opencompass时使用pipeline parallel。
 
