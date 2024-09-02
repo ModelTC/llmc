@@ -21,8 +21,8 @@ def gemma2_rms_norm_forward(self, x):
 
 @MODEL_REGISTRY
 class Gemma2(BaseModel):
-    def __init__(self, model_path, torch_dtype):
-        super().__init__(model_path, torch_dtype)
+    def __init__(self, model_path, torch_dtype, device_map=None, use_cache=False):
+        super().__init__(model_path, torch_dtype, device_map, use_cache)
         for m in self.model.modules():
             if isinstance(m, Gemma2RMSNorm):
                 w = m.weight.data

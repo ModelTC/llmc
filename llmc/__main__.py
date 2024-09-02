@@ -114,6 +114,15 @@ def main(config):
         blockwise_opt.deploy('real_quant')
         blockwise_opt.save_model(save_quant_path)
 
+    if 'opencompass' in config:
+        assert config.save.get('save_trans', False)
+        cfg_path = config['opencompass']['cfg_path']
+        output_path = config['opencompass']['output_path']
+        eval_model_path = os.path.abspath(save_trans_path)
+        opencompass_cmd = f"opencompass {cfg_path} -w {output_path} --llmc_cfg {args.config} --llmc_eval_mode quant --llmc_model_path {eval_model_path}"
+        logger.info(f"opencompass_cmd : {opencompass_cmd}")
+        os.system(opencompass_cmd)
+
 
 if __name__ == '__main__':
     llmc_start_time = time.time()

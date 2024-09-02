@@ -16,8 +16,8 @@ from .internlm2 import InternLM2
 
 @MODEL_REGISTRY
 class InternOmni(InternLM2):
-    def __init__(self, model_path, torch_dtype):
-        super().__init__(model_path, torch_dtype)
+    def __init__(self, model_path, torch_dtype, device_map=None, use_cache=False):
+        super().__init__(model_path, torch_dtype, device_map, use_cache)
 
     def build_model(self):
         self.avlm_model_config = InternVLChatAudioConfig.from_pretrained(
@@ -33,5 +33,6 @@ class InternOmni(InternLM2):
         )
         self.model = self.avlm_model.language_model
         self.model_config = self.avlm_model_config.llm_config
-        if hasattr(self.model_config, 'use_cache'):
-            self.model_config.use_cache = False
+        if not self.use_cache:
+            if hasattr(self.model_config, 'use_cache'):
+                self.model_config.use_cache = False
