@@ -70,8 +70,8 @@ pip install human-eval
 
 根据opencompass的[文档](https://opencompass.readthedocs.io/zh-cn/latest/get_started/installation.html#id2)，做好数据集的准备，将数据集，放在你执行命令的当前目录
 
-最后你就可以想运行一个正常的llmc程序一样，载入上述的config，进行模型压缩和精度测试
+最后你就可以像运行一个正常的llmc程序一样，载入上述的config，进行模型压缩和精度测试
 
 注意：如果模型太大，单卡评测放不下，需要使用多卡评测精度，我们支持在运行opencompass时使用pipeline parallel。
 
-你需要做的就是，确定哪些卡是可用的，在你的运行脚本最前面，添加到CUDA_VISIBLE_DEVICES中，然后修改opencompass下的cfg_path指向的文件，将里面的num_gpus设置成你需要的数量。
+你需要做的就是，确定哪些卡是可用的，在你的运行脚本最前面，添加到CUDA_VISIBLE_DEVICES中，然后修改opencompass下的cfg_path指向的文件，将里面的num_gpus设置成你需要的数量，仅此而已。
