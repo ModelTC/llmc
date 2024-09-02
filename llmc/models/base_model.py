@@ -17,9 +17,11 @@ from llmc.compression.quantization.utils import (check_do_quant, check_w_only,
 
 
 class BaseModel(metaclass=ABCMeta):
-    def __init__(self, model_path, torch_dtype):
+    def __init__(self, model_path, torch_dtype, device_map=None, use_cache=False):
         self.model_path = model_path
         self.torch_dtype = torch_dtype if torch_dtype == 'auto' else eval(torch_dtype)
+        self.device_map = device_map
+        self.use_cache = use_cache
         self.build_model()
         self.model.eval()
         self.find_blocks()
@@ -66,12 +68,14 @@ class BaseModel(metaclass=ABCMeta):
         self.model_config = AutoConfig.from_pretrained(
             self.model_path, trust_remote_code=True
         )
-        if hasattr(self.model_config, 'use_cache'):
-            self.model_config.use_cache = False
+        if not self.use_cache:
+            if hasattr(self.model_config, 'use_cache'):
+                self.model_config.use_cache = False
         logger.info(f'self.model_config : {self.model_config}')
         self.model = AutoModelForCausalLM.from_pretrained(
             self.model_path,
             config=self.model_config,
+            device_map=self.device_map,
             trust_remote_code=True,
             torch_dtype=self.torch_dtype,
             low_cpu_mem_usage=True,
@@ -186,13 +190,16 @@ class BaseModel(metaclass=ABCMeta):
             params_mix_dict['a_qdq'] = None
         return params_mix_dict
 
-    def replace_module_all(self, module, params_dict):
+    def replace_module_all(self, module, params_dict, keep_device=False):
         for block_idx in range(len(self.blocks)):
             logger.info(f'Replace block index: {block_idx}/{len(self.blocks)}')
             block = self.blocks[block_idx]
-            block = block.cuda()
-            self.replace_module_block(module, block, block_idx, params_dict)
-            block = block.cpu()
+            if keep_device:
+                self.replace_module_block(module, block, block_idx, params_dict)
+            else:
+                block = block.cuda()
+                self.replace_module_block(module, block, block_idx, params_dict)
+                block = block.cpu()
 
         gc.collect()
         torch.cuda.empty_cache()

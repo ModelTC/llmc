@@ -8,8 +8,8 @@ from .internlm2 import InternLM2
 
 @MODEL_REGISTRY
 class InternVL2(InternLM2):
-    def __init__(self, model_path, torch_dtype):
-        super().__init__(model_path, torch_dtype)
+    def __init__(self, model_path, torch_dtype, device_map=None, use_cache=False):
+        super().__init__(model_path, torch_dtype, device_map, use_cache)
 
     def build_model(self):
         self.vlm_model_config = AutoConfig.from_pretrained(
@@ -25,5 +25,6 @@ class InternVL2(InternLM2):
         )
         self.model = self.vlm_model.language_model
         self.model_config = self.vlm_model_config.llm_config
-        if hasattr(self.model_config, 'use_cache'):
-            self.model_config.use_cache = False
+        if not self.use_cache:
+            if hasattr(self.model_config, 'use_cache'):
+                self.model_config.use_cache = False
