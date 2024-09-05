@@ -19,7 +19,7 @@ class Quantizer:
         self.sym = symmetric
         self.granularity = granularity
         self.kwargs = kwargs
-        
+
         if 'calib_algo' in self.kwargs:
             self.calib_algo = self.kwargs['calib_algo']
         else:
