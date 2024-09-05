@@ -147,6 +147,7 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
 
         self.quant_out = self.quant_config.get('quant_out', False)
         self.tp = self.quant_config.get('tp', 1)
+        self.quant_config['weight']['tp'] = self.tp
 
         # set weight quant config
         self.wquantizer = Quantizer(**self.quant_config['weight'])
@@ -154,6 +155,7 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
         # set act quant config
         if 'act' in self.quant_config:
             self.w_only = False
+            self.quant_config['act']['tp'] = self.tp
             self.aquantizer = Quantizer(**self.quant_config['act'])
         else:
             self.w_only = True
