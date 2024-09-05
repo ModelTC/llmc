@@ -382,6 +382,10 @@ class FakeQuantLinear(nn.Module):
             if name.startswith('buf_'):
                 self.register_buffer(name, buf.data)
 
+        for name, buf in ori_module.named_parameters():
+            if name.startswith('buf_'):
+                self.register_buffer(name, buf.data)
+
         if hasattr(self, 'buf_rotate') and self.buf_rotate:
             self.rotater = ori_module.rotater
         else:
