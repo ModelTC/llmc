@@ -34,4 +34,5 @@ save:
     save_path: ./save
 opencompass:
     cfg_path: opencompass config path # eval_base.py for base model, eval_chat.py for chat model. configs can be found in llmc/configs/opencompass.
+    max_num_workers: 1
     output_path: ./oc_output

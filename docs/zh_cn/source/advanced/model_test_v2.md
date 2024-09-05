@@ -46,10 +46,11 @@ save:
     save_path: ./save
 opencompass:
     cfg_path: opencompass config path
+    max_num_workers: max num works
     output_path: ./oc_output
 ```
 
-opencompass下的cfg_path，需要指向一个opencompass的config路径
+<font color=792ee5> opencompass下的cfg_path，需要指向一个opencompass的config路径 </font>
 
 我们在[这里](https://github.com/ModelTC/llmc/tree/main/configs/opencompass)分别给出了base模型和chat模型的关于human-eval测试的config，作为给大家的参考。
 
@@ -57,7 +58,31 @@ opencompass下的cfg_path，需要指向一个opencompass的config路径
 
 当然，因为需要trans的save路径，所以想测试opencompass，就需要设置save_trans为True
 
-opencompass下的output_path，是设置opencompass的评测日志的输出目录
+<font color=792ee5> opencompass下的max_num_workers，表示最大的推理实例数 </font>
+
+假设模型是在单卡上跑的，那么max_num_workers就是表示，要起max_num_workers个推理实例，即占用了max_num_workers张卡。
+
+假设模型是在多卡上跑的，即参考下面的多卡并行测试，举例如果模型是在2张卡上进行推理，那么max_num_workers就是表示，要起max_num_workers个推理实例，即占用了2*max_num_workers张卡。
+
+综上，所需占用的卡数 = PP数 * max_num_workers
+
+如果所需占用的卡数超过实际中的卡数，那么就会有worker排队情况。
+
+max_num_workers不仅会起多个推理实例，还会把每个数据集进行切分成max_num_workers份，可以理解成是数据并行。
+
+所以：最佳的设置方案就是，让所需占用的卡数=实际可用的卡数。
+
+比如：
+
+在一个8卡机器上，某个模型，用单卡跑，则max_num_workers=8
+
+在一个8卡机器上，某个模型，用四卡跑，则max_num_workers=2
+
+我们尽量让PP数降低，让max_num_workers提高。因为PP并行会变慢，PP仅用在模型实在跑不了的情况，比如70B模型，单卡跑不了，我们就可以设置PP=4，用4个80G显存的卡去跑。
+
+<font color=792ee5> opencompass下的output_path，是设置opencompass的评测日志的输出目录 </font>
+
+在该日志目录中，opencompass会输出推理和评测的日志，推理的具体结果，评测最终的精度等。
 
 在运行llmc程序之前，还需要安装做了[llmc适配的opencompass](https://github.com/ModelTC/opencompass/tree/opencompass-llmc)
 
@@ -74,7 +99,7 @@ pip install human-eval
 
 ## 多卡并行测试
 
-如果模型太大，单卡评测放不下，需要使用多卡评测精度，我们支持在运行opencompass时使用pipeline parallel。
+如果模型太大，单卡评测放不下，需要使用多卡评测精度，我们支持在运行opencompass时使用pipeline parallel，即PP并行。
 
 你需要做的仅仅就是：
 
