@@ -306,9 +306,6 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
             inspect_module = subset['inspect']
             inspect_has_kwargs = subset['has_kwargs']
             subset_kwargs = block_kwargs if inspect_has_kwargs else {}
-            tensor_parallelize_style = (
-                subset['tensor_parallelize_style'] if self.tp > 1 else None
-            )
             self.subset_transform(
                 layers_dict,
                 input_feat,
@@ -316,7 +313,6 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
                 input_name,
                 inspect_module,
                 subset_kwargs,
-                tensor_parallelize_style,
             )
         logger.info(f'End transform the {self.block_idx}-th block')
 
@@ -328,20 +324,9 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
         return True
 
     def collect_layers_weights(self, layers, tensor_parallelize_style=None):
-        if tensor_parallelize_style is None:
-            weights = []
-            for _m in layers:
-                weights.append(_m.weight)
-            return weights
-        weights = [[] for _ in range(self.tp)]
+        weights = []
         for _m in layers:
-            weight = _m.weight
-            if tensor_parallelize_style == 'colwise':
-                split_weights = torch.chunk(weight, self.tp, dim=0)
-            elif tensor_parallelize_style == 'rowwise':
-                split_weights = torch.chunk(weight, self.tp, dim=1)
-            for i in range(self.tp):
-                weights[i].append(split_weights[i])
+            weights.append(_m.weight)
         return weights
 
     @torch.no_grad()
@@ -481,13 +466,6 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
     def auto_clip(self, block, input_feat, n_sample_token):
         # auto clip
         for n, m in block.named_modules():
-            subsets = self.model.get_subsets_in_block(block)
-            tensor_parallelize_style = None
-            if self.tp > 1:
-                for subset in subsets:
-                    if n in subset['layers']:
-                        tensor_parallelize_style = subset['tensor_parallelize_style']
-                        break
             if not check_do_quant(
                 self.block_idx, n, self.mix_bits_map, self.quantizer_mix_bits
             ):
@@ -515,7 +493,6 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
                     m.weight,
                     inputs,
                     n_sample_token=n_sample_token,
-                    tensor_parallelize_style=tensor_parallelize_style,
                 )
 
                 dist.all_reduce(max_val, op=dist.ReduceOp.SUM)
@@ -595,18 +572,30 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
         return up_factor, low_factor
 
     @torch.no_grad()
-    def auto_clip_layer_origin(
+    def auto_clip_layer(
         self,
         layer_name,
         w,
         input,
-        wquantizer,
-        group_size,
         n_grid=20,
         max_shrink=0.5,
         n_sample_token=512,
         eps=0.0,
     ):
+        assert w.dim() == 2
+
+        wquantizer = get_wquantizer(
+            self.block_idx,
+            layer_name,
+            self.mix_bits_map,
+            self.quantizer_mix_bits,
+            self.wquantizer,
+        )
+        if wquantizer.granularity == 'per_group':
+            group_size = wquantizer.group_size
+        else:
+            group_size = w.shape[1]
+
         try:
             w = w.reshape(w.shape[0], 1, -1, group_size)
         except RuntimeError:
@@ -734,71 +723,6 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
         gc.collect()
         torch.cuda.empty_cache()
         return best_max_val.squeeze(1), best_min_val.squeeze(1)
-
-    @torch.no_grad()
-    def auto_clip_layer(
-        self,
-        layer_name,
-        w,
-        input,
-        n_grid=20,
-        max_shrink=0.5,
-        n_sample_token=512,
-        eps=0.0,
-        tensor_parallelize_style=None,
-    ):
-        assert w.dim() == 2
-
-        wquantizer = get_wquantizer(
-            self.block_idx,
-            layer_name,
-            self.mix_bits_map,
-            self.quantizer_mix_bits,
-            self.wquantizer,
-        )
-        if wquantizer.granularity == 'per_group':
-            group_size = wquantizer.group_size
-        else:
-            group_size = w.shape[1]
-
-        if tensor_parallelize_style == 'colwise':
-            split_weights = torch.chunk(w, self.tp, dim=0)
-            max_val, min_val = [], []
-            for w in split_weights:
-                max_val_i, min_val_i = self.auto_clip_layer_origin(
-                    layer_name, w, input,
-                    wquantizer, group_size,
-                    n_grid, max_shrink, n_sample_token, eps,
-                )
-                max_val.append(max_val_i)
-                min_val.append(min_val_i)
-            max_val = torch.cat(max_val, dim=0)
-            min_val = torch.cat(min_val, dim=0)
-        elif tensor_parallelize_style == 'rowwise':
-            split_weights = torch.chunk(w, self.tp, dim=1)
-            split_inputs = [[] for _ in range(self.tp)]
-            for tensor in input:
-                chunks = torch.chunk(tensor, self.tp, dim=-1)
-                for i in range(self.tp):
-                    split_inputs[i].append(chunks[i])
-            max_val, min_val = [], []
-            for w, input in zip(split_weights, split_inputs):
-                max_val_i, min_val_i = self.auto_clip_layer_origin(
-                    layer_name, w, input,
-                    wquantizer, group_size,
-                    n_grid, max_shrink, n_sample_token, eps,
-                )
-                max_val.append(max_val_i)
-                min_val.append(min_val_i)
-            max_val = torch.cat(max_val, dim=-2)
-            min_val = torch.cat(min_val, dim=-2)
-        else:
-            max_val, min_val = self.auto_clip_layer_origin(
-                layer_name, w, input,
-                wquantizer, group_size,
-                n_grid, max_shrink, n_sample_token, eps,
-            )
-        return max_val, min_val
 
     def rotate_pre_layers(self, pre_layers, Q):
         for layer in pre_layers:

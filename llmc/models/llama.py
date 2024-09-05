@@ -51,7 +51,6 @@ class Llama(BaseModel):
                 'input': ['self_attn.q_proj'],
                 'inspect': block.self_attn,
                 'has_kwargs': True,
-                'tensor_parallelize_style': 'colwise',
             },
             {
                 'layers': {'self_attn.o_proj': block.self_attn.o_proj},
@@ -59,7 +58,6 @@ class Llama(BaseModel):
                 'input': ['self_attn.o_proj'],
                 'inspect': block.self_attn.o_proj,
                 'has_kwargs': False,
-                'tensor_parallelize_style': 'rowwise',
             },
             {
                 'layers': {
@@ -71,7 +69,6 @@ class Llama(BaseModel):
                 'inspect': block.mlp,
                 'has_kwargs': False,
                 'is_mlp': True,
-                'tensor_parallelize_style': 'colwise',
             },
             {
                 'layers': {'mlp.down_proj': block.mlp.down_proj},
@@ -80,6 +77,5 @@ class Llama(BaseModel):
                 'inspect': block.mlp.down_proj,
                 'has_kwargs': False,
                 'is_mlp': True,
-                'tensor_parallelize_style': 'rowwise',
             },
         ]

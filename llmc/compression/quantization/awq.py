@@ -26,9 +26,18 @@ class Awq(BaseBlockwiseQuantization):
         self.save_scale = special_config.get('save_scale', False)
 
     @torch.no_grad()
-    def get_weight_scale_(self, weights, wquantizer):
+    def get_weight_scale(self, layers_dict):
+        layers = list(layers_dict.values())
+        weights = self.collect_layers_weights(layers)
         weights = torch.cat(weights, dim=0)
         org_shape = weights.shape
+        wquantizer = get_wquantizer(
+            self.block_idx,
+            list(layers_dict.keys())[0],
+            self.mix_bits_map,
+            self.quantizer_mix_bits,
+            self.wquantizer,
+        )
         weights = wquantizer.reshape_tensor(weights)
         scale = weights.abs() / weights.abs().amax(dim=1, keepdim=True)
         try:
@@ -40,24 +49,6 @@ class Awq(BaseBlockwiseQuantization):
         gc.collect()
         torch.cuda.empty_cache()
         return scale
-
-    @torch.no_grad()
-    def get_weight_scale(self, layers_dict, tensor_parallelize_style=None):
-        layers = list(layers_dict.values())
-        weights = self.collect_layers_weights(layers, tensor_parallelize_style)
-        wquantizer = get_wquantizer(
-            self.block_idx,
-            list(layers_dict.keys())[0],
-            self.mix_bits_map,
-            self.quantizer_mix_bits,
-            self.wquantizer,
-        )
-        if tensor_parallelize_style is None:
-            return self.get_weight_scale_(weights, wquantizer)
-        scales = []
-        for weight_i in weights:
-            scales.append(self.get_weight_scale_(weight_i, wquantizer))
-        return scales
 
     @torch.no_grad()
     def get_act_scale(self, x):
@@ -72,9 +63,8 @@ class Awq(BaseBlockwiseQuantization):
         return org_out
 
     @torch.no_grad()
-    def search_scale_subset(self, layers_dict, input, inspect_module,
-                            subset_kwargs, tensor_parallelize_style=None):
-        w_max = self.get_weight_scale(layers_dict, tensor_parallelize_style)
+    def search_scale_subset(self, layers_dict, input, inspect_module, subset_kwargs):
+        w_max = self.get_weight_scale(layers_dict)
         # grid search for ratio
         best_error = float('inf')
         best_scales = None
@@ -101,10 +91,6 @@ class Awq(BaseBlockwiseQuantization):
 
                 ratio = n * 1 / n_grid
                 if self.trans_version == 'v1':
-                    if tensor_parallelize_style is not None:
-                        raise NotImplementedError(
-                            'tp not yet supported trans_version v1.'
-                        )
                     scales = (
                         (x_max.pow(ratio) / w_max.pow(1 - ratio))
                         .clamp(min=1e-4)
@@ -112,15 +98,7 @@ class Awq(BaseBlockwiseQuantization):
                     )
                 elif self.trans_version == 'v2':
                     scales = x_max.pow(ratio).clamp(min=1e-4).view(-1)
-                if tensor_parallelize_style == 'rowwise':
-                    split_scales = torch.chunk(scales, self.tp, dim=0)
-                    processed_splits = []
-                    for split in split_scales:
-                        split = split / (split.max() * split.min()).sqrt()
-                        processed_splits.append(split)
-                    scales = torch.cat(processed_splits, dim=0)
-                else:
-                    scales = scales / (scales.max() * scales.min()).sqrt()
+                scales = scales / (scales.max() * scales.min()).sqrt()
                 for layer_name in layers_dict:
                     fc = layers_dict[layer_name]
                     fc.weight.mul_(scales.view(1, -1))
@@ -131,8 +109,8 @@ class Awq(BaseBlockwiseQuantization):
                         self.mix_bits_map,
                         self.quantizer_mix_bits,
                         self.wquantizer,
-                    ).fake_quant_weight_dynamic(fc.weight.data,
-                                                tensor_parallelize_style)
+                    ).fake_quant_weight_dynamic(fc.weight.data)
+
                 x_tmp = x / scales.view(1, -1)
                 if not check_w_only(
                     self.block_idx,
@@ -147,7 +125,7 @@ class Awq(BaseBlockwiseQuantization):
                         self.mix_bits_map,
                         self.quantizer_mix_bits,
                         self.aquantizer,
-                    ).fake_quant_act_dynamic(x_tmp, tensor_parallelize_style)
+                    ).fake_quant_act_dynamic(x_tmp)
                 out = inspect_module(x_tmp, **kwargs)
 
                 if isinstance(out, tuple):
@@ -198,7 +176,6 @@ class Awq(BaseBlockwiseQuantization):
         input_name,
         inspect_module,
         subset_kwargs,
-        tensor_parallelize_style,
     ):
         if not check_do_quant(
             self.block_idx,
@@ -239,8 +216,7 @@ class Awq(BaseBlockwiseQuantization):
                 return
 
             scale = self.search_scale_subset(
-                layers_dict, input_feat[input_name], inspect_module,
-                subset_kwargs, tensor_parallelize_style
+                layers_dict, input_feat[input_name], inspect_module, subset_kwargs
             )
 
             self.apply_scale(scale, prev_op, layers)
