@@ -5,8 +5,8 @@ from .base_model import BaseModel
 
 @MODEL_REGISTRY
 class Llama(BaseModel):
-    def __init__(self, model_path, torch_dtype):
-        super().__init__(model_path, torch_dtype)
+    def __init__(self, model_path, torch_dtype, device_map=None, use_cache=False):
+        super().__init__(model_path, torch_dtype, device_map, use_cache)
 
     def find_blocks(self):
         self.blocks = self.model.model.layers
@@ -51,6 +51,7 @@ class Llama(BaseModel):
                 'input': ['self_attn.q_proj'],
                 'inspect': block.self_attn,
                 'has_kwargs': True,
+                'tensor_parallelize_style': 'colwise',
             },
             {
                 'layers': {'self_attn.o_proj': block.self_attn.o_proj},
@@ -58,6 +59,7 @@ class Llama(BaseModel):
                 'input': ['self_attn.o_proj'],
                 'inspect': block.self_attn.o_proj,
                 'has_kwargs': False,
+                'tensor_parallelize_style': 'rowwise',
             },
             {
                 'layers': {
@@ -69,6 +71,7 @@ class Llama(BaseModel):
                 'inspect': block.mlp,
                 'has_kwargs': False,
                 'is_mlp': True,
+                'tensor_parallelize_style': 'colwise',
             },
             {
                 'layers': {'mlp.down_proj': block.mlp.down_proj},
@@ -77,5 +80,6 @@ class Llama(BaseModel):
                 'inspect': block.mlp.down_proj,
                 'has_kwargs': False,
                 'is_mlp': True,
+                'tensor_parallelize_style': 'rowwise',
             },
         ]

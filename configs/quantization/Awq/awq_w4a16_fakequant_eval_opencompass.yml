@@ -3,7 +3,6 @@ base:
 model:
     type: Llama
     path: model path
-    tokenizer_mode: slow
     torch_dtype: auto
 calib:
     name: pileval
@@ -12,7 +11,7 @@ calib:
     n_samples: 128
     bs: -1
     seq_len: 512
-    preproc: general
+    preproc: pileval_awq
     seed: *seed
 eval:
     eval_pos: [pretrain, fake_quant]
@@ -20,18 +19,19 @@ eval:
     download: False
     path: eval data path
     bs: 1
-    inference_per_block: False
-    # For 70B model eval, bs can be set to 20, and inference_per_block can be set to True.
-    # For 7B / 13B model eval, bs can be set to 1, and inference_per_block can be set to False.
     seq_len: 2048
 quant:
     method: Awq
-    tp: 1
     weight:
         bit: 4
         symmetric: False
         granularity: per_group
         group_size: 128
+    special:
+        weight_clip: False
 save:
-    save_trans: False
+    save_trans: True
     save_path: ./save
+opencompass:
+    cfg_path: opencompass config path # eval_base.py for base model, eval_chat.py for chat model. configs can be found in llmc/configs/opencompass.
+    output_path: ./oc_output

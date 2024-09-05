@@ -42,4 +42,5 @@ if __name__ == '__main__':
             logger.error("Please remove 'paralleize=True' from model_args!")
             sys.exit(1)
         args.model_args += ',pretrained=' + config.model.path
+    args.use_fast_tokenizer = config.model.tokenizer_mode == 'fast'
     lm_eval.cli_evaluate(args)

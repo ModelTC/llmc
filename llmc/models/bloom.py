@@ -5,8 +5,8 @@ from .base_model import BaseModel
 
 @MODEL_REGISTRY
 class Bloom(BaseModel):
-    def __init__(self, model_path, torch_dtype):
-        super().__init__(model_path, torch_dtype)
+    def __init__(self, model_path, torch_dtype, device_map=None, use_cache=False):
+        super().__init__(model_path, torch_dtype, device_map, use_cache)
 
     def find_blocks(self):
         self.blocks = self.model.transformer.h

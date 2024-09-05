@@ -1,7 +1,6 @@
 import functools
 import gc
 import math
-import pdb
 from contextlib import nullcontext
 from math import inf
 
@@ -140,7 +139,6 @@ class NormTweaking(BaseBlockwiseQuantization):
 
                 if not math.isfinite(loss.item()):
                     logger.info('Loss is NAN, stopping training')
-                    pdb.set_trace()
 
                 loss_list.append(loss.data)
                 optimizer.zero_grad()

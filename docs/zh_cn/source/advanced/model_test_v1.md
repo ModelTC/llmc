@@ -1,4 +1,4 @@
-# 模型精度测试
+# 模型精度测试V1
 
 ## 精度测试流程
 
@@ -142,7 +142,7 @@ with read_base():
 
 **数据集下载**
 
-需要根据opencompass的[文档](https://opencompass.readthedocs.io/zh-cn/latest/get_started/installation.html#id2)，最好数据集的准备
+需要根据opencompass的[文档](https://opencompass.readthedocs.io/zh-cn/latest/get_started/installation.html#id2)，做好数据集的准备
 
 **运行精度测试**
 
