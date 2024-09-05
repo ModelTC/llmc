@@ -19,8 +19,7 @@ class Quantizer:
         self.sym = symmetric
         self.granularity = granularity
         self.kwargs = kwargs
-        self.tp = kwargs.get('tp', 1)
-
+        
         if 'calib_algo' in self.kwargs:
             self.calib_algo = self.kwargs['calib_algo']
         else:
@@ -316,8 +315,8 @@ class Quantizer:
 
         return q_act
 
-    # support mix precision quant act
-    def fake_quant_act_dynamic(self, act, tensor_parallelize_style=None, args={}):
+        # support mix precision quant act
+    def fake_quant_act_dynamic(self, act, args={}):
         if 'int_indices' in args:
             q_act = act[:, :, args['int_indices']]
             fp_act = act[:, :, args['fp_indices']]
@@ -328,29 +327,19 @@ class Quantizer:
             org_bit = self.bit
             self.bit = args['current_bit']
 
-        if tensor_parallelize_style == 'rowwise':
-            split_acts = torch.chunk(q_act, self.tp, dim=-1)
+        org_act_shape = q_act.shape
+        org_act_dtype = q_act.dtype
+
+        if not self.use_fp:
+            q_act, scales, zeros, max_int, min_int = self.get_tensor_qparams(
+                q_act, args
+            )
+            q_act = self.quant_dequant(q_act, scales, zeros, max_int, min_int)
         else:
-            split_acts = [q_act]
-        processed_splits = []
-        for split_act in split_acts:
-            org_act_shape = split_act.shape
-            org_act_dtype = split_act.dtype
-            if not self.use_fp:
-                split_act, scales, zeros, max_int, min_int = self.get_tensor_qparams(
-                    split_act, args
-                )
-                split_act = self.quant_dequant(split_act, scales,
-                                               zeros, max_int, min_int)
-            else:
-                split_act, scales = self.get_fp_tensor_qparams(split_act, args)
-                split_act = self.fp_quant_dequant(split_act, scales)
-            split_act = self.restore_tensor(split_act, org_act_shape).to(org_act_dtype)
-            processed_splits.append(split_act)
-        if tensor_parallelize_style == 'rowwise':
-            q_act = torch.cat(processed_splits, dim=-1)
-        else:
-            q_act = processed_splits[0]
+            q_act, scales = self.get_fp_tensor_qparams(q_act, args)
+            q_act = self.fp_quant_dequant(q_act, scales)
+
+        q_act = self.restore_tensor(q_act, org_act_shape).to(org_act_dtype)
 
         if 'current_bit' in args:
             self.bit = org_bit
@@ -399,7 +388,7 @@ class Quantizer:
         return q_weight
 
     # support mix precision quant weight
-    def fake_quant_weight_dynamic(self, weight, tensor_parallelize_style=None, args={}):
+    def fake_quant_weight_dynamic(self, weight, args={}):
         if 'int_indices' in args:
             if self.granularity == 'per_group':
                 assert len(args['int_indices']) % self.group_size == 0
@@ -415,35 +404,19 @@ class Quantizer:
             org_bit = self.bit
             self.bit = args['current_bit']
 
-        if tensor_parallelize_style == 'colwise':
-            split_weights = torch.chunk(q_weight, self.tp, dim=0)
-        elif tensor_parallelize_style == 'rowwise':
-            split_weights = torch.chunk(q_weight, self.tp, dim=1)
-        else:
-            split_weights = [q_weight]
+        org_w_shape = q_weight.shape
+        org_w_dtype = q_weight.dtype
+        if not self.use_fp:
+            q_weight, scales, zeros, max_int, min_int = self.get_tensor_qparams(
+                q_weight, args
+            )
 
-        processed_splits = []
-        for split_weight in split_weights:
-            org_shape = split_weight.shape
-            org_dtype = split_weight.dtype
-            if not self.use_fp:
-                split_weight, scales, zeros, max_int, min_int = self.get_tensor_qparams(
-                    split_weight, args
-                )
-                split_weight = self.quant_dequant(split_weight, scales,
-                                                  zeros, max_int, min_int)
-            else:
-                split_weight, scales = self.get_fp_tensor_qparams(split_weight, args)
-                split_weight = self.fp_quant_dequant(split_weight, scales)
-            split_weight = self.restore_tensor(split_weight, org_shape).to(org_dtype)
-            processed_splits.append(split_weight)
-
-        if tensor_parallelize_style == 'colwise':
-            q_weight = torch.cat(processed_splits, dim=0)
-        elif tensor_parallelize_style == 'rowwise':
-            q_weight = torch.cat(processed_splits, dim=1)
+            q_weight = self.quant_dequant(q_weight, scales, zeros, max_int, min_int)
         else:
-            q_weight = processed_splits[0]
+            q_weight, scales = self.get_fp_tensor_qparams(q_weight, args)
+            q_weight = self.fp_quant_dequant(q_weight, scales)
+
+        q_weight = self.restore_tensor(q_weight, org_w_shape).to(org_w_dtype)
 
         if 'current_bit' in args:
             self.bit = org_bit
