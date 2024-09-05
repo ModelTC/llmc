@@ -117,13 +117,15 @@ def main(config):
     if 'opencompass' in config:
         assert config.save.get('save_trans', False)
         cfg_path = config['opencompass']['cfg_path']
+        max_num_workers = config['opencompass']['max_num_workers']
         output_path = config['opencompass']['output_path']
         eval_model_path = os.path.abspath(save_trans_path)
         opencompass_cmd = (
             f'opencompass {cfg_path} -w {output_path} '
             f'--llmc_cfg {args.config} '
             f'--llmc_eval_mode quant '
-            f'--llmc_model_path {eval_model_path}'
+            f'--llmc_model_path {eval_model_path} '
+            f'--max-num-workers {max_num_workers}'
         )
         logger.info(f'opencompass_cmd : {opencompass_cmd}')
         os.system(opencompass_cmd)
