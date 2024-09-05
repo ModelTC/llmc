@@ -38,6 +38,9 @@ class Opt(BaseModel):
             layers.append(self.model.model.decoder.final_layer_norm)
         return layers
 
+    def skip_layer_name(self):
+        return ['lm_head']
+
     def has_bias(self):
         return True
 

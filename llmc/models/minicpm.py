@@ -33,6 +33,9 @@ class MiniCPM(BaseModel):
     def get_layers_except_blocks(self):
         return [self.embed_tokens, self.model.model.norm, self.model.lm_head]
 
+    def skip_layer_name(self):
+        return ['lm_head']
+
     def has_bias(self):
         return False
 

@@ -1,0 +1,46 @@
+base:
+    seed: &seed 0
+model:
+    type: model_type
+    path: model path
+    torch_dtype: auto
+calib:
+    name: c4
+    download: False
+    path: calib data path
+    n_samples: 128
+    bs: 1
+    seq_len: 2048
+    preproc: c4_gptq
+    seed: *seed
+eval:
+    eval_pos: [pretrain, transformed, fake_quant]
+    name: wikitext2
+    download: False
+    path: eval data path
+    seq_len: 2048
+    # For 7B / 13B model eval, bs can be set to "1", and inference_per_block can be set to "False".
+    # For 70B model eval, bs can be set to "20", and inference_per_block can be set to "True".
+    bs: 1
+    inference_per_block: False
+    # Consistency of tokens between original and fake-quantized model output.
+    eval_token_consist: True
+quant:
+    method: QUIK
+    weight:
+        bit: 8
+        symmetric: True
+        granularity: per_channel
+        group_size: -1
+    act:
+        bit: 8
+        symmetric: True
+        granularity: per_token
+    special:
+        fp_relative: False
+        fp_features: 256
+        fp_threshold: 0.0
+        last_fc_bit: 8
+save:
+    save_fake: False
+    save_path: /path/to/save/

@@ -64,7 +64,7 @@ class GPTQ(BaseBlockwiseQuantization):
 
         if self.actorder:
             perm = torch.cat(
-                [descending_ids[self.n_out:], descending_ids[: self.self.n_out]]
+                [descending_ids[self.n_out:], descending_ids[:self.self.n_out]]
             )
         else:
             perm = torch.cat(
@@ -398,7 +398,8 @@ class GPTQ(BaseBlockwiseQuantization):
         scales = layer.buf_scales
         zeros = layer.buf_zeros
         scales = self.merge_qparams(scales)
-        zeros = self.merge_qparams(zeros)
+        if not self.wquantizer.sym:
+            zeros = self.merge_qparams(zeros)
         self.qparams['scale'], self.qparams['zero'] = scales, zeros
         self.qparams['max_int'] = layer.buf_max_int
         self.qparams['min_int'] = layer.buf_min_int
@@ -408,15 +409,15 @@ class GPTQ(BaseBlockwiseQuantization):
         scales = layer.buf_scales
         zeros = layer.buf_zeros
         self.group_scales = self.split_qparams(scales)
-        if zeros is not None:
+        if not self.wquantizer.sym:
             self.group_zeros = self.split_qparams(zeros)
         for i in range(len(self.group_scales)):
             qparams = {}
             qparams['scale'] = self.group_scales[i]
-            if zeros is not None:
+            if not self.wquantizer.sym:
                 qparams['zero'] = self.group_zeros[i]
             else:
-                qparams['zero'] = None
+                qparams['zero'] = torch.tensor(0.0)
             qparams['max_int'] = layer.buf_max_int
             qparams['min_int'] = layer.buf_min_int
             self.groups.append(qparams)
@@ -429,9 +430,11 @@ class GPTQ(BaseBlockwiseQuantization):
             _scales.append(g['scale'])
             _zeros.append(g['zero'])
         scales = self.merge_qparams(_scales)
-        zeros = self.merge_qparams(_zeros)
         layer.buf_scales = copy.deepcopy(scales)
-        layer.buf_zeros = copy.deepcopy(zeros)
+
+        if not self.wquantizer.sym:
+            zeros = self.merge_qparams(_zeros)
+            layer.buf_zeros = copy.deepcopy(zeros)
 
     @torch.no_grad()
     def w_q(self, module, wquantizer):

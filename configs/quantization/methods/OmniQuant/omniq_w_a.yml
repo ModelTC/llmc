@@ -1,0 +1,60 @@
+base:
+    seed: &seed 2
+model:
+    type: model_type
+    path: model path
+    torch_dtype: auto
+calib:
+    name: wikitext2
+    download: False
+    path: calib data path
+    n_samples: 128
+    bs: 1
+    seq_len: 2048
+    preproc: wikitext2_gptq
+    seed: *seed
+eval:
+    eval_pos: [pretrain, transformed, fake_quant]
+    name: wikitext2
+    download: False
+    path: eval data path
+    seq_len: 2048
+    # For 7B / 13B model eval, bs can be set to "1", and inference_per_block can be set to "False".
+    # For 70B model eval, bs can be set to "20", and inference_per_block can be set to "True".
+    bs: 1
+    inference_per_block: False
+    # Consistency of tokens between original and fake-quantized model output.
+    eval_token_consist: True
+quant:
+    method: OmniQuant
+    weight:
+        bit: 8
+        symmetric: True
+        granularity: per_channel
+        group_size: -1
+        calib_algo: learnable
+        ste: True
+    act:
+        bit: 8
+        symmetric: True
+        granularity: per_token
+        ste: True
+    special:
+        aug_loss: False
+        let: True
+        lwc: True
+        lwc_lr: 0.01
+        # Set "let_lr: 0.001" for w4a4 quantization.
+        let_lr: 0.005
+        # Set to "True" if the model has bias (e.g. Opt).
+        use_shift: False
+        # Use "0.75" for w4a4 quantization.
+        alpha: 0.5
+        deactive_amp: True
+        epochs: 20
+        wd: 0
+    quant_out: True
+save:
+    save_trans: False
+    save_fake: False
+    save_path: /path/to/save/
