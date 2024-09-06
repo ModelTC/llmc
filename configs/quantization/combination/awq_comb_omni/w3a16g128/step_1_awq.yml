@@ -42,6 +42,6 @@ quant:
         save_clip: False
 save:
     # Save the AWQ-transformed model.
-    save_trans: False
+    save_trans: True
     save_fake: False
     save_path: /path/to/save_awq_trans/
