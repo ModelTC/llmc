@@ -46,7 +46,7 @@ quant:
         trans: True
         # The options for "trans_version" include "v1" and "v2".
         trans_version: v2
-        weight_clip: True 
+        weight_clip: True
         clip_sym: True
 save:
     save_trans: False

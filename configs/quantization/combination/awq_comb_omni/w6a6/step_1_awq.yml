@@ -41,7 +41,7 @@ quant:
         trans: True
         trans_version: v2
         weight_clip: True
-        # Only the version v2 clipping method supports saving clip factors. 
+        # Only the version v2 clipping method supports saving clip factors.
         # And the weight calibration algorithm must be set to "learnable".
         clip_version: v2
         # Save scale and clip factors for OmniQuant's LWC and LET.

@@ -37,16 +37,16 @@ quant:
     special:
         # Set to "True" for 2-bit quantization.
         aug_loss: False
-        lwc: True 
-        let: False      
+        lwc: True
+        let: False
         lwc_lr: 0.01
         let_lr: 0.005
         # Set to "True" if the model has bias (e.g. Opt).
-        use_shift: False 
-        alpha: 0.5 
+        use_shift: False
+        alpha: 0.5
         deactive_amp: True
         # Use 40 epochs for 2-bit quantization.
-        epochs: 20 
+        epochs: 20
         wd: 0
     quant_out: True
 save:

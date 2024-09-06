@@ -33,4 +33,3 @@ quant:
 save:
     save_fake: False
     save_path: /path/to/save/
-

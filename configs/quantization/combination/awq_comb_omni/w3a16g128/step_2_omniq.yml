@@ -44,8 +44,8 @@ quant:
         deactive_amp: True
         epochs: 5
         wd: 0
-        # Use AWQ's search clip factors to initialize OmniQuant's clip factors, 
-        # Then refine them through learning (LWC). 
+        # Use AWQ's search clip factors to initialize OmniQuant's clip factors,
+        # Then refine them through learning (LWC).
         # Only the version v2 clipping method supports LWC.
         # This process is automatically handled in OmniQuant's code.
         search_clip_init: True

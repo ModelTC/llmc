@@ -48,12 +48,12 @@ quant:
         deactive_amp: True
         epochs: 5
         wd: 0
-        # Use AWQ's search clip factors to initialize OmniQuant's clip factors, 
-        # Then refine them through learning (LWC). 
+        # Use AWQ's search clip factors to initialize OmniQuant's clip factors,
+        # Then refine them through learning (LWC).
         search_clip_init: True
         load_clip: True
         clip_path: /path/to/scale/awq_w6a6.pth
-        # Use AWQ's search scale factors to initialize OmniQuant's scale factors, 
+        # Use AWQ's search scale factors to initialize OmniQuant's scale factors,
         # Then refine them through learning (LET).
         search_scale_init: True
         scale_path: /path/to/clip/awq_w6a6.pth

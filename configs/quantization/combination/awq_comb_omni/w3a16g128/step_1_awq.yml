@@ -36,7 +36,7 @@ quant:
         trans: True
         trans_version: v1
         weight_clip: False
-        # For weight-only AWQ+Omni mode, there's no need to save scale factors; 
+        # For weight-only AWQ+Omni mode, there's no need to save scale factors;
         # Only the AWQ-transformed model needs to be saved.
         save_scale: False
         save_clip: False

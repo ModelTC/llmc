@@ -40,7 +40,7 @@ quant:
         true_sequential: True
         owq: True
         #target bit is 4.01
-        n_outs: [6, 6, 6, 6, 2, 2, 6] 
+        n_outs: [6, 6, 6, 6, 2, 2, 6]
     quant_out: True
 save:
     save_fake: False
