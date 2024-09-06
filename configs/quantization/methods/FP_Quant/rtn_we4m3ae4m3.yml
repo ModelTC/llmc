@@ -1,0 +1,31 @@
+base:
+    seed: &seed 42
+model:
+    type: model_type
+    path: model path
+    torch_dtype: auto
+eval:
+    eval_pos: [pretrain, fake_quant]
+    name: wikitext2
+    download: False
+    path: eval data path
+    seq_len: 2048
+    # For 7B / 13B model eval, bs can be set to "1", and inference_per_block can be set to "False".
+    # For 70B model eval, bs can be set to "20", and inference_per_block can be set to "True".
+    bs: 1
+    inference_per_block: False
+    # Consistency of tokens between original and fake-quantized model output.
+    eval_token_consist: True
+quant:
+    method: RTN
+    weight:
+        bit: e4m3
+        symmetric: True
+        granularity: per_channel
+    act:
+        bit: e4m3
+        symmetric: True
+        granularity: per_token
+save:
+    save_fake: False
+    save_path: /path/to/save/

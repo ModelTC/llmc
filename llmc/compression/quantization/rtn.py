@@ -18,7 +18,8 @@ class RTN(BaseBlockwiseQuantization):
 
     @torch.no_grad()
     def block_opt(self, *opt_kwargs):
-        pass
+        if self.act_static:
+            super().block_opt(*opt_kwargs)
 
     def a_qdq(self, act, module, aquantizer):
         if self.act_static:

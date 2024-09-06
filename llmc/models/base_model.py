@@ -58,6 +58,10 @@ class BaseModel(metaclass=ABCMeta):
         pass
 
     @abstractmethod
+    def skip_layer_name(self):
+        pass
+
+    @abstractmethod
     def has_bias(self):
         pass
 

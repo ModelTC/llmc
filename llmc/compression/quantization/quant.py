@@ -19,26 +19,25 @@ class Quantizer:
         self.sym = symmetric
         self.granularity = granularity
         self.kwargs = kwargs
-
         if 'calib_algo' in self.kwargs:
             self.calib_algo = self.kwargs['calib_algo']
         else:
             self.calib_algo = 'minmax'
 
-        if 'qmax_to_tensor' in self.kwargs and self.kwargs['qmax_to_tensor']:
-            if self.sym:
-                self.max_int = torch.tensor(2 ** (self.bit - 1) - 1).cuda()
-                self.min_int = torch.tensor(-(2 ** (self.bit - 1))).cuda()
-            else:
-                self.max_int = torch.tensor(2**self.bit - 1).cuda()
-                self.min_int = torch.tensor(0.0).cuda()
+        if 'int_range' in self.kwargs:
+            self.min_int = self.kwargs['int_range'][0]
+            self.max_int = self.kwargs['int_range'][1]
         else:
             if self.sym:
-                self.max_int = 2 ** (self.bit - 1) - 1
                 self.min_int = -(2 ** (self.bit - 1))
+                self.max_int = 2 ** (self.bit - 1) - 1
             else:
-                self.max_int = 2**self.bit - 1
                 self.min_int = 0.0
+                self.max_int = 2**self.bit - 1
+
+        if 'qmax_to_tensor' in self.kwargs and self.kwargs['qmax_to_tensor']:
+            self.min_int = torch.tensor(self.min_int).cuda()
+            self.max_int = torch.tensor(self.max_int).cuda()
 
         if self.granularity == 'per_group':
             self.group_size = self.kwargs['group_size']
@@ -170,9 +169,9 @@ class Quantizer:
             zeros = torch.tensor(0.0)
         else:
             scales = (max_val - min_val).clamp(min=1e-5) / max_int
-            zeros = (-torch.round(min_val / scales)).clamp(min_int, max_int)
+            zeros = (min_int - torch.round(min_val / scales)).clamp(min_int, max_int)
             if not self.round_zp:
-                zeros = -min_val / scales
+                zeros = min_int - (min_val / scales)
         return scales, zeros, max_int, min_int
 
     def get_tensor_qparams(self, tensor, args={}):
@@ -218,10 +217,6 @@ class Quantizer:
                 self.round_func(tensor / scales) + zeros, min_int, max_int
             )
         else:
-            # logger.info(scales.device)
-            # logger.info(tensor.device)
-            # logger.info(zeros.device)
-
             tensor = torch.clamp(
                 self.round_func(tensor / scales.clamp_min(1e-9) + zeros),
                 min_int,
@@ -445,17 +440,21 @@ class Quantizer:
         weight = self.restore_tensor(weight, org_w_shape)
 
         if self.bit == 8:
-            if self.sym:
+            if self.min_int != 0:
                 dtype = torch.int8
             else:
                 dtype = torch.uint8
         else:
             dtype = torch.int32
         weight = weight.to(dtype)
-        if (zeros != torch.tensor(0.0)).all() and self.round_zp:
+        if not self.sym and self.round_zp:
             zeros = zeros.to(dtype)
-        else:
+        elif self.sym:
             zeros = None
+
+        if zeros is not None:
+            zeros = zeros.view(weight.shape[0], -1)
+        scales = scales.view(weight.shape[0], -1)
 
         return weight, scales, zeros
 
@@ -466,16 +465,20 @@ class Quantizer:
         weight = self.restore_tensor(weight, org_w_shape)
 
         if self.bit == 8:
-            if self.sym:
+            if self.min_int != 0:
                 dtype = torch.int8
             else:
                 dtype = torch.uint8
         else:
             dtype = torch.int32
         weight = weight.to(dtype)
-        if (zeros != torch.tensor(0.0)).all() and self.round_zp:
+        if not self.sym and self.round_zp:
             zeros = zeros.to(dtype)
-        else:
+        elif self.sym:
             zeros = None
+
+        if zeros is not None:
+            zeros = zeros.view(weight.shape[0], -1)
+        scales = scales.view(weight.shape[0], -1)
 
         return weight, scales, zeros

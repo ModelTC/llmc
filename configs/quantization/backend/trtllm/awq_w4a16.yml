@@ -1,0 +1,36 @@
+base:
+    seed: &seed 42
+model:
+    type: model_type
+    path: model path
+    torch_dtype: auto
+calib:
+    name: pileval
+    download: False
+    path: calib data path
+    n_samples: 128
+    bs: -1
+    seq_len: 512
+    preproc: pileval_awq
+    seed: *seed
+eval:
+    eval_pos: []
+    name: wikitext2
+    download: False
+    path: eval data path
+    bs: 1
+    seq_len: 2048
+quant:
+    method: Awq
+    weight:
+        bit: 4
+        symmetric: True
+        granularity: per_group
+        group_size: 128
+save:
+    save_trans: False
+    save_trtllm: True
+    trtllm_cfg:
+        tp_size: 1
+        pp_size: 1
+    save_path: ./save

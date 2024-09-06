@@ -2,6 +2,7 @@ import gc
 import math
 from functools import partial
 
+import numpy as np
 import torch
 import torch.nn as nn
 from loguru import logger
@@ -381,7 +382,6 @@ class FakeQuantLinear(nn.Module):
         for name, buf in ori_module.named_buffers():
             if name.startswith('buf_'):
                 self.register_buffer(name, buf.data)
-
         for name, buf in ori_module.named_parameters():
             if name.startswith('buf_'):
                 self.register_buffer(name, buf.data)
@@ -524,19 +524,24 @@ class EffcientFakeQuantLinear(nn.Module):
 
 
 class RealQuantLinear(nn.Module):
-    def __init__(self, weight, bias, scales, zeros):
+    def __init__(self, weight, bias, scales, zeros, pack_mode):
         super().__init__()
-        self.register_buffer('weight', weight)
-        if bias is not None:
-            self.register_buffer('bias', bias)
-        else:
-            self.bias = None
-        self.register_buffer('scales', scales)
+        weight_name = 'weight_packed' if pack_mode is not None else 'weight'
+        self.register_buffer(weight_name, weight)
 
-        if zeros is not None:
-            self.register_buffer('zeros', zeros)
-        else:
-            self.zero = None
+        (
+            self.register_buffer('bias', bias)
+            if bias is not None
+            else setattr(self, 'bias', None)
+        )
+
+        self.register_buffer('weight_scale', scales)
+
+        (
+            self.register_buffer('weight_zero_point', zeros)
+            if zeros is not None
+            else setattr(self, 'zero', None)
+        )
 
     @torch.no_grad()
     def forward(self, x):
@@ -551,7 +556,8 @@ class RealQuantLinear(nn.Module):
         else:
             bias = None
 
-        new_module = cls(weight, bias, scales, zeros)
+        pack_mode = quant_config['weight'].get('pack_mode')
+        new_module = cls(weight, bias, scales, zeros, pack_mode)
         new_module.in_features = module.in_features
         new_module.out_features = module.out_features
         new_module.weight_shape = weight.shape
@@ -572,12 +578,26 @@ class RealQuantLinear(nn.Module):
     @torch.no_grad()
     def quant_pack(cls, module, w_q, quant_config):
         weight, scales, zeros = w_q(module)
-        weight, scales, zeros = cls.pack(weight, scales, zeros, quant_config)
+        pack_mode = quant_config['weight'].get('pack_mode')
+        bit = quant_config['weight'].get('bit')
+
+        pack_functions = {
+            'vllm_pack': (cls.pack_vllm, [4, 8]),
+            'lightllm_pack': (cls.pack_lightllm, [2, 4]),
+        }
+
+        if pack_mode in pack_functions:
+            pack_func, valid_bits = pack_functions[pack_mode]
+            assert bit in valid_bits and 'act' not in quant_config
+            weight, scales, zeros = pack_func(weight, scales, zeros, quant_config)
+        elif pack_mode is not None:
+            raise NotImplementedError
+
         return weight, scales, zeros
 
     @classmethod
     @torch.no_grad()
-    def pack(self, weight, scales, zeros, quant_config):
+    def pack_lightllm(self, weight, scales, zeros, quant_config):
         if quant_config['weight']['bit'] == 8:
             if zeros is not None:
                 zeros = zeros.view(weight.shape[0], -1)
@@ -629,6 +649,34 @@ class RealQuantLinear(nn.Module):
 
         scales = scales.view(h1, -1)
         return int_weight, scales, int_zeros
+
+    @classmethod
+    @torch.no_grad()
+    def pack_vllm(self, weight, scales, zeros, quant_config):
+
+        # Packs a tensor of quantized weights stored in int8 into int32s with padding
+        scales = scales.to(torch.float16)
+        num_bits = quant_config['weight']['bit']
+
+        # convert to unsigned for packing
+        offset = pow(2, num_bits) // 2
+        weight = (weight + offset).to(torch.uint8)
+        weight = weight.cpu().numpy().astype(np.uint32)
+        pack_factor = 32 // num_bits
+
+        # pad input tensor and initialize packed output
+        packed_size = math.ceil(weight.shape[1] / pack_factor)
+        packed = np.zeros((weight.shape[0], packed_size), dtype=np.uint32)
+        padding = packed.shape[1] * pack_factor - weight.shape[1]
+        weight = np.pad(weight, pad_width=[(0, 0), (0, padding)], constant_values=0)
+
+        # pack values
+        for i in range(pack_factor):
+            packed |= weight[:, i::pack_factor] << num_bits * i
+
+        packed = np.ascontiguousarray(packed).view(np.int32)
+        int_weight = torch.from_numpy(packed)
+        return int_weight, scales, zeros
 
     def __repr__(self):
         return (

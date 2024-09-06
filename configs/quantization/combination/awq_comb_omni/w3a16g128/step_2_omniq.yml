@@ -1,0 +1,56 @@
+base:
+    seed: &seed 42
+model:
+    type: model_type
+    # Load AWQ-transformed model
+    path: /path/to/save_awq_trans/transformed_model
+    torch_dtype: auto
+calib:
+    name: wikitext2
+    download: False
+    path: calib data path
+    n_samples: 128
+    bs: 1
+    seq_len: 2048
+    preproc: wikitext2_gptq
+    seed: *seed
+eval:
+    eval_pos: [fake_quant]
+    name: wikitext2
+    download: False
+    path: eval data path
+    seq_len: 2048
+    # For 7B / 13B model eval, bs can be set to "1", and inference_per_block can be set to "False".
+    # For 70B model eval, bs can be set to "20", and inference_per_block can be set to "True".
+    bs: 1
+    inference_per_block: False
+quant:
+    method: OmniQuant
+    weight:
+        bit: 3
+        symmetric: False
+        granularity: per_group
+        group_size: 128
+        calib_algo: learnable
+        ste: True
+    special:
+        aug_loss: True
+        lwc: True
+        let: False
+        lwc_lr: 0.01
+        let_lr: 0.005
+        use_shift: False
+        alpha: 0.5
+        deactive_amp: True
+        epochs: 5
+        wd: 0
+        # Use AWQ's search clip factors to initialize OmniQuant's clip factors,
+        # Then refine them through learning (LWC).
+        # Only the version v2 clipping method supports LWC.
+        # This process is automatically handled in OmniQuant's code.
+        search_clip_init: True
+    quant_out: True
+save:
+    save_trans: False
+    save_fake: False
+    save_path: /path/to/save/

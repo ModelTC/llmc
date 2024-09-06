@@ -305,7 +305,7 @@ class OmniQuant(BaseBlockwiseQuantization):
                             torch.ones(
                                 (dim, 1),
                                 device=self.dev,
-                                # dtype=self.dtype,
+                                dtype=self.dtype,
                             )
                             * init_value
                         )
@@ -313,7 +313,7 @@ class OmniQuant(BaseBlockwiseQuantization):
                         torch.ones(
                             (dim, 1),
                             device=self.dev,
-                            # dtype=self.dtype,
+                            dtype=self.dtype,
                         )
                         * init_value
                     )
@@ -383,12 +383,13 @@ class OmniQuant(BaseBlockwiseQuantization):
                 inputs = input_feat[n]
 
             max_val, min_val = self.auto_clip_layer(
+                n,
                 m.weight.data,
                 inputs,
                 n_sample_token=self.config.calib.seq_len,
             )
 
-            up_factor, low_factor = self.get_clip_factor(m, min_val, max_val)
+            up_factor, low_factor = self.get_clip_factor(m, min_val, max_val, n)
 
         up_param = nn.Parameter(up_factor)
         low_param = nn.Parameter(low_factor)
