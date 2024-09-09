@@ -26,11 +26,13 @@
 
 ## ニュース
 
-- **Sep 3, 2024:** 🚀 私たちはOpenCompassの精度評価をサポートしました。ドキュメントは[こちら](https://llmc-en.readthedocs.io/en/latest/advanced/model_test_v2.html)を参照してください。ぜひご利用ください！
+- **Sep 9, 2024:** 🔥 **量子化された LLM の [vLM](https://github.com/vllm-project/vllm) へのエクスポートを修正しました ([こちら](https://llmc-en.readthedocs.io/en/latest/backend/vllm.html) を参照)**。さらに、優れたパフォーマンスに向けた **ベスト プラクティスの構成** もいくつか提供しています (ベスト プラクティスは [こちら](https://llmc-en.readthedocs.io/en/latest/) を参照)。
 
-- **2024年8月22日：** 🔥私たちは、現在の最先端技術である[SmolLM](https://huggingface.co/collections/HuggingFaceTB/smollm-6695016cad7167254ce15966)（[サポートされているモデルリスト](#supported-model-list)を参照）を含む多くの小型言語モデルをサポートしています。さらに、改良された[lm-evaluation-harness](https://github.com/EleutherAI/lm-evaluation-harness) 🤗 を通じてダウンストリームタスクの評価もサポートしています。具体的には、まず `save_trans` モード（[設定](#設定)の `save` 部分を参照）を使用して、変更されたモデルの重みを保存します。変換後のモデルを取得した後、[run_lm_eval.sh](scripts/run_lm_eval.sh)を参照して量子化モデルを直接評価することができます。詳細は[こちら](https://llmc-en.readthedocs.io/en/latest/advanced/model_test.html)で確認できます。
+* **Sep 3, 2024:** 🚀 私たちはOpenCompassの精度評価をサポートしました。ドキュメントは[こちら](https://llmc-en.readthedocs.io/en/latest/advanced/model_test_v2.html)を参照してください。ぜひご利用ください！
 
-- **2024 年 7 月 23 日:** 🍺🍺🍺 新しいバージョンのベンチマーク ペーパーをリリースします:
+* **2024年8月22日：** 🔥私たちは、現在の最先端技術である[SmolLM](https://huggingface.co/collections/HuggingFaceTB/smollm-6695016cad7167254ce15966)（[サポートされているモデルリスト](#supported-model-list)を参照）を含む多くの小型言語モデルをサポートしています。さらに、改良された[lm-evaluation-harness](https://github.com/EleutherAI/lm-evaluation-harness) 🤗 を通じてダウンストリームタスクの評価もサポートしています。具体的には、まず `save_trans` モード（[設定](#設定)の `save` 部分を参照）を使用して、変更されたモデルの重みを保存します。変換後のモデルを取得した後、[run_lm_eval.sh](scripts/run_lm_eval.sh)を参照して量子化モデルを直接評価することができます。詳細は[こちら](https://llmc-en.readthedocs.io/en/latest/advanced/model_test.html)で確認できます。
+
+* **2024 年 7 月 23 日:** 🍺🍺🍺 新しいバージョンのベンチマーク ペーパーをリリースします:
 
   [**LLMC: 多用途の圧縮ツールキットを使用した大規模言語モデル量子化のベンチマーク**](https://arxiv.org/abs/2405.06001v2)。
 
@@ -44,18 +46,18 @@
 
   ベストプラクティスに焦点を当てるのではなく、キャリブレーションデータ、アルゴリズム、データ形式を考慮して、LLM量子化をモジュール式かつ公平にベンチマークします。詳細な観察と分析により、さまざまな構成でパフォーマンスと方法を改善するためのさまざまなタイプの新しいポイントを提供します。強力なツールキットLLMCと包括的な洞察により、将来のLLM研究者は、アプリケーションに適したアルゴリズムと低ビット形式を効率的に統合し、大規模な言語モデルの圧縮を民主化できます。
 
-- **2024年7月16日:** 🔥現在、llmのスパース化と層間混合ビット量子化のためのWanda/Naive(Magnitude)をサポートしています！
+* **2024年7月16日:** 🔥現在、llmのスパース化と層間混合ビット量子化のためのWanda/Naive(Magnitude)をサポートしています！
 
-- **2024年7月14日:** 🔥現在、回転ベースの量子化QuaRotをサポートしています！
+* **2024年7月14日:** 🔥現在、回転ベースの量子化QuaRotをサポートしています！
 
-- **2024年7月4日:** 📱 ディスカッションチャンネルを開設しました。質問がある場合は、コミュニティに参加してください:
+* **2024年7月4日:** 📱 ディスカッションチャンネルを開設しました。質問がある場合は、コミュニティに参加してください:
 
   - [Discord サーバー](https://discord.gg/qZKUDfhm)
   - [Tencent QQ グループ](http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=I9IGPWWj8uuRXWH3_ELWjouf6gkIMgkUl&authKey=GA3WbFAsm90ePJf%2FCbc7ZyXXq4ShQktlBaLxgqS5yuSPAsr3%2BDKMRdosUiLYoilO&noverify=0&group_code=526192592)
 
-- **2024年5月17日:** 🚀 現在、LLaVA、Mixtral、LLaMA V3、Qwen V2などの高度な大規模モデルをサポートしています。試してみてください！
+* **2024年5月17日:** 🚀 現在、LLaVA、Mixtral、LLaMA V3、Qwen V2などの高度な大規模モデルをサポートしています。試してみてください！
 
-- **2024年5月13日:** 🍺🍺🍺 量子化ベンチマーク論文を発表しました:
+* **2024年5月13日:** 🍺🍺🍺 量子化ベンチマーク論文を発表しました:
 
   [**LLM-QBench: 大規模言語モデルのポストトレーニング量子化のベストプラクティスに向けたベンチマーク**](https://arxiv.org/abs/2405.06001).
 
@@ -69,7 +71,7 @@
 
   校正コスト、推論効率、および量子化精度を考慮して、量子化技術をモジュール化し、公平にベンチマークしました。多様なモデルとデータセットでの約600の実験が、校正データ、アルゴリズムパイプライン、および量子化構成の選択に関する3つの洞察を提供します。これらの洞察に基づいて、LLM PTQパイプラインのベストプラクティスが設計され、さまざまなシナリオで最高の精度と効率のパフォーマンスバランスを実現します。
 
-- **2024年3月7日:** 🚀 強力で効率的なLLM圧縮ツールの量子化部分をリリースしました。注目すべきは、ベンチマーク論文が近日公開予定です😊。
+* **2024年3月7日:** 🚀 強力で効率的なLLM圧縮ツールの量子化部分をリリースしました。注目すべきは、ベンチマーク論文が近日公開予定です😊。
 
 ## ハイライト機能
 
