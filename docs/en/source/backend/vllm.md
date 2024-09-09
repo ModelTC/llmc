@@ -145,7 +145,7 @@ After LLMC finishes running, the real quantized model will be stored at the `sav
 
 ### 1.4.1 Offline Inference
 
-We provide an [example](https://github.com/ModelTC/llmc/tree/main/llmc/examples/backend/infer_with_vllm.py) for performing offline batch inference on datasets using **vLLM**. Simply replace the model saved at `save.save_path` with the `model_path` in the [example](https://github.com/ModelTC/llmc/tree/main/examples/backend/infer_with_vllm.py) and run the following command:
+We provide an [example](https://github.com/ModelTC/llmc/blob/main/examples/backend/infer_with_vllm.py) for performing offline batch inference on datasets using **vLLM**. Simply replace the model saved at `save.save_path` with the `model_path` in the [example](https://github.com/ModelTC/llmc/blob/main/examples/backend/infer_with_vllm.py) and run the following command:
 
 ```bash
 cd examples/backend
