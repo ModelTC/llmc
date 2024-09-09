@@ -26,7 +26,7 @@
 
 ## News
 
-- **Sep 9, 2024:** 🔥 We fix **exporting quantized LLM to [vLM](https://github.com/vllm-project/vllm)(see [here](https://llmc-en.readthedocs.io/en/latest/backend/vllm.html))**. Moreover, we provide some **configs of our best practice** towards superior performance (see Best Practice [here](https://llmc-en.readthedocs.io/en/latest/)).
+- **Sep 9, 2024:** 🔥 We fix **exporting quantized LLM to [vLLM](https://github.com/vllm-project/vllm)(see [here](https://llmc-en.readthedocs.io/en/latest/backend/vllm.html))**. Moreover, we provide some **configs of our best practice** towards superior performance (see Best Practice [here](https://llmc-en.readthedocs.io/en/latest/)).
 
 * **Sep 3, 2024:** 🚀 We support opencompass to eval llmc model. Follow this [doc](https://llmc-en.readthedocs.io/en/latest/advanced/model_test_v2.html) and have a try!
 
