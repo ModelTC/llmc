@@ -29,7 +29,7 @@ Therefore, when quantizing models with **LLMC**, make sure that the bit settings
 
 ### 1.3.1 Calibration Data
 
-In this chapter, we use the **Pieval** and **Wikitext** academic datasets as calibration data. For downloading and preprocessing calibration data, refer to [this chapter](https://llmc-zhcn.readthedocs.io/en/latest/configs.md).
+In this chapter, we use the **Pieval** and **Wikitext** academic datasets as calibration data. For downloading and preprocessing calibration data, refer to [this chapter](https://llmc-en.readthedocs.io/en/latest/configs.html).
 
 In practical use, we recommend using real deployment data for offline quantization calibration.
 
