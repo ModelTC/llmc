@@ -42,7 +42,7 @@ task_name=awq_w4a16
 config=${llmc}/configs/quantization/methods/Awq/awq_w_only.yml
 ```
 
-通过这一改进，AWQ-LLMC 可以取得比于 [原始方法]() 更好的精度表现，尤其在2-bit量化，表现出显著的改善。
+通过这一改进，AWQ-LLMC 可以取得比于 [原始方法](https://github.com/mit-han-lab/llm-awq) 更好的精度表现，尤其在2-bit量化，表现出显著的改善。
 
 
 如果在 `config.quant.special` 中未指定 `clip_sym`，那么它的取值将与 `config.quant.weight.symmetric` 保持一致。如果想复现学术精度，可以将 `clip_sym` 写到config里并设置为 `True`：
