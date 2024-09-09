@@ -37,7 +37,7 @@ arxiv: https://arxiv.org/abs/2405.06001
 
 .. toctree::
    :maxdepth: 2
-   :caption: practice
+   :caption: Best Practice
 
    practice/awq.md
    practice/awq_omni.md
@@ -45,6 +45,6 @@ arxiv: https://arxiv.org/abs/2405.06001
 
 .. toctree::
    :maxdepth: 2
-   :caption: backbend
+   :caption: Backbend
 
    backend/vllm.md
