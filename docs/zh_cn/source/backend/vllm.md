@@ -85,7 +85,7 @@ quant:
 请注意，在此步骤中需要将 `pack_mode` 参数设置为 `vllm_pack`, 这会将4-bit的权重`打包`为`torch.int32`的格式存储，供VLLM直接加载推理。
 
 
-此外，如果 AWQ 无法满足精度需求，我们建议使用 [章节](https://llmc-zhcn.readthedocs.io/en/practice/awq_omni.md)介绍的 **AWQ+OmniQuant 组合算法** 来进一步提升精度。在此也给出相应的[配置文件](https://github.com/ModelTC/llmc/tree/main/configs/quantization/backend/vllm/w4a16_combin)
+此外，如果 AWQ 无法满足精度需求，我们建议使用 [章节](https://llmc-zhcn.readthedocs.io/zh_cn/practice/awq_omni.md)介绍的 **AWQ+OmniQuant 组合算法** 来进一步提升精度。在此也给出相应的[配置文件](https://github.com/ModelTC/llmc/tree/main/configs/quantization/backend/vllm/w4a16_combin)
 
 
 **W8A8**
@@ -116,7 +116,7 @@ quant:
     quant_out: True 
 ```
 
-此外，如果 AWQ 无法满足精度需求，我们建议使用 [章节](https://llmc-zhcn.readthedocs.io/en/practice/quarot_gptq.md) 介绍的 **Quarot+GPTQ 组合算法** 来进一步提升精度。在此也给出相应的[配置文件](https://github.com/ModelTC/llmc/tree/main/configs/quantization/backend/vllm/w8a8_combin)
+此外，如果 AWQ 无法满足精度需求，我们建议使用 [章节](https://llmc-zhcn.readthedocs.io/zh_cn/practice/quarot_gptq.md) 介绍的 **Quarot+GPTQ 组合算法** 来进一步提升精度。在此也给出相应的[配置文件](https://github.com/ModelTC/llmc/tree/main/configs/quantization/backend/vllm/w8a8_combin)
 
 
 ### 1.3.3 真实量化模型导出
