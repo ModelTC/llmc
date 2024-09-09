@@ -26,7 +26,7 @@
 
 ## ニュース
 
-- **Sep 9, 2024:** 🔥 **量子化された LLM の [vLM](https://github.com/vllm-project/vllm) へのエクスポートを修正しました ([こちら](https://llmc-en.readthedocs.io/en/latest/backend/vllm.html) を参照)**。さらに、優れたパフォーマンスに向けた **ベスト プラクティスの構成** もいくつか提供しています (ベスト プラクティスは [こちら](https://llmc-en.readthedocs.io/en/latest/) を参照)。
+- **Sep 9, 2024:** 🔥 **量子化された LLM の [vLLM](https://github.com/vllm-project/vllm) へのエクスポートを修正しました ([こちら](https://llmc-en.readthedocs.io/en/latest/backend/vllm.html) を参照)**。さらに、優れたパフォーマンスに向けた **ベスト プラクティスの構成** もいくつか提供しています (ベスト プラクティスは [こちら](https://llmc-en.readthedocs.io/en/latest/) を参照)。
 
 * **Sep 3, 2024:** 🚀 私たちはOpenCompassの精度評価をサポートしました。ドキュメントは[こちら](https://llmc-en.readthedocs.io/en/latest/advanced/model_test_v2.html)を参照してください。ぜひご利用ください！
 
