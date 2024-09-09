@@ -76,9 +76,9 @@ Once you are prepared above, you can run the following commands
 ```
 PYTHONPATH=[llmc's save path]:$PYTHONPATH \
 python -m llmc \
---config configs/quantization/SmoothQuant/smoothquant_llama_w8a8_fakequant_eval.yml
+--config ../configs/quantization/methods/SmoothQuant/smoothquant_w_a.yml \
 ```
-Under scripts file folder, llmc also provides a lot of running [scripts](https://github.com/ModelTC/llmc/tree/main/scripts) for your reference
+LLMC provides many [algorithm configuration files](https://github.com/ModelTC/llmc/tree/main/configs/quantization/methods) in the `configs/quantization/methods` directory for reference.
 
 ```
 #!/bin/bash
@@ -94,7 +94,7 @@ task_name=smoothquant_llama_w8a8_fakequant_eval # Set task_name, the file name u
 # Select a config to run.
 nohup \
 python -m llmc \
---config ../configs/quantization/SmoothQuant/smoothquant_llama_w8a8_fakequant_eval.yml \
+--config ../configs/quantization/methods/SmoothQuant/smoothquant_w_a.yml \
 > ${task_name}.log 2>&1 &
 
 echo $! > ${task_name}.pid

@@ -1,6 +1,6 @@
 # 配置的简要说明
 
-所有的配置均可以在[这里](https://github.com/ModelTC/llmc/tree/main/configs)找到
+所有的配置均可以在[这里](https://github.com/ModelTC/llmc/tree/main/configs)找到，具体地，包括[量化算法](https://github.com/ModelTC/llmc/tree/main/configs/quantization/methods)，[量化实践以及方法组合技](https://github.com/ModelTC/llmc/tree/main/configs/quantization/combination), 以及[推理后端](https://github.com/ModelTC/llmc/tree/main/configs/quantization/backend)相关的配置
 
 下面的是一个简要的配置例子
 
@@ -8,7 +8,7 @@
 base:
     seed: &seed 42 # 设置随机种子
 model:
-    type: Llama # 模型的类型
+    type: model_type # 模型的类型
     path: model path # 模型的路径
     tokenizer_mode: fast # 模型的tokenizer类型
     torch_dtype: auto # 模型的dtype
@@ -28,6 +28,7 @@ eval:
     path: eval data path # 评测数据集的路径
     bs: 1 # 评测数据集的batch size
     seq_len: 2048 # 评测数据集的长度
+    eval_token_consist: False # 是否评测量化模型和原始模型输出token的一致性
 quant:
     method: SmoothQuant # 压缩方法
     weight:
@@ -38,9 +39,12 @@ quant:
         bit: 8 # 激活的量化bit数
         symmetric: True # 激活量化是否是对称量化
         granularity: per_token # 激活量化的粒度
+    speical: # 量化算法需要的特殊参数，可参照每个算法的配置文件的注释以及原论文掌握其用法
 save:
-    save_trans: False # 是否保存调整之后的模型
-    save_path: ./save # 保存路径
+    save_vllm: False # 是否保存真实量化的模型，以供VLLM推理
+    save_trans: False # 是否保存权重变换之后的模型
+    save_fake: False # 是否保存伪量化的权重
+    save_path: /path/to/save # 保存路径
 ```
 
 # 配置的详细说明
@@ -203,10 +207,11 @@ general在[base_dataset](https://github.com/ModelTC/llmc/blob/main/llmc/data/dat
 
 
 ## eval
+llmc默认支持评测量化模型的困惑度(PPL), 以及量化模型和原始模型输出token的一致性。此外还支持通过harness和opencompass评测下游任务的精度（可见[评测章节v1](https://llmc-zhcn.readthedocs.io/en/latest/advanced/model_test_v1.md)和[v2](https://llmc-zhcn.readthedocs.io/en/latest/advanced/model_test_v2.md)）
 
 <font color=792ee5> eval.eval_pos </font>
 
-表示评测的位点，目前支持三个位点可以被评测
+表示评测PPL的位点，目前支持三个位点可以被评测
 
 1. pretrain
 
@@ -256,7 +261,7 @@ inference_per_block: True
 
 <font color=792ee5> 同时测试多个数据集 </font>
 
-llmc也支持同时评测多个数据集
+llmc也支持同时评测多个数据集的PPL
 
 下面是评测单个wikitext2数据集的例子
 
@@ -283,6 +288,9 @@ eval:
 
 如果直接使用llmc的[下载脚本](https://github.com/ModelTC/llmc/blob/main/tools/download_eval_dataset.py)，则共有上层目录就是`--save_path`所指定的数据集保存路径
 
+<font color=792ee5> eval.eval_token_consist </font>
+
+表示是否评测量化模型和原始模型输出token的一致性，取值范围[0,1], 越接近1越说明量化模型的性能越接近原始模型
 
 ## quant
 
@@ -306,11 +314,24 @@ eval:
 
 权重的量化粒度，支持以下粒度
 
-1. per tensor
+1. per_tensor
 
-2. per channel
+2. per_channel
 
-3. per group
+3. per_group
+
+<font color=792ee5> quant.weight.group_size </font>
+
+当权重是per-group量化时，其表示group的大小
+
+<font color=792ee5> quant.weight.ste </font>
+
+在权重量化的取整过程中，是否用直通估计器(straight-through estimator)来使round函数可以产生梯度以便进行反向传播
+
+<font color=792ee5> quant.weight.calib </font>
+
+权重的校准方法，默认采用minmax，除此之外，llmc还支持learnable，mse两种方法，可能会取得更好的结果
+
 
 <font color=792ee5> quant.act </font>
 
@@ -334,15 +355,26 @@ eval:
 
 3. per head
 
-其中如果quant.method设置的为RTN，激活量化可以支持静态per tensor设置，下面是一个W8A8，激活静态per tensor量化的配置
+<font color=792ee5> quant.act.ste </font>
+
+在激活量化的取整过程中，是否用直通估计器(straight-through estimator)来使round函数可以产生梯度以便进行反向传播
+
+<font color=792ee5> quant.act.calib </font>
+
+激活的校准方法，默认采用minmax，且只支持minmax
+
+其中如果quant.method设置的为RTN，激活量化可以支持静态per tensor设置，下面是，权重静态per-channel量化，激活静态per tensor量化的配置和激活动态per token 8bit量化的配置
 
 ```
 quant:
     method: RTN
+    # 静态per-channel量化
     weight:
         bit: 8
         symmetric: True
         granularity: per_channel
+
+    # 静态per-tensor量化
     act:
         bit: 8
         symmetric: True
@@ -350,13 +382,44 @@ quant:
         static: True
 ```
 
+```
+quant:
+    method: RTN
+    #静态per-channel量化
+    weight:
+        bit: 8
+        symmetric: True
+        granularity: per_channel
+
+    # 动态per-tensor量化
+    act:
+        bit: 8
+        symmetric: True
+        granularity: per_token
+```
+
 ## save
+
+<font color=792ee5> save.save_vllm </font>
+
+是否保存为VLLM推理后端支持的真实量化模型
+
+当开启该选项时，你会发现保存的模型权重显著变小(真实量化)，同时可以通过VLLM后端来直接加载推理，提高推理速度以及降低显存占用，有关于推理后端的内容见[该章节](https://llmc-zhcn.readthedocs.io/en/latest/backbend.md)
+
+类似地，后续llmc会支持更多的推理后端，例如lightllm，trtllm，mlc等，可通过save_lightllm, save_trtllm, save_mlc来保存对应推理后端的量化模型
+
 
 <font color=792ee5> save.save_trans </font>
 
 是否保存调整之后的模型权重
 
-保存的该权重，是经过调整之后的更适合量化的权重，它还是以fp16形式保存，在推理引擎中部署的时候，需要开启naive量化，即可实现量化推理
+保存的该权重，是经过调整之后的更适合量化的权重，其可能包含更少的离群值，其还是以fp16/bf16的格式保存(权重文件大小与原始模型保持一致)，在推理引擎中部署的时候，需要开启推理引擎的naive量化功能，即可实现量化推理。
+
+与save_vllm不同的是，其需要该推理引擎来完成真实量化，而llmc提供一个更适合量化的模型权重。
+
+<font color=792ee5> save.save_fake </font>
+
+是否保存伪量化的模型
 
 <font color=792ee5> save.save_path </font>
 

@@ -36,3 +36,16 @@ arxiv链接: https://arxiv.org/abs/2405.06001
    advanced/mix_bits.md
    advanced/sparsification.md
 
+.. toctree::
+   :maxdepth: 2
+   :caption: 量化最佳实践
+
+   practice/awq.md
+   practice/awq_omni.md
+   practice/quarot_gptq.md
+
+.. toctree::
+   :maxdepth: 2
+   :caption: 量化推理后端
+
+   practice/vllm.md
