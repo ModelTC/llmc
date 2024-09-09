@@ -34,3 +34,17 @@ arxiv: https://arxiv.org/abs/2405.06001
    advanced/custom_dataset.md
    advanced/mix_bits.md
    advanced/sparsification.md
+
+.. toctree::
+   :maxdepth: 2
+   :caption: practice
+
+   practice/awq.md
+   practice/awq_omni.md
+   practice/quarot_gptq.md
+
+.. toctree::
+   :maxdepth: 2
+   :caption: backbend
+
+   practice/vllm.md

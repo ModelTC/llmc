@@ -1,0 +1,55 @@
+base:
+    seed: &seed 42
+model:
+    type: model_type
+    path: model path
+    tokenizer_mode: slow
+    torch_dtype: auto
+calib:
+    name: pileval
+    download: False
+    path: calib data path
+    n_samples: 128
+    bs: -1
+    seq_len: 512
+    preproc: general
+    seed: *seed
+eval:
+    eval_pos: [fake_quant]
+    name: wikitext2
+    download: False
+    path: eval data path
+    seq_len: 2048
+    # For 7B / 13B model eval, bs can be set to "1", and inference_per_block can be set to "False".
+    # For 70B model eval, bs can be set to "20", and inference_per_block can be set to "True".
+    bs: 1
+    inference_per_block: False
+quant:
+    method: Awq
+    weight:
+        bit: 8
+        symmetric: False
+        granularity: per_channel
+        group_size: -1
+        calib_algo: learnable
+    act:
+        bit: 8
+        symmetric: False
+        granularity: per_token
+        calib_algo: minmax
+    special:
+        trans: True
+        trans_version: v2
+        weight_clip: True
+        # Only the version v2 clipping method supports saving clip factors.
+        # And the weight calibration algorithm must be set to "learnable".
+        clip_version: v2
+        # Save scale and clip factors for OmniQuant's LWC and LET.
+        save_scale: True
+        scale_path: /path/to/scale/awq_w8a8.pth
+        save_clip: True
+        clip_path: /path/to/clip/awq_w8a8.pth
+save:
+    save_trans: False
+    save_fake: False
+    save_path: ./save

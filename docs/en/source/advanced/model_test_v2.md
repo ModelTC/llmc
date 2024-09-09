@@ -49,7 +49,7 @@ opencompass:
     output_path: ./oc_output
 ```
 
-<font color=792ee5> The cfg_path in opencompass needs to point to a configuration path for opencompass. </font>
+The cfg_path under opencompass needs to point to a configuration path for opencompass.
 
 [Here](https://github.com/ModelTC/llmc/tree/main/configs/opencompass), we have provided the configurations for both the base model and the chat model regarding the human-eval test as a reference for everyone.
 
@@ -57,29 +57,7 @@ It is important to note that [the configuration provided by opencompass](https:/
 
 Of course, since the save path of trans model is required, you need to set save_trans to True if you want to test in opencompass.
 
-<font color=792ee5> The max_num_workers in opencompass refers to the maximum number of inference instances. </font>
-
-If the model is running on a single GPU, then max_num_workers refers to the number of inference instances to be started, meaning it will occupy max_num_workers number of GPUs.
-
-If the model is running on multiple GPUs, as in the case of multi-GPU parallel testing (as mentioned below), for example, if the model is running inference on 2 GPUs, then max_num_workers refers to the number of inference instances to be started, meaning it will occupy 2 * max_num_workers number of GPUs.
-
-In summary, the required number of GPUs = number of PP (pipeline parallelism) * max_num_workers.
-
-If the required number of GPUs exceeds the actual number of available GPUs, then some workers will have to wait in a queue.
-
-max_num_workers not only starts multiple inference instances but also splits each dataset into max_num_workers parts, which can be understood as data parallelism.
-
-Therefore, the optimal setting is to make the required number of GPUs equal to the number of available GPUs.
-
-For example:
-
-On a machine with 8 GPUs, if a model runs on a single GPU, then max_num_workers=8.
-On a machine with 8 GPUs, if a model runs on 4 GPUs, then max_num_workers=2.
-We should try to lower the number of PPs while increasing max_num_workers, because PP parallelism tends to be slower. PP should only be used when the model cannot run on a single GPU, such as for a 70B model that cannot run on a single GPU. In this case, we can set PP=4 and use four 80GB GPUs to run it.
-
-<font color=792ee5> The output_path in opencompass is used to set the output directory for the evaluation logs of opencompass. </font>
-
-In this log directory, OpenCompass will output logs for inference and evaluation, detailed inference results, and the final evaluation accuracy.
+The output_path under opencompass is used to set the output directory for the evaluation logs of opencompass.
 
 Before running the llmc program, you also need to install the version of [opencompass](https://github.com/ModelTC/opencompass/tree/opencompass-llmc) that has been adapted for llmc.
 

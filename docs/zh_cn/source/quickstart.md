@@ -77,9 +77,9 @@ save:
 ```
 PYTHONPATH=llmc的下载路径:$PYTHONPATH \
 python -m llmc \
---config configs/quantization/SmoothQuant/smoothquant_llama_w8a8_fakequant_eval.yml
+--config configs/quantization/methods/SmoothQuant/smoothquant_w_a.yml
 ```
-llmc在scripts下，也提供了很多的运行[脚本](https://github.com/ModelTC/llmc/tree/main/scripts)供大家参考
+llmc在configs/quantization/methods下，也提供了很多的[算法配置文件](https://github.com/ModelTC/llmc/tree/main/configs/quantization/methods)供大家参考
 
 ```
 #!/bin/bash
@@ -95,7 +95,7 @@ task_name=smoothquant_llama_w8a8_fakequant_eval # 设置task_name，用于保存
 # 选择某个config运行
 nohup \
 python -m llmc \
---config ../configs/quantization/SmoothQuant/smoothquant_llama_w8a8_fakequant_eval.yml \
+--config ../configs/quantization/methods/SmoothQuant/smoothquant_w_a.yml \
 > ${task_name}.log 2>&1 &
 
 echo $! > ${task_name}.pid

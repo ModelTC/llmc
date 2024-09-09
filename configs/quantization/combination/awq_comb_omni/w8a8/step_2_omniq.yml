@@ -1,0 +1,64 @@
+base:
+    seed: &seed 42
+model:
+    type: model_type
+    path: model path
+    tokenizer_mode: slow
+    torch_dtype: auto
+calib:
+    name: wikitext2
+    download: False
+    path: calib data path
+    n_samples: 128
+    bs: 1
+    seq_len: 2048
+    preproc: wikitext2_gptq
+    seed: *seed
+eval:
+    eval_pos: [fake_quant]
+    name: wikitext2
+    download: False
+    path: eval data path
+    seq_len: 2048
+    # For 7B / 13B model eval, bs can be set to "1", and inference_per_block can be set to "False".
+    # For 70B model eval, bs can be set to "20", and inference_per_block can be set to "True".
+    bs: 1
+    inference_per_block: False
+quant:
+    method: OmniQuant
+    weight:
+        bit: 8
+        symmetric: False
+        granularity: per_channel
+        calib_algo: learnable
+        ste: True
+    act:
+        bit: 8
+        symmetric: False
+        granularity: per_token
+        ste: True
+    special:
+        aug_loss: False
+        lwc: True
+        let: True
+        lwc_lr: 0.001
+        let_lr: 0.001
+        use_shift: False
+        alpha: 0.5
+        deactive_amp: True
+        epochs: 5
+        wd: 0
+        # Use AWQ's search clip factors to initialize OmniQuant's clip factors,
+        # Then refine them through learning (LWC).
+        search_clip_init: True
+        load_clip: True
+        clip_path: /path/to/scale/awq_w6a6.pth
+        # Use AWQ's search scale factors to initialize OmniQuant's scale factors,
+        # Then refine them through learning (LET).
+        search_scale_init: True
+        scale_path: /path/to/clip/awq_w6a6.pth
+    quant_out: True
+save:
+    save_trans: False
+    save_fake: False
+    save_path: ./save
