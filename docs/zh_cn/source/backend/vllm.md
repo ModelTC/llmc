@@ -149,7 +149,7 @@ config=${llmc}/configs/quantization/backend/vllm/rtn_w8a16.yml
 
 ### 1.4.1 离线推理
 
-我们构建了一个使用 **vLLM** 对数据集进行离线批量推理的[示例](https://github.com/ModelTC/llmc/tree/main/llmc/examples/backend/infer_with_vllm.py)。只需要将 `save.save_path` 路径下保存的模型替换为 [示例](https://github.com/ModelTC/llmc/tree/main/examples/backend/infer_with_vllm.py) 中的 `model_path`，然后运行以下命令即可：
+我们构建了一个使用 **vLLM** 对数据集进行离线批量推理的[示例](https://github.com/ModelTC/llmc/blob/main/examples/backend/infer_with_vllm.py)。只需要将 `save.save_path` 路径下保存的模型替换为 [示例](https://github.com/ModelTC/llmc/blob/main/examples/backend/infer_with_vllm.py) 中的 `model_path`，然后运行以下命令即可：
 
 ```bash
 cd examples/backend
