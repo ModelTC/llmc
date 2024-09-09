@@ -26,11 +26,13 @@
 
 ## News
 
-- **Sep 3, 2024:** 🚀 We support opencompass to eval llmc model. Follow this [doc](https://llmc-en.readthedocs.io/en/latest/advanced/model_test_v2.html) and have a try!
+- **Sep 9, 2024:** 🔥 We fix exporting quantized LLM to [vLLM](https://github.com/vllm-project/vllm)(see [here](https://llmc-en.readthedocs.io/en/latest/backend/vllm.html)). Moreover, we provide some configs of our best practice towards superior performance (see Best Practice [here](https://llmc-en.readthedocs.io/en/latest/)).
 
-- **Aug 22, 2024:** 🔥We support lots of small language models, including current SOTA [SmolLM](https://huggingface.co/collections/HuggingFaceTB/smollm-6695016cad7167254ce15966)(see [Supported Model List](#supported-model-list)). Additionally, we also support down stream task evaluation through our modified [lm-evaluation-harness](https://github.com/EleutherAI/lm-evaluation-harness) 🤗. Specifically, people can first employ `save_trans` mode(see `save` part in [Configuration](#configuration)) to save a weight modified model. After obtaining the transformed model, they can directly evaluate the quantized model referring to [run_lm_eval.sh](scripts/run_lm_eval.sh). More details can be found in [here](https://llmc-en.readthedocs.io/en/latest/advanced/model_test.html).
+* **Sep 3, 2024:** 🚀 We support opencompass to eval llmc model. Follow this [doc](https://llmc-en.readthedocs.io/en/latest/advanced/model_test_v2.html) and have a try!
 
-- **Jul 23, 2024:** 🍺🍺🍺 We release a brand new version benchmark paper:
+* **Aug 22, 2024:** 🔥We support lots of small language models, including current SOTA [SmolLM](https://huggingface.co/collections/HuggingFaceTB/smollm-6695016cad7167254ce15966)(see [Supported Model List](#supported-model-list)). Additionally, we also support down stream task evaluation through our modified [lm-evaluation-harness](https://github.com/EleutherAI/lm-evaluation-harness) 🤗. Specifically, people can first employ `save_trans` mode(see `save` part in [Configuration](#configuration)) to save a weight modified model. After obtaining the transformed model, they can directly evaluate the quantized model referring to [run_lm_eval.sh](scripts/run_lm_eval.sh). More details can be found in [here](https://llmc-en.readthedocs.io/en/latest/advanced/model_test.html).
+
+* **Jul 23, 2024:** 🍺🍺🍺 We release a brand new version benchmark paper:
 
   [**LLMC: Benchmarking Large Language Model Quantization with a Versatile Compression Toolkit**](https://arxiv.org/abs/2405.06001v2).
 
@@ -44,18 +46,18 @@
 
   Instead of focusing on the best practice, We modularly and fairly benchmark LLM quantization considering calibration data, algorithms, and data formats. With detailed observation and analysis, we provide various types of novel points for performance and method improvements under different configurations. With the powerful toolkit LLMC and comprehensive insights, future LLM researchers can efficiently integrate suitable algorithms and low-bit formats for their applications, thereby democratizing the compression of large language models.
 
-- **Jul 16, 2024:** 🔥We support Wanda/Naive(Magnitude) for llm sparsification and layer-wise mix bits quantization now!
+* **Jul 16, 2024:** 🔥We support Wanda/Naive(Magnitude) for llm sparsification and layer-wise mix bits quantization now!
 
-- **Jul 14, 2024:** 🔥We support rotation based quantization QuaRot now!
+* **Jul 14, 2024:** 🔥We support rotation based quantization QuaRot now!
 
-- **Jul 4, 2024:** 📱 We open our discussion channel. If you have any questions, please join our community:
+* **Jul 4, 2024:** 📱 We open our discussion channel. If you have any questions, please join our community:
 
   - [Discord Server](https://discord.gg/qZKUDfhm)
   - [Tencent QQ Group](http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=I9IGPWWj8uuRXWH3_ELWjouf6gkIMgUl&authKey=GA3WbFAsm90ePJf%2FCbc7ZyXXq4ShQktlBaLxgqS5yuSPAsr3%2BDKMRdosUiLYoilO&noverify=0&group_code=526192592)
 
-- **May 17, 2024:** 🚀 We support some advanced large models, e.g., LLaVA, Mixtral, LLaMA V3 and Qwen V2 now. Have a try!
+* **May 17, 2024:** 🚀 We support some advanced large models, e.g., LLaVA, Mixtral, LLaMA V3 and Qwen V2 now. Have a try!
 
-- **May 13, 2024:** 🍺🍺🍺 We release our quantization benchmark paper:
+* **May 13, 2024:** 🍺🍺🍺 We release our quantization benchmark paper:
 
   [**LLM-QBench: A Benchmark Towards the Best Practice for Post-training Quantization of Large Language Models**](https://arxiv.org/abs/2405.06001).
 
@@ -71,7 +73,7 @@
   on the calibration data, algorithm pipeline, and quantization configuration selection. Based on the takeaways, a best practice for the LLM PTQ pipeline is designed, to achieve the best accuracy and efficiency performance balance
   under various scenarios.
 
-- **Mar 7, 2024:** 🚀 We release the quantization part of a powerful and efficient LLM compression tool. Notably, our benchmark paper is coming soon😊.
+* **Mar 7, 2024:** 🚀 We release the quantization part of a powerful and efficient LLM compression tool. Notably, our benchmark paper is coming soon😊.
 
 ## Highlight Feature
 

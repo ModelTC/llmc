@@ -25,7 +25,9 @@
 
 ## 新闻
 
-- **Sep 3, 2024:** 🚀 我们支持了opencompass的精度评测。文档参考[这里](https://llmc-zhcn.readthedocs.io/en/latest/advanced/model_test_v2.html)。欢迎使用!
+- **2024年9月9日:** 🔥 我们修复了将量化 LLM 导出到 [vLLM](https://llmc-zhcn.readthedocs.io/en/latest/backend/vllm.html)（参见[此处](https://llmc-en.readthedocs.io/en/latest/backend/vllm.html))的问题。此外，我们还提供了一些最佳实践的配置，以实现卓越的性能（参见[此处](https://llmc-zhcn.readthedocs.io/en/latest/)的最佳实践）。
+
+- **2024年9月3日:** 🚀 我们支持了opencompass的精度评测。文档参考[这里](https://llmc-zhcn.readthedocs.io/en/latest/advanced/model_test_v2.html)。欢迎使用!
 
 - **2024年8月22日：** 🔥我们支持包括当前最先进的 [SmolLM](https://huggingface.co/collections/HuggingFaceTB/smollm-6695016cad7167254ce15966)（请参阅 [支持的模型列表](#supported-model-list)）在内的许多小型语言模型。此外，我们还通过修改后的[lm-evaluation-harness](https://github.com/EleutherAI/lm-evaluation-harness) 🤗 支持下游任务评估。具体来说，人们可以首先使用`save_trans`模式（请参阅 [配置](#配置) 中的 `save` 部分）来保存修改后的模型权重。获取转换后的模型后，可以直接参考  [run_lm_eval.sh](scripts/run_lm_eval.sh)来评估量化模型。更多详情可在[这里](https://llmc-zhcn.readthedocs.io/en/latest/advanced/model_test.html#id2)找到。
 
