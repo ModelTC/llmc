@@ -65,4 +65,4 @@ quant:
         online_rotate: True
 ```
 
-By following these two steps, LLMC can achieve better results in weight-activation quantization on the Llama2-7b model compared to using the QuaRot algorithm alone.
+By following these two steps, LLMC can achieve better results in weight-activation quantization compared to using the QuaRot algorithm alone.
