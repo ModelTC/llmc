@@ -31,7 +31,7 @@ pip install vllm
 
 ### 1.3.1 校准数据
 
-在本章节中，我们使用**pieval**和**wikitext**两个学术数据集作为校准数据，有关于校准数据的下载和预处理请参考[章节](https://llmc-zhcn.readthedocs.io/en/latest/configs.md)。
+在本章节中，我们使用**pieval**和**wikitext**两个学术数据集作为校准数据，有关于校准数据的下载和预处理请参考[章节](https://llmc-zhcn.readthedocs.io/en/latest/configs.html)。
 
 在实际使用中，建议应使用真实部署场景的数据进行离线量化校准。
 
