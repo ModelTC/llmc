@@ -26,13 +26,13 @@
 
 ## ニュース
 
-- **Sep 9, 2024:** 🔥 **量子化された LLM の [vLLM](https://github.com/vllm-project/vllm) へのエクスポートを修正しました ([こちら](https://llmc-en.readthedocs.io/en/latest/backend/vllm.html) を参照)**。さらに、優れたパフォーマンスに向けた **ベスト プラクティスの構成** もいくつか提供しています (ベスト プラクティスは [こちら](https://llmc-en.readthedocs.io/en/latest/) を参照)。
+- **2024年9月9日:** 🔥 量子化された LLM の [vLLM](https://github.com/vllm-project/vllm) へのエクスポートを修正しました ([こちら](https://llmc-en.readthedocs.io/en/latest/backend/vllm.html) を参照)。さらに、優れたパフォーマンスに向けた ベスト プラクティスの構成 もいくつか提供しています (ベスト プラクティスは [こちら](https://llmc-en.readthedocs.io/en/latest/) を参照)。
 
-* **Sep 3, 2024:** 🚀 私たちはOpenCompassの精度評価をサポートしました。ドキュメントは[こちら](https://llmc-en.readthedocs.io/en/latest/advanced/model_test_v2.html)を参照してください。ぜひご利用ください！
+* **2024年9月3日:** 🚀 私たちはOpenCompassの精度評価をサポートしました。ドキュメントは[こちら](https://llmc-en.readthedocs.io/en/latest/advanced/model_test_v2.html)を参照してください。ぜひご利用ください！
 
 * **2024年8月22日：** 🔥私たちは、現在の最先端技術である[SmolLM](https://huggingface.co/collections/HuggingFaceTB/smollm-6695016cad7167254ce15966)（[サポートされているモデルリスト](#supported-model-list)を参照）を含む多くの小型言語モデルをサポートしています。さらに、改良された[lm-evaluation-harness](https://github.com/EleutherAI/lm-evaluation-harness) 🤗 を通じてダウンストリームタスクの評価もサポートしています。具体的には、まず `save_trans` モード（[設定](#設定)の `save` 部分を参照）を使用して、変更されたモデルの重みを保存します。変換後のモデルを取得した後、[run_lm_eval.sh](scripts/run_lm_eval.sh)を参照して量子化モデルを直接評価することができます。詳細は[こちら](https://llmc-en.readthedocs.io/en/latest/advanced/model_test.html)で確認できます。
 
-* **2024 年 7 月 23 日:** 🍺🍺🍺 新しいバージョンのベンチマーク ペーパーをリリースします:
+* **2024年7月23日:** 🍺🍺🍺 新しいバージョンのベンチマーク ペーパーをリリースします:
 
   [**LLMC: 多用途の圧縮ツールキットを使用した大規模言語モデル量子化のベンチマーク**](https://arxiv.org/abs/2405.06001v2)。
 
