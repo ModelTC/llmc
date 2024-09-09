@@ -62,4 +62,4 @@ quant:
         online_rotate: True
 ```
 
-通过上述两个步骤的运行，在 Llama2-7b 模型上，LLMC 在 权重-激活量化 设置下可以取得比单独使用 Quarot 算法更好的结果
+通过上述两个步骤的运行，LLMC 在 权重-激活量化 设置下可以取得比单独使用 Quarot 算法更好的结果
