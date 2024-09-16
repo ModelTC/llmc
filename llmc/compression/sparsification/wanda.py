@@ -35,7 +35,7 @@ class Wanda(BaseBlockwiseSparsification):
         prev_op,
         input_name,
         inspect_module,
-        subset_kwargs
+        subset_kwargs,
     ):
         layers = list(layers_dict.values())
         for layer in layers:
@@ -43,20 +43,37 @@ class Wanda(BaseBlockwiseSparsification):
             scaler_row = torch.zeros((columns), device=layer.weight.device)
             nsamples = 0
             for batch_idx in range(len(input_feat[input_name])):
-                scaler_row = self.get_row_scale(layer, input_feat[input_name][batch_idx], scaler_row)
+                scaler_row = self.get_row_scale(
+                    layer, input_feat[input_name][batch_idx], scaler_row
+                )
                 nsamples += input_feat[input_name][batch_idx].shape[0]
             scaler_row /= nsamples
-            W_metric = torch.abs(layer.weight.data) * torch.sqrt(scaler_row.reshape((1, -1)))
-            W_mask = (torch.zeros_like(W_metric) == 1)  # initialize a mask to be all False
-            
+            W_metric = torch.abs(layer.weight.data) * torch.sqrt(
+                scaler_row.reshape((1, -1))
+            )
+            W_mask = (
+                torch.zeros_like(W_metric) == 1
+            )  # initialize a mask to be all False
+
             if self.sparser.prunen != 0:
                 # semi-structured n:m sparsity
                 for input_idx in range(W_metric.shape[1]):
                     if input_idx % self.sparser.prunem == 0:
-                        tmp = W_metric[:, input_idx:(input_idx+self.sparser.prunem)].float()
-                        W_mask.scatter_(1, input_idx+torch.topk(tmp, self.sparser.prunen,dim=1, largest=False)[1], True)
+                        tmp = W_metric[
+                            :, input_idx: (input_idx + self.sparser.prunem)
+                        ].float()
+                        W_mask.scatter_(
+                            1,
+                            input_idx
+                            + torch.topk(
+                                tmp, self.sparser.prunen, dim=1, largest=False
+                            )[1],
+                            True,
+                        )
             else:
                 sort_res = torch.sort(W_metric, dim=-1, stable=True)
-                indices = sort_res[1][:, : int(W_metric.shape[1] * self.sparser.sparsity)]
+                indices = sort_res[1][
+                    :, : int(W_metric.shape[1] * self.sparser.sparsity)
+                ]
                 W_mask.scatter_(1, indices, True)
             layer.weight.data[W_mask] = 0  # set weights to zero

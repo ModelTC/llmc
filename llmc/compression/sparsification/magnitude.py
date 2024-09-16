@@ -19,18 +19,27 @@ class Magnitude(BaseBlockwiseSparsification):
         prev_op,
         input_name,
         inspect_module,
-        subset_kwargs
+        subset_kwargs,
     ):
         layers = list(layers_dict.values())
         for layer in layers:
             W = layer.weight.data
             W_metric = torch.abs(W)
             if self.sparser.prunen != 0:
-                W_mask = (torch.zeros_like(W)==1)
+                W_mask = torch.zeros_like(W) == 1
                 for input_idx in range(W_metric.shape[1]):
                     if input_idx % self.sparser.prunem == 0:
-                        tmp = W_metric[:, input_idx:(input_idx+self.sparser.prunem)].float()
-                        W_mask.scatter_(1, input_idx+torch.topk(tmp, self.sparser.prunen, dim=1, largest=False)[1], True)
+                        tmp = W_metric[
+                            :, input_idx: (input_idx + self.sparser.prunem)
+                        ].float()
+                        W_mask.scatter_(
+                            1,
+                            input_idx
+                            + torch.topk(
+                                tmp, self.sparser.prunen, dim=1, largest=False
+                            )[1],
+                            True,
+                        )
             else:
                 thresh = torch.sort(W_metric.flatten().cuda())[0][
                     int(W.numel() * self.sparser.sparsity)
