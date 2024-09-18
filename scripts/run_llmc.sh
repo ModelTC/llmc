@@ -5,8 +5,8 @@
 llmc=llmc_path
 export PYTHONPATH=$llmc:$PYTHONPATH
 
-task_name=awq_w4a16_fakequant_eval
-config=${llmc}/configs/quantization/Awq/awq_w4a16_fakequant_eval.yml
+task_name=awq_w_only
+config=${llmc}/configs/quantization/methods/Awq/awq_w_only.yml
 
 nnodes=1
 nproc_per_node=1
