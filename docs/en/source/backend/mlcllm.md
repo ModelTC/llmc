@@ -1,5 +1,5 @@
 
-# AutoAWQ Quantized Inference
+# MLC LLM Quantized Inference
 
 [MLC LLM](https://github.com/mlc-ai/mlc-llm) is a machine learning compiler and high-performance deployment engine specifically designed for large language models. Its mission is to enable everyone to develop, optimize, and deploy AI models natively on their platforms.
 

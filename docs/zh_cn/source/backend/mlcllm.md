@@ -1,4 +1,4 @@
-# AutoAWQ量化推理
+# MLC LLM量化推理
 
 [MLC LLM](https://github.com/mlc-ai/mlc-llm) 是一个专为大语言模型设计的机器学习编译器和高性能部署引擎。其使命是让每个人都能够在自己的平台上本地开发、优化和部署 AI 模型。
 
