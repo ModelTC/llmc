@@ -49,3 +49,4 @@ arxiv: https://arxiv.org/abs/2405.06001
 
    backend/vllm.md
    backend/autoawq.md
+   backend/mlcllm.md

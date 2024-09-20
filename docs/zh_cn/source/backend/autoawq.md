@@ -73,7 +73,8 @@ quant:
 ```yaml
 save:
     save_autoawq: True
-    save_path: /path/to/save_for_autoawq_rtn_w8a16/
+    save_path: /path/to/save_for_autoawq_awq_w4/
+
 ```
 请注意，务必将 `save_autoawq` 设置为 `True`。对于 **W4A16** 的量化设置，LLMC 会将权重打包为 `torch.int32` 形式导出，便于 **AutoAWQ** 直接加载，并且会同时导出量化参数。
 
@@ -87,7 +88,7 @@ save:
 llmc=llmc_path
 export PYTHONPATH=$llmc:$PYTHONPATH
 
-task_name=rtn_for_autoawq
+task_name=awq_for_autoawq
 config=${llmc}/configs/quantization/backend/autoawq/awq_w4a16.yml
 ```
 等LLMC运行结束后，真实量化的模型就会存储在`save.save_path`路径
