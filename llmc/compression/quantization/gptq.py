@@ -98,13 +98,14 @@ class GPTQ(BaseBlockwiseQuantization):
             torch.cuda.empty_cache()
 
             self.subset_transform(subset['layers'])
-            self.model.replace_module_subset(
-                FakeQuantLinear,
-                block,
-                subset,
-                self.block_idx,
-                self.get_replacement_params('fake_quant', w_only=True),
-            )
+            if self.quant_out:
+                self.model.replace_module_subset(
+                    FakeQuantLinear,
+                    block,
+                    subset,
+                    self.block_idx,
+                    self.get_replacement_params('fake_quant', w_only=True),
+                )
 
     @torch.no_grad()
     def block_transform(self, block, input_feat, block_kwargs):
@@ -148,7 +149,7 @@ class GPTQ(BaseBlockwiseQuantization):
         self.qparams = {}
         self.columns = self.layers_cache[name]['columns']
         self.n_out = self.n_out_dict[name] if self.owq else 0
-        self.n_nonout = layer.weight.data.shape[1] - self.n_out
+        self.n_nonout = self.columns - self.n_out
 
         if self.actorder or self.owq:
             self.hessian_sorting(name)
@@ -237,8 +238,6 @@ class GPTQ(BaseBlockwiseQuantization):
 
             for i in range(count):
                 w, d = W1[:, i], Hinv1[i, i]
-                idx = i1 + i
-
                 if self.wquantizer.granularity == 'per_group':
                     idx = i1 + i
                     if not self.static_groups:

@@ -25,11 +25,13 @@
 
 ## 新闻
 
-- **Sep 3, 2024:** 🚀 我们支持了opencompass的精度评测。文档参考[这里](https://llmc-zhcn.readthedocs.io/en/latest/advanced/model_test_v2.html)。欢迎使用!
+- **2024年9月9日:** 🔥 我们修复了将量化 LLM 导出到 [vLLM](https://llmc-zhcn.readthedocs.io/en/latest/backend/vllm.html)（参见[此处](https://llmc-en.readthedocs.io/en/latest/backend/vllm.html))的问题。此外，我们还提供了一些最佳实践的配置，以实现卓越的性能（参见[此处](https://llmc-zhcn.readthedocs.io/en/latest/)的最佳实践）。
 
-- **2024年8月22日：** 🔥我们支持包括当前最先进的 [SmolLM](https://huggingface.co/collections/HuggingFaceTB/smollm-6695016cad7167254ce15966)（请参阅 [支持的模型列表](#supported-model-list)）在内的许多小型语言模型。此外，我们还通过修改后的[lm-evaluation-harness](https://github.com/EleutherAI/lm-evaluation-harness) 🤗 支持下游任务评估。具体来说，人们可以首先使用`save_trans`模式（请参阅 [配置](#配置) 中的 `save` 部分）来保存修改后的模型权重。获取转换后的模型后，可以直接参考  [run_lm_eval.sh](scripts/run_lm_eval.sh)来评估量化模型。更多详情可在[这里](https://llmc-zhcn.readthedocs.io/en/latest/advanced/model_test.html#id2)找到。
+- **2024年9月3日:** 🚀 我们支持了opencompass的精度评测。文档参考[这里](https://llmc-zhcn.readthedocs.io/en/latest/advanced/model_test_v2.html)。欢迎使用!
 
-- **2024 年 7 月 23 日：** 🍺🍺🍺 我们发布了全新版本的基准论文：
+* **2024年8月22日：** 🔥我们支持包括当前最先进的 [SmolLM](https://huggingface.co/collections/HuggingFaceTB/smollm-6695016cad7167254ce15966)（请参阅 [支持的模型列表](#supported-model-list)）在内的许多小型语言模型。此外，我们还通过修改后的[lm-evaluation-harness](https://github.com/EleutherAI/lm-evaluation-harness) 🤗 支持下游任务评估。具体来说，人们可以首先使用`save_trans`模式（请参阅 [配置](#配置) 中的 `save` 部分）来保存修改后的模型权重。获取转换后的模型后，可以直接参考  [run_lm_eval.sh](scripts/run_lm_eval.sh)来评估量化模型。更多详情可在[这里](https://llmc-zhcn.readthedocs.io/en/latest/advanced/model_test.html#id2)找到。
+
+* **2024 年 7 月 23 日：** 🍺🍺🍺 我们发布了全新版本的基准论文：
 
   [**LLMC：使用多功能压缩工具包对大型语言模型量化进行基准测试**](https://arxiv.org/abs/2405.06001v2)。
 
@@ -43,16 +45,16 @@
 
   我们不关注最佳实践，而是考虑校准数据、算法和数据格式，以模块化和公平的方式对 LLM 量化进行基准测试。通过详细的观察和分析，我们为不同配置下的性能和方法改进提供了各种类型的新点。借助强大的工具包 LLMC 和全面的见解，未来的 LLM 研究人员可以有效地将合适的算法和低位格式集成到他们的应用中，从而使大型语言模型的压缩变得民主化。
 
-- **2024年7月16号：** 🔥我们现在已经支持了大模型稀疏算法Wanda/Naive(Magnitude)和层间混合bit量化!
+* **2024年7月16号：** 🔥我们现在已经支持了大模型稀疏算法Wanda/Naive(Magnitude)和层间混合bit量化!
 
-- **2024年7月14号：** 🔥我们现在已经支持了旋转类量化算法QuaRot!
+* **2024年7月14号：** 🔥我们现在已经支持了旋转类量化算法QuaRot!
 
-- **2024年7月4日:** 📱 我们提供了公开的讨论渠道. 如果您有任何问题，可以加入我们的社区:
+* **2024年7月4日:** 📱 我们提供了公开的讨论渠道. 如果您有任何问题，可以加入我们的社区:
 
   - [Discord群](https://discord.gg/qZKUDfhm)
   - [QQ群](http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=I9IGPWWj8uuRXWH3_ELWjouf6gkIMgUl&authKey=GA3WbFAsm90ePJf%2FCbc7ZyXXq4ShQktlBaLxgqS5yuSPAsr3%2BDKMRdosUiLYoilO&noverify=0&group_code=526192592)
 
-- **2024年5月13日:** 🍺🍺🍺 我们发布了量化基准论文：
+* **2024年5月13日:** 🍺🍺🍺 我们发布了量化基准论文：
 
   [**LLM-QBench：大型语言模型训练后量化的最佳实践基准**](https://arxiv.org/abs/2405.06001).
 
@@ -67,7 +69,7 @@
   我们模块化并公正地基准测试了量化技术，考虑到校准成本、推理效率和量化精度。在多种模型和数据集上进行的近 600 项实验提供了三个洞见：
   关于校准数据、算法流程和量化配置选择。基于这些洞见，设计了一个最佳的大型语言模型 PTQ 流程，实现了在各种场景下最佳的精确度和效率性能平衡。
 
-- **2024年3月7日:** 🚀 我们发布了强大且高效的大型语言模型压缩工具的量化部分。值得注意的是，我们的基准论文即将发布😊。
+* **2024年3月7日:** 🚀 我们发布了强大且高效的大型语言模型压缩工具的量化部分。值得注意的是，我们的基准论文即将发布😊。
 
 ## 突出特性
 
