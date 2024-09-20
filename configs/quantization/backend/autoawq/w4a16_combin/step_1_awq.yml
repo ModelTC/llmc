@@ -28,15 +28,19 @@ quant:
     method: Awq
     weight:
         bit: 4
-        symmetric: True
+        symmetric: False
         granularity: per_group
         group_size: 128
-        need_pack: True
+        calib_algo: minmax
     special:
         trans: True
-        trans_version: v2
-        weight_clip: True
-    quant_out: True
+        trans_version: v1
+        weight_clip: False
+        # For weight-only AWQ+Omni mode, there's no need to save scale factors;
+        # Only the AWQ-transformed model needs to be saved.
+        save_scale: False
+        save_clip: False
 save:
-    save_vllm: True
-    save_path: /path/to/save_for_vllm_awq_w4/
+    # Save the AWQ-transformed model.
+    save_trans: True
+    save_path: /path/to/save_awq_trans/

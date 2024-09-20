@@ -8,8 +8,8 @@ def update_vllm_quant_config(
     vllm_quant_method='compressed-tensors',
 
 ):
-    pack_mode = config.quant.weight.get('pack_mode')
-    if pack_mode is not None:
+    need_pack = config.quant.weight.get('need_pack', False)
+    if need_pack:
         vllm_quant_format = 'pack-quantized'
     else:
         vllm_quant_format = 'int-quantized'

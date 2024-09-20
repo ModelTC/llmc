@@ -17,7 +17,8 @@ from llmc.data import BaseDataset, BaseTokenizer
 from llmc.eval import PerplexityEval, TokenConsistencyEval
 from llmc.models import *
 from llmc.utils import (check_config, mkdirs, print_important_package_version,
-                        seed_all, update_vllm_quant_config)
+                        seed_all, update_autoawq_quant_config,
+                        update_vllm_quant_config)
 from llmc.utils.registry_factory import ALGO_REGISTRY, MODEL_REGISTRY
 
 
@@ -110,14 +111,34 @@ def main(config):
         blockwise_opt.deploy('fake_quant')
         blockwise_opt.save_model(save_fake_path)
 
-    if 'save' in config and config.save.get('save_lightllm', False):
-        blockwise_opt.deploy('real_quant')
-        blockwise_opt.save_model(save_quant_path)
-
     if 'save' in config and config.save.get('save_vllm', False):
-        blockwise_opt.deploy('real_quant')
+        w, a = config.quant.weight, config.quant.get('act')
+        assert w.symmetric, 'Only symmetric quant is supported.'
+        assert w.bit in [4, 8], 'Supported quant: w4a16, w8a16, w8a8.'
+        if a:
+            assert a.symmetric, 'Only symmetric quant is supported.'
+            assert a.bit == 8, 'Supported quant: w4a16, w8a16, w8a8.'
+        blockwise_opt.deploy('vllm_quant')
         blockwise_opt.save_model(save_quant_path)
         update_vllm_quant_config(blockwise_opt.model, config, save_quant_path)
+
+    if 'save' in config and config.save.get('save_autoawq', False):
+        assert config.quant.weight.bit in [4] and 'act' not in config.quant, \
+            'AutoAWQ supports only 4-bit weight-only quantization.'
+        assert not config.quant.weight.symmetric, 'Only asymmetric quant is supported.'
+
+        blockwise_opt.deploy('autoawq_quant')
+        blockwise_opt.save_model(save_quant_path)
+        update_autoawq_quant_config(config, save_quant_path)
+
+    if 'save' in config and config.save.get('save_mlcllm', False):
+        assert config.quant.weight.bit in [4] and 'act' not in config.quant, \
+            'MlcLLM supports only 4-bit weight-only quantization.'
+        assert not config.quant.weight.symmetric, 'Only asymmetric quant is supported.'
+
+        blockwise_opt.deploy('mlcllm_quant')
+        blockwise_opt.save_model(save_quant_path)
+        update_autoawq_quant_config(config, save_quant_path)
 
     if 'opencompass' in config:
         assert config.save.get('save_trans', False)
@@ -176,11 +197,14 @@ if __name__ == '__main__':
                 config.save.save_path, 'trtllm_engine'
             )
             mkdirs(save_trtllm_engine_path)
-        if config.save.get('save_lightllm', False):
-            save_quant_path = os.path.join(config.save.save_path, 'real_quant_model')
-            mkdirs(save_quant_path)
         if config.save.get('save_vllm', False):
-            save_quant_path = os.path.join(config.save.save_path, 'real_quant_model')
+            save_quant_path = os.path.join(config.save.save_path, 'vllm_quant_model')
+            mkdirs(save_quant_path)
+        if config.save.get('save_autoawq', False):
+            save_quant_path = os.path.join(config.save.save_path, 'autoawq_quant_model')
+            mkdirs(save_quant_path)
+        if config.save.get('save_mlcllm', False):
+            save_quant_path = os.path.join(config.save.save_path, 'mlcllm_quant_model')
             mkdirs(save_quant_path)
         if config.save.get('save_fake', False):
             save_fake_path = os.path.join(config.save.save_path, 'fake_quant_model')

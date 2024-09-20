@@ -28,12 +28,13 @@ quant:
     method: OmniQuant
     weight:
         bit: 4
-        symmetric: True
+        symmetric: False
         granularity: per_group
         group_size: 128
         calib_algo: learnable
         ste: True
-        need_pack: True
+        # Available options: ['gemm_pack', 'gemv_pack']
+        pack_version: gemm_pack
     special:
         aug_loss: False
         lwc: True
@@ -52,5 +53,5 @@ quant:
         search_clip_init: True
     quant_out: True
 save:
-    save_vllm: True
-    save_path: /path/to/save_for_vllm_awq_omni_w4/
+    save_autoawq: True
+    save_path: /path/to/save_for_autoawq_awq_omni_w4/

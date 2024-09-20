@@ -3,11 +3,11 @@
 
 [VLLM](https://github.com/vllm-project/vllm) is an efficient backend specifically designed to meet the inference needs of large language models. By optimizing memory management and computational efficiency, it significantly speeds up the inference process.
 
-LLMC supports exporting quantized model formats required by VLLM and, through its strong multi-algorithm support (such as AWQ, GPTQ, QuaRot, etc.), can maintain high quantization accuracy while ensuring inference speed. The combination of LLMC and VLLM enables users to achieve inference acceleration and memory optimization without sacrificing accuracy, making it ideal for scenarios requiring efficient handling of large-scale language models.
+**LLMC** supports exporting quantized model formats required by **VLLM** and, through its strong multi-algorithm support (such as AWQ, GPTQ, QuaRot, etc.), can maintain high quantization accuracy while ensuring inference speed. The combination of **LLMC** and **VLLM** enables users to achieve inference acceleration and memory optimization without sacrificing accuracy, making it ideal for scenarios requiring efficient handling of large-scale language models.
 
 ## 1.1 Environment Setup
 
-To use VLLM for quantized inference, first, install and configure the VLLM environment:
+To use **VLLM** for quantized inference, first, install and configure the **VLLM** environment:
 
 ```bash
 pip install vllm
@@ -21,15 +21,16 @@ In **VLLM**'s fixed-point integer quantization, the following common formats are
 - **W8A16**: Weights are int8, activations are float16;
 - **W8A8**: Weights are int8, activations are int8;
 - **Per-channel/group quantization**: Quantization is applied per channel or per group;
-- **Per-token dynamic quantization**: Dynamic quantization per token, which further improves quantization accuracy and efficiency.
+- **Per-token dynamic quantization**: Dynamic quantization per token, which further improves quantization accuracy and efficiency;
+- **Weight/activation symmetric quantization**: quantization parameters include scale.
 
-Therefore, when quantizing models with **LLMC**, make sure that the bit settings for weights and activations are in formats supported by VLLM.
+Therefore, when quantizing models with **LLMC**, make sure that the bit settings for weights and activations are in formats supported by **VLLM**.
 
 ## 1.3 Using LLMC for Model Quantization
 
 ### 1.3.1 Calibration Data
 
-In this chapter, we use the **Pieval** and **Wikitext** academic datasets as calibration data. For downloading and preprocessing calibration data, refer to [this chapter](https://llmc-en.readthedocs.io/en/latest/configs.html).
+In this chapter, we use the **Pileval** and **Wikitext** academic datasets as calibration data. For downloading and preprocessing calibration data, refer to [this chapter](https://llmc-en.readthedocs.io/en/latest/configs.html).
 
 In practical use, we recommend using real deployment data for offline quantization calibration.
 
@@ -50,15 +51,14 @@ quant:
         symmetric: True
         granularity: per_group
         group_size: 128
-        int_range: [-128, 127]
-        pack_mode: vllm_pack
+        need_pack: True
 ```
 
-Make sure to set the `pack_mode` parameter to `vllm_pack`, which packs 8-bit weights into `torch.int32` format for direct VLLM loading and inference.
+Make sure to set the `need_pack` parameter to `True`, which packs 8-bit weights into `torch.int32` format for direct **VLLM** loading and inference.
 
 **W4A16**
 
-In the W4A16 quantization setting, RTN (Round to Nearest) cannot ensure accuracy, so higher-order quantization algorithms are needed to maintain model accuracy. In this case, we recommend using the AWQ algorithm from LLMC.
+In the W4A16 quantization setting, RTN (Round to Nearest) cannot ensure accuracy, so higher-order quantization algorithms are needed to maintain model accuracy. In this case, we recommend using the AWQ algorithm from **LLMC**.
 
 You can refer to the AWQ W4A16 weight quantization [configuration file](https://github.com/ModelTC/llmc/tree/main/configs/quantization/backend/vllm/awq_w4a16.yml).
 
@@ -71,8 +71,7 @@ quant:
         symmetric: True
         granularity: per_group
         group_size: 128
-        int_range: [-8, 7]
-        pack_mode: vllm_pack
+        need_pack: True
     special:
         trans: True
         trans_version: v2
@@ -80,7 +79,7 @@ quant:
     quant_out: True  
 ```
 
-Make sure to set the `pack_mode` parameter to `vllm_pack`, which packs 4-bit weights into `torch.int32` format for direct VLLM loading and inference.
+Make sure to set the `need_pack` parameter to `True`, which packs 4-bit weights into `torch.int32` format for direct **VLLM** loading and inference.
 
 If AWQ cannot meet accuracy requirements, we recommend using the **AWQ + OmniQuant combination algorithm** described in [this chapter](https://llmc-en.readthedocs.io/en/latest/practice/awq_omni.html) to further improve accuracy. The corresponding [configuration file](https://github.com/ModelTC/llmc/tree/main/configs/quantization/backend/vllm/w4a16_combin) is also provided.
 
@@ -99,12 +98,10 @@ quant:
         symmetric: True
         granularity: per_channel
         group_size: -1
-        int_range: [-128, 127]
     act:
         bit: 8
         symmetric: True
         granularity: per_token
-        int_range: [-128, 127]
     special:
         trans: True
         trans_version: v2
@@ -114,7 +111,7 @@ quant:
 
 If AWQ cannot meet accuracy requirements, we recommend using the **Quarot + GPTQ combination algorithm** described in [this chapter](https://llmc-en.readthedocs.io/en/latest/practice/quarot_gptq.html) to further improve accuracy. The corresponding [configuration file](https://github.com/ModelTC/llmc/tree/main/configs/quantization/backend/vllm/w8a8_combin) is also provided.
 
-### 1.3.3 Exporting Quantized Models
+### 1.3.3 Exporting Real Quantized Model
 
 ```yaml
 save:
@@ -122,9 +119,9 @@ save:
     save_path: /path/to/save_for_vllm_rtn_w8a16/
 ```
 
-Make sure to set `save_vllm` to `True`. For **W4A16** and **W8A16** quantization settings, LLMC will export the weights in `torch.int32` format for direct VLLM loading, and it will also export the quantization parameters.
+Make sure to set `save_vllm` to `True`. For **W4A16** and **W8A16** quantization settings, **LLMC** will export the weights in `torch.int32` format for direct **VLLM** loading, and it will also export the quantization parameters.
 
-For **W8A8** quantization settings, LLMC will export the weights in `torch.int8` format for direct VLLM loading, along with the relevant quantization parameters.
+For **W8A8** quantization settings, **LLMC** will export the weights in `torch.int8` format for direct **VLLM** loading, along with the relevant quantization parameters.
 
 ### 1.3.4 Running LLMC
 
@@ -139,21 +136,21 @@ task_name=rtn_for_vllm
 config=${llmc}/configs/quantization/backend/vllm/rtn_w8a16.yml
 ```
 
-After LLMC finishes running, the real quantized model will be stored at the `save.save_path`.
+After **LLMC** finishes running, the real quantized model will be stored at the `save.save_path`.
 
 ## 1.4 Using VLLM for Inference
 
 ### 1.4.1 Offline Inference
 
-We provide an [example](https://github.com/ModelTC/llmc/blob/main/examples/backend/infer_with_vllm.py) for performing offline batch inference on datasets using **vLLM**. Simply replace the model saved at `save.save_path` with the `model_path` in the [example](https://github.com/ModelTC/llmc/blob/main/examples/backend/infer_with_vllm.py) and run the following command:
+We have provided an [example](https://github.com/ModelTC/llmc/blob/main/examples/backend/vllm/infer_with_vllm.py) for performing offline batch inference on a dataset using **VLLM**. You only need to replace the `model_path` in the [example](https://github.com/ModelTC/llmc/blob/main/examples/backend/vllm/infer_with_vllm.py) with the `save.save_path` path, and then run the following command:
 
 ```bash
-cd examples/backend
+cd examples/backend/vllm
 
 python infer_with_vllm.py
 ```
 
-### 1.4.1 Inference Service
+### 1.4.2 Inference Service
 
 vLLM can be deployed as a server that implements the OpenAI API protocol. This allows vLLM to be used as a drop-in replacement for applications using the OpenAI API. By default, it starts the server at http://localhost:8000. You can specify the address with `--host` and `--port` arguments. Replace `model_path` with the saved `quantized model`.
 

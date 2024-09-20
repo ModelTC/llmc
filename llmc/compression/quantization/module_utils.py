@@ -9,7 +9,17 @@ from loguru import logger
 from transformers.models.llama.modeling_llama import LlamaRMSNorm
 from transformers.models.mistral.modeling_mistral import MistralRMSNorm
 from transformers.models.mixtral.modeling_mixtral import MixtralRMSNorm
-from transformers.models.qwen2.modeling_qwen2 import Qwen2RMSNorm
+
+try:
+    from transformers.models.qwen2.modeling_qwen2 import Qwen2RMSNorm
+except Exception:
+    logger.info(
+        'Qwen2RMSNorm not installed. '
+        'If you need it, please update your transformers lib.'
+    )
+
+    class Qwen2RMSNorm(nn.Module):
+        pass
 
 try:
     from transformers.models.gemma2.modeling_gemma2 import Gemma2RMSNorm
@@ -32,6 +42,8 @@ except Exception:
         'fast_hadamard_transform not installed. '
         'If you need it, please install it firstly.'
     )
+
+from .utils import calculate_zeros_width, make_divisible
 
 
 class LlmcLayerNorm(nn.Module):
@@ -523,10 +535,10 @@ class EffcientFakeQuantLinear(nn.Module):
         )
 
 
-class RealQuantLinear(nn.Module):
-    def __init__(self, weight, bias, scales, zeros, pack_mode):
+class VllmRealQuantLinear(nn.Module):
+    def __init__(self, weight, bias, scales, need_pack):
         super().__init__()
-        weight_name = 'weight_packed' if pack_mode is not None else 'weight'
+        weight_name = 'weight_packed' if need_pack is not None else 'weight'
         self.register_buffer(weight_name, weight)
 
         (
@@ -537,12 +549,6 @@ class RealQuantLinear(nn.Module):
 
         self.register_buffer('weight_scale', scales)
 
-        (
-            self.register_buffer('weight_zero_point', zeros)
-            if zeros is not None
-            else setattr(self, 'zero', None)
-        )
-
     @torch.no_grad()
     def forward(self, x):
         raise NotImplementedError
@@ -550,14 +556,14 @@ class RealQuantLinear(nn.Module):
     @classmethod
     @torch.no_grad()
     def new(cls, module, w_q, quant_config):
-        weight, scales, zeros = cls.quant_pack(module, w_q, quant_config)
+        weight, scales = cls.quant_pack(module, w_q, quant_config)
         if module.bias is not None:
             bias = module.bias.data
         else:
             bias = None
 
-        pack_mode = quant_config['weight'].get('pack_mode')
-        new_module = cls(weight, bias, scales, zeros, pack_mode)
+        need_pack = quant_config['weight'].get('need_pack', False)
+        new_module = cls(weight, bias, scales, need_pack)
         new_module.in_features = module.in_features
         new_module.out_features = module.out_features
         new_module.weight_shape = weight.shape
@@ -565,12 +571,8 @@ class RealQuantLinear(nn.Module):
         new_module.scales_shape = scales.shape
         new_module.scales_dtype = scales.dtype
 
-        if zeros is not None:
-            new_module.zeros_shape = zeros.shape
-            new_module.zeros_dtype = zeros.dtype
-        else:
-            new_module.zeros_shape = None
-            new_module.zeros_dtype = None
+        new_module.zeros_shape = None
+        new_module.zeros_dtype = None
 
         return new_module
 
@@ -578,81 +580,14 @@ class RealQuantLinear(nn.Module):
     @torch.no_grad()
     def quant_pack(cls, module, w_q, quant_config):
         weight, scales, zeros = w_q(module)
-        pack_mode = quant_config['weight'].get('pack_mode')
-        bit = quant_config['weight'].get('bit')
-
-        pack_functions = {
-            'vllm_pack': (cls.pack_vllm, [4, 8]),
-            'lightllm_pack': (cls.pack_lightllm, [2, 4]),
-        }
-
-        if pack_mode in pack_functions:
-            pack_func, valid_bits = pack_functions[pack_mode]
-            assert bit in valid_bits and 'act' not in quant_config
-            weight, scales, zeros = pack_func(weight, scales, zeros, quant_config)
-        elif pack_mode is not None:
-            raise NotImplementedError
-
-        return weight, scales, zeros
+        need_pack = quant_config['weight'].get('need_pack', False)
+        if need_pack:
+            weight, scales = cls.pack(weight, scales, quant_config)
+        return weight, scales
 
     @classmethod
     @torch.no_grad()
-    def pack_lightllm(self, weight, scales, zeros, quant_config):
-        if quant_config['weight']['bit'] == 8:
-            if zeros is not None:
-                zeros = zeros.view(weight.shape[0], -1)
-            scales = scales.view(weight.shape[0], -1)
-            return weight, scales, zeros
-
-        h1, h2 = weight.shape
-        # pack 8 int4 in an int32 number, pack 16 int2 in an int32 number.
-        bit = quant_config['weight']['bit']
-        tmp = 32 // bit
-
-        if (
-            quant_config['weight']['group_size'] != -1
-            and quant_config['weight']['granularity'] == 'per_group'
-        ):
-            group_size = quant_config['weight']['group_size']
-        else:
-            group_size = h2
-
-        assert h1 % tmp == 0 and h2 % tmp == 0, 'H1 {} H2 {}'.format(h1, h2)
-        assert h2 % group_size == 0, 'H1 {} H2 {}'.format(h1, h2)
-
-        weight = weight.cuda()
-        int_weight = torch.empty(h1, h2 // tmp).to(torch.int32).cuda()
-        # Weight pack in row.
-        for pack in range(0, h2, tmp):
-            for i in range(tmp):
-                int_weight[:, pack // tmp] += weight[:, pack + i] << (i * bit)
-        weight = weight.cpu()
-        int_weight = int_weight.cpu()
-        del weight
-
-        if zeros is not None:
-            zeros = zeros.cuda()
-            int_zeros = torch.zeros(h1 // tmp, h2 // group_size).to(torch.int32).cuda()
-            zeros = zeros.view(h1, -1)
-            # zero point pack in col.
-            for pack in range(0, h1, tmp):
-                for i in range(tmp):
-                    int_zeros[pack // tmp, :] += zeros[pack + i, :] << (i * bit)
-            zeros = zeros.cpu()
-            int_zeros = int_zeros.cpu()
-            del zeros
-        else:
-            int_zeros = None
-
-        gc.collect()
-        torch.cuda.empty_cache()
-
-        scales = scales.view(h1, -1)
-        return int_weight, scales, int_zeros
-
-    @classmethod
-    @torch.no_grad()
-    def pack_vllm(self, weight, scales, zeros, quant_config):
+    def pack(self, weight, scales, quant_config):
 
         # Packs a tensor of quantized weights stored in int8 into int32s with padding
         scales = scales.to(torch.float16)
@@ -676,11 +611,209 @@ class RealQuantLinear(nn.Module):
 
         packed = np.ascontiguousarray(packed).view(np.int32)
         int_weight = torch.from_numpy(packed)
-        return int_weight, scales, zeros
+        return int_weight, scales
 
     def __repr__(self):
         return (
-            'RealQuantLinear('
+            'VllmRealQuantLinear('
+            + f'in_features={self.in_features}, '
+            + f'out_features={self.out_features}, '
+            + f'bias={self.bias is not None}, '
+            + f'weight_shape={self.weight_shape}, '
+            + f'weight_dtype={self.weight_dtype}, '
+            + f'scales_shape={self.scales_shape}, '
+            + f'scales_dtype={self.scales_dtype}, '
+            + f'zeros_shape={self.zeros_shape}, '
+            + f'zeros_dtype={self.zeros_dtype})'
+        )
+
+
+class AutoawqRealQuantLinear(nn.Module):
+    def __init__(self, weight, bias, scales, zeros):
+        super().__init__()
+        self.register_buffer('qweight', weight)
+
+        (
+            self.register_buffer('bias', bias)
+            if bias is not None
+            else setattr(self, 'bias', None)
+        )
+
+        self.register_buffer('scales', scales)
+
+        (
+            self.register_buffer('qzeros', zeros)
+            if zeros is not None
+            else setattr(self, 'qzeros', None)
+        )
+
+    @torch.no_grad()
+    def forward(self, x):
+        raise NotImplementedError
+
+    @classmethod
+    @torch.no_grad()
+    def new(cls, module, w_q, quant_config):
+        weight, scales, zeros = cls.quant_pack(module, w_q, quant_config)
+        if module.bias is not None:
+            bias = module.bias.data
+        else:
+            bias = None
+
+        new_module = cls(weight, bias, scales, zeros)
+        new_module.in_features = module.in_features
+        new_module.out_features = module.out_features
+        new_module.weight_shape = weight.shape
+        new_module.weight_dtype = weight.dtype
+        new_module.scales_shape = scales.shape
+        new_module.scales_dtype = scales.dtype
+
+        if zeros is not None:
+            new_module.zeros_shape = zeros.shape
+            new_module.zeros_dtype = zeros.dtype
+        else:
+            new_module.zeros_shape = None
+            new_module.zeros_dtype = None
+
+        return new_module
+
+    @classmethod
+    @torch.no_grad()
+    def quant_pack(cls, module, w_q, quant_config):
+        weight, scales, zeros = w_q(module)
+        pack_version = quant_config['weight']['pack_version']
+        if pack_version == 'gemm_pack':
+            int_weight, scales, int_zeros = \
+                cls.gemm_pack(weight, scales, zeros, quant_config)
+        elif pack_version == 'gemv_pack':
+            int_weight, scales, int_zeros = \
+                cls.gemv_pack(module, weight, scales, zeros, quant_config)
+        return int_weight, scales, int_zeros
+
+    @classmethod
+    @torch.no_grad()
+    def gemm_pack(self, weight, scales, zeros, quant_config):
+
+        if zeros is not None:
+            zeros = zeros.t().contiguous()
+        scales = scales.t().contiguous()
+        weight = weight.t().contiguous()
+
+        bit = quant_config['weight']['bit']
+        pack_num = 32 // bit
+
+        int_weight = torch.zeros(
+            (weight.shape[0], weight.shape[1] // 32 * bit),
+            dtype=torch.int32,
+            device=weight.device,
+        )
+
+        for col in range(weight.shape[1] // pack_num):
+            if bit == 4:
+                order_map = [0, 2, 4, 6, 1, 3, 5, 7]
+            else:
+                raise NotImplementedError('Only 4-bit are supported for now.')
+            for i in range(pack_num):
+                int_weight_col = weight[:, col * pack_num + order_map[i]]
+                int_weight[:, col] |= int_weight_col << (i * bit)
+
+        if zeros is not None:
+            int_zeros = torch.zeros(
+                (zeros.shape[0], zeros.shape[1] // 32 * bit),
+                dtype=torch.int32,
+                device=zeros.device,
+            )
+
+            for col in range(zeros.shape[1] // pack_num):
+                if bit == 4:
+                    order_map = [0, 2, 4, 6, 1, 3, 5, 7]
+                else:
+                    raise NotImplementedError('Only 4-bit are supported for now.')
+                for i in range(pack_num):
+                    intzero_col = zeros[:, col * pack_num + order_map[i]]
+                    int_zeros[:, col] |= intzero_col << (i * bit)
+        else:
+            int_zeros = None
+
+        return int_weight, scales, int_zeros
+
+    @classmethod
+    @torch.no_grad()
+    def gemv_pack(self, module, weight, scales, zeros, quant_config):
+
+        bit = quant_config['weight']['bit']
+        group_size = quant_config['weight']['group_size']
+        pack_num = 32 // bit
+
+        q_scales = torch.zeros(
+            (
+                scales.shape[0],
+                calculate_zeros_width(module.in_features, group_size) * pack_num,
+            ),
+            dtype=torch.float16,
+            device=scales.device,
+        )
+        q_scales[:, : scales.shape[1]] = scales
+
+        int_weight = torch.zeros(
+            (weight.shape[0], weight.shape[1] // 32 * bit),
+            dtype=torch.int32,
+            device=weight.device,
+        )
+
+        for col in range(weight.shape[1] // pack_num):
+            if bit == 4:
+                order_map = [0, 1, 2, 3, 4, 5, 6, 7]
+            else:
+                raise NotImplementedError('Only 4-bit are supported for now.')
+            for i in range(pack_num):
+                int_weight_col = weight[:, col * pack_num + order_map[i]]
+                int_weight[:, col] |= int_weight_col << (i * bit)
+
+        if zeros is not None:
+            int_zeros = torch.zeros(
+                (zeros.shape[0], calculate_zeros_width(module.in_features, group_size)),
+                dtype=torch.int32,
+                device=zeros.device,
+            )
+
+            for col in range(zeros.shape[1] // pack_num):
+                if bit == 4:
+                    order_map = [0, 1, 2, 3, 4, 5, 6, 7]
+                else:
+                    raise NotImplementedError('Only 4-bit are supported for now.')
+                for i in range(pack_num):
+                    if col * pack_num + order_map[i] >= zeros.shape[1]:
+                        continue
+                    int_zero_col = zeros[:, col * pack_num + order_map[i]]
+                    int_zeros[:, col] |= int_zero_col << (i * bit)
+        else:
+            int_zeros = None
+
+        return int_weight, q_scales, int_zeros
+
+    def __repr__(self):
+        return (
+            'AutoawqRealQuantLinear('
+            + f'in_features={self.in_features}, '
+            + f'out_features={self.out_features}, '
+            + f'bias={self.bias is not None}, '
+            + f'weight_shape={self.weight_shape}, '
+            + f'weight_dtype={self.weight_dtype}, '
+            + f'scales_shape={self.scales_shape}, '
+            + f'scales_dtype={self.scales_dtype}, '
+            + f'zeros_shape={self.zeros_shape}, '
+            + f'zeros_dtype={self.zeros_dtype})'
+        )
+
+
+class MlcllmRealQuantLinear(AutoawqRealQuantLinear):
+    def __init__(self, weight, bias, scales, zeros):
+        super().__init__(weight, bias, scales, zeros)
+
+    def __repr__(self):
+        return (
+            'MlcllmRealQuantLinear('
             + f'in_features={self.in_features}, '
             + f'out_features={self.out_features}, '
             + f'bias={self.bias is not None}, '
@@ -736,5 +869,7 @@ _LLMC_LINEAR_TYPES_ = [
     RotateLinear,
     FakeQuantLinear,
     EffcientFakeQuantLinear,
-    RealQuantLinear,
+    VllmRealQuantLinear,
+    AutoawqRealQuantLinear,
+    MlcllmRealQuantLinear
 ]

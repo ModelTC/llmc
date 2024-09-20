@@ -29,8 +29,7 @@ quant:
         symmetric: True
         granularity: per_group
         group_size: 128
-        int_range: [-8, 7]
-        pack_mode: vllm_pack
+        need_pack: True
     special:
         actorder: True
         static_groups: True

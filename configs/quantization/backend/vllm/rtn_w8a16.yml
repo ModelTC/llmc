@@ -11,8 +11,7 @@ quant:
         symmetric: True
         granularity: per_group
         group_size: 128
-        int_range: [-128, 127]
-        pack_mode: vllm_pack
+        need_pack: True
 eval:
     eval_pos: [fake_quant]
     name: wikitext2

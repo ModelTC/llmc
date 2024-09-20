@@ -8,39 +8,44 @@ Here's a brief config example
 base:
     seed: &seed 42 # Set random seed
 model:
-    type: Llama # Type of model
-    path: model path # Model path
-    tokenizer_mode: fast # The tokenizer type of the model
-    torch_dtype: auto # Model dtype
+    type: model_type # Type of the model
+    path: model path # Path to the model
+    tokenizer_mode: fast # Type of the model's tokenizer
+    torch_dtype: auto # Data type of the model
 calib:
-    name: pileval # Calibration data set name
-    download: False # Whether the calibration dataset can be downloaded online
-    path: calib data path # Calibration dataset path
-    n_samples: 512 # Number of calibration samples
-    bs: 1 # Batch size of calibration dataset
-    seq_len: 512 # Sequence length of calibration dataset
-    preproc: pileval_smooth # Pre-procession of the calibration dataset
-    seed: *seed # Random seed for calibration dataset
+    name: pileval # Name of the calibration dataset
+    download: False # Whether to download the calibration dataset online
+    path: calib data path # Path to the calibration dataset
+    n_samples: 512 # Number of samples in the calibration dataset
+    bs: 1 # Batch size for the calibration dataset
+    seq_len: 512 # Sequence length for the calibration dataset
+    preproc: pileval_smooth # Preprocessing method for the calibration dataset
+    seed: *seed # Random seed for the calibration dataset
 eval:
-    eval_pos: [pretrain, transformed, fake_quant] # eval positon
-    name: wikitext2 # The name of the evaluation dataset
-    download: False # Whether the evaluation dataset can be downloaded online
-    path: eval data path # Path to evaluation dataset
-    bs: 1 # The batch size of the evaluation dataset
-    seq_len: 2048 # Sequence length of the evaluation dataset
+    eval_pos: [pretrain, transformed, fake_quant] # Evaluation points
+    name: wikitext2 # Name of the evaluation dataset
+    download: False # Whether to download the evaluation dataset online
+    path: eval data path # Path to the evaluation dataset
+    bs: 1 # Batch size for the evaluation dataset
+    seq_len: 2048 # Sequence length for the evaluation dataset
+    eval_token_consist: False # Whether to evaluate the consistency of tokens between the quantized and original models
 quant:
     method: SmoothQuant # Compression method
     weight:
-        bit: 8 # The number of quantified bits of the weight
-        symmetric: True # Is weight quantization a symmetric quantization
-        granularity: per_channel # The granularity of weight quantification
+        bit: 8 # Number of quantization bits for weights
+        symmetric: True # Whether weight quantization is symmetric
+        granularity: per_channel # Granularity of weight quantization
     act:
-        bit: 8 # Number of activated quantization bits
-        symmetric: True # Whether activation quantization is symmetric quantization
-        granularity: per_token # The granularity of activation quantification
+        bit: 8 # Number of quantization bits for activations
+        symmetric: True # Whether activation quantization is symmetric
+        granularity: per_token # Granularity of activation quantization
+    speical: # Special parameters required for the quantization algorithm. Refer to the comments in the configuration file and the original paper for usage.
 save:
-    save_trans: False # Whether to save the adjusted model
-    save_path: ./save # Save path
+    save_vllm: False # Whether to save the real quantized model for VLLM inference
+    save_autoawq: False # Whether to save the real quantized model for AutoAWQ inference
+    save_trans: False # Whether to save the model after weight transformation
+    save_fake: False # Whether to save the fake quantized weights
+    save_path: /path/to/save # Save path
 ```
 
 # Configs' detailed description
