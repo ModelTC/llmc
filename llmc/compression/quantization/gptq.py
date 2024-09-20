@@ -480,7 +480,7 @@ class GPTQ(BaseBlockwiseQuantization):
 
     @torch.no_grad()
     def deploy(self, quant_format):
-        if quant_format == 'real_quant':
+        if quant_format not in ['fake_quant', 'origin_float']:
             assert not self.need_perm
         super().deploy(quant_format)
         self.model.convert_dtype(self.model_dtype)

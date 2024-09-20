@@ -2,7 +2,7 @@
 
 [VLLM](https://github.com/vllm-project/vllm) 是一个专门为满足大规模语言模型推理需求设计的高效后端。它通过优化内存管理和计算效率，能够显著加速推理过程。
 
-LLMC 支持导出 VLLM 所需的量化模型格式，并通过其强大的多算法支持（如 AWQ、GPTQ、QuaRot 等），能够在保证推理速度的同时保持较高的量化精度。通过 LLMC 和 VLLM 的结合，用户可以在不牺牲精度的情况下实现推理加速和内存优化，使其非常适合需要高效处理大规模语言模型的场景
+LLMC 支持导出 VLLM 所需的量化模型格式，并通过其强大的多算法支持（如 AWQ、GPTQ、QuaRot 等），能够在保证推理速度的同时保持较高的量化精度。通过 **LLMC** 和 **VLLM** 的结合，用户可以在不牺牲精度的情况下实现推理加速和内存优化，使其非常适合需要高效处理大规模语言模型的场景
 
 
 
@@ -22,6 +22,7 @@ pip install vllm
 - **W8A8**：权重为 int8，激活为 int8；
 - **权重 per-channel/group 量化**：按通道或按组进行量化；
 - **激活 per-token 动态量化**：针对每个 token 的动态量化方式，进一步提升量化精度和效率。
+- **权重\激活对称量化**：量化参数包括scale；
 
 因此，在使用 **LLMC** 进行模型量化时，必须确保权重和激活的比特数设置为 VLLM 支持的格式。
 
@@ -31,7 +32,7 @@ pip install vllm
 
 ### 1.3.1 校准数据
 
-在本章节中，我们使用**pieval**和**wikitext**两个学术数据集作为校准数据，有关于校准数据的下载和预处理请参考[章节](https://llmc-zhcn.readthedocs.io/en/latest/configs.html)。
+在本章节中，我们使用**Plieval**和**Wikitext**两个学术数据集作为校准数据，有关于校准数据的下载和预处理请参考[章节](https://llmc-zhcn.readthedocs.io/en/latest/configs.html)。
 
 在实际使用中，建议应使用真实部署场景的数据进行离线量化校准。
 
@@ -53,14 +54,13 @@ quant:
         symmetric: True
         granularity: per_group
         group_size: 128
-        int_range: [-128, 127]
-        pack_mode: vllm_pack
+        need_pack: True
 ```
-请注意，在此步骤中需要将 `pack_mode` 参数设置为 `vllm_pack`, 这会将8-bit的权重`打包`为`torch.int32`的格式供VLLM直接加载推理。
+请注意，在此步骤中需要将 `need_pack` 参数设置为 `True`, 这会将8-bit的权重`打包`为`torch.int32`的格式供VLLM直接加载推理。
 
 **W4A16**
 
-在 W4A16 的量化设置下，RTN（Round to Nearest）不能保证精度无问题，因此需要使用一些高阶量化算法来维持模型的精度。在这种情况下，我们建议使用 LLMC 中的 AWQ 算法.
+在 W4A16 的量化设置下，RTN（Round to Nearest）不能保证精度无问题，因此需要使用一些高阶量化算法来维持模型的精度。在这种情况下，我们建议使用 **LLMC** 中的 AWQ 算法.
 
 
 具体实现可以参考 AWQ W4A16 的权重量化 [配置文件](https://github.com/ModelTC/llmc/tree/main/configs/quantization/backend/vllm/awq_w4a16.yml)
@@ -74,15 +74,14 @@ quant:
         symmetric: True
         granularity: per_group
         group_size: 128
-        int_range: [-8, 7]
-        pack_mode: vllm_pack
+        need_pack: True
     special:
         trans: True
         trans_version: v2
         weight_clip: True
     quant_out: True  
 ```
-请注意，在此步骤中需要将 `pack_mode` 参数设置为 `vllm_pack`, 这会将4-bit的权重`打包`为`torch.int32`的格式存储，供VLLM直接加载推理。
+请注意，在此步骤中需要将 `need_pack` 参数设置为 `True`, 这会将4-bit的权重`打包`为`torch.int32`的格式存储，供**VLLM**直接加载推理。
 
 
 此外，如果 AWQ 无法满足精度需求，我们建议使用 [章节](https://llmc-zhcn.readthedocs.io/en/latest/practice/awq_omni.html)介绍的 **AWQ+OmniQuant 组合算法** 来进一步提升精度。在此也给出相应的[配置文件](https://github.com/ModelTC/llmc/tree/main/configs/quantization/backend/vllm/w4a16_combin)
@@ -103,12 +102,10 @@ quant:
         symmetric: True
         granularity: per_channel
         group_size: -1
-        int_range: [-128, 127]
     act:
         bit: 8
         symmetric: True
         granularity: per_token
-        int_range: [-128, 127]
     special:
         trans: True
         trans_version: v2
@@ -149,17 +146,16 @@ config=${llmc}/configs/quantization/backend/vllm/rtn_w8a16.yml
 
 ### 1.4.1 离线推理
 
-我们构建了一个使用 **vLLM** 对数据集进行离线批量推理的[示例](https://github.com/ModelTC/llmc/blob/main/examples/backend/infer_with_vllm.py)。只需要将 `save.save_path` 路径下保存的模型替换为 [示例](https://github.com/ModelTC/llmc/blob/main/examples/backend/infer_with_vllm.py) 中的 `model_path`，然后运行以下命令即可：
+我们构建了一个使用 **vLLM** 对数据集进行离线批量推理的[示例](https://github.com/ModelTC/llmc/blob/main/examples/backend/vllm/infer_with_vllm.py)。只需要将[示例](https://github.com/ModelTC/llmc/blob/main/examples/backend/vllm/infer_with_vllm.py) 中的 `model_path`替换为 `save.save_path` 路径，然后运行以下命令即可：
 
 ```bash
-cd examples/backend
+cd examples/backend/vllm
 
 python infer_with_vllm.py
 ```
 
 
-
-### 1.4.1 推理服务
+### 1.4.2 推理服务
 
 vLLM 可以作为一个实现 OpenAI API 协议的服务器进行部署。这使得 vLLM 可以作为使用 OpenAI API 的应用程序的即插即用替代方案。默认情况下，它会在 http://localhost:8000 启动服务器。你可以通过 --host 和 --port 参数来指定地址。`model_path`替换成保存的`量化模型`即可。
 

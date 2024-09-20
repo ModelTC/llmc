@@ -1,18 +1,18 @@
 base:
-    seed: &seed 42
+    seed: &seed 0
 model:
     type: model_type
     path: model path
     tokenizer_mode: slow
     torch_dtype: auto
 calib:
-    name: pileval
+    name: wikitext2
     download: False
     path: calib data path
     n_samples: 128
-    bs: -1
-    seq_len: 512
-    preproc: general
+    bs: 1
+    seq_len: 2048
+    preproc: wikitext2_gptq
     seed: *seed
 eval:
     eval_pos: [fake_quant]
@@ -25,18 +25,21 @@ eval:
     bs: 1
     inference_per_block: False
 quant:
-    method: Awq
+    method: GPTQ
     weight:
         bit: 4
-        symmetric: True
+        symmetric: False
         granularity: per_group
         group_size: 128
-        need_pack: True
+        # Available options: ['gemm_pack', 'gemv_pack']
+        pack_version: gemm_pack
     special:
-        trans: True
-        trans_version: v2
-        weight_clip: True
+        actorder: True
+        static_groups: True
+        percdamp: 0.01
+        blocksize: 128
+        true_sequential: True
     quant_out: True
 save:
-    save_vllm: True
-    save_path: /path/to/save_for_vllm_awq_w4/
+    save_autoawq: True
+    save_path: /path/to/save_for_autoawq_gptq_omni_w4/

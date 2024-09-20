@@ -3,15 +3,17 @@ base:
 model:
     type: model_type
     path: model path
+    tokenizer_mode: slow
     torch_dtype: auto
 quant:
     method: RTN
     weight:
         bit: 4
-        symmetric: True
+        symmetric: False
         granularity: per_group
         group_size: 128
-        need_pack: True
+        # Available options: ['gemm_pack', 'gemv_pack']
+        pack_version: gemm_pack
 eval:
     eval_pos: [fake_quant]
     name: wikitext2
@@ -22,5 +24,5 @@ eval:
     inference_per_block: False
     eval_token_consist: True
 save:
-    save_vllm: True
-    save_path: /path/to/save_for_vllm_rtn/
+    save_autoawq: True
+    save_path: /path/to/save_for_autoawq_rtn_w4/

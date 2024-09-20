@@ -28,15 +28,16 @@ quant:
     method: Awq
     weight:
         bit: 4
-        symmetric: True
+        symmetric: False
         granularity: per_group
         group_size: 128
-        need_pack: True
+        # Available options: ['gemm_pack', 'gemv_pack']
+        pack_version: gemm_pack
     special:
         trans: True
         trans_version: v2
         weight_clip: True
     quant_out: True
 save:
-    save_vllm: True
-    save_path: /path/to/save_for_vllm_awq_w4/
+    save_autoawq: True
+    save_path: /path/to/save_for_autoawq_awq_w4/

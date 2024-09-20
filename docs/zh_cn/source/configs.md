@@ -42,6 +42,7 @@ quant:
     speical: # 量化算法需要的特殊参数，可参照每个算法的配置文件的注释以及原论文掌握其用法
 save:
     save_vllm: False # 是否保存真实量化的模型，以供VLLM推理
+    save_autoawq: False # 是否保存真实量化的模型，以供AutoAWQ推理
     save_trans: False # 是否保存权重变换之后的模型
     save_fake: False # 是否保存伪量化的权重
     save_path: /path/to/save # 保存路径
