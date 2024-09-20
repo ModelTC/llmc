@@ -84,7 +84,11 @@ Modify the configuration file path in the run script and execute:
 llmc=llmc_path
 export PYTHONPATH=$llmc:$PYTHONPATH
 
+<<<<<<< HEAD
+task_name=awq_for_autoawq
+=======
 task_name=rtn_for_autoawq
+>>>>>>> b664e35dc909f6b6f4f32b408059532b4ec83571
 config=${llmc}/configs/quantization/backend/autoawq/awq_w4a16.yml
 ```
 Once LLMC finishes running, the real quantized model will be stored in the `save.save_path`.

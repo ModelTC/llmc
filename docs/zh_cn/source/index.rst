@@ -49,4 +49,9 @@ arxiv链接: https://arxiv.org/abs/2405.06001
    :caption: 量化推理后端
 
    backend/vllm.md
+<<<<<<< HEAD
    backend/autoawq.md
+   backend/mlcllm.md
+=======
+   backend/autoawq.md
+>>>>>>> b664e35dc909f6b6f4f32b408059532b4ec83571
