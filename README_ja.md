@@ -17,7 +17,7 @@
 
 **英語のドキュメント**は[こちら](https://llmc-en.readthedocs.io/en/latest/)です。
 
-**中国語のドキュメント**は[こちら](https://llmc-zhcn.readthedocs.io/en/latest/)です。
+**docker hub**は[こちら](https://hub.docker.com/r/llmcompression/llmc)です。
 
 **コミュニティ**:
 
