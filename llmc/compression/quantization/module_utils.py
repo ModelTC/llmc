@@ -894,12 +894,8 @@ _LLMC_LINEAR_TYPES_ = [
     MlcllmRealQuantLinear
 ]
 
-# {
-#     quant_format: llmc.linear
-# }
-_LLMC_LINEAR_MAP_ = {
-    'origin_float': OriginFloatLinear,
-    'fake_quant': EffcientFakeQuantLinear,
+
+_REALQUANT_LINEAR_MAP_ = {
     'vllm_quant': VllmRealQuantLinear,
     'sgl_quant': SglRealQuantLinear,
     'autoawq_quant': AutoawqRealQuantLinear,
