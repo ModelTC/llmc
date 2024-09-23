@@ -111,7 +111,7 @@ mlc_llm gen_config $LOCAL_MODEL_PATH \
 
 ### 1.4.2 编译模型库
 
-以下是在 **MLC LLM** 中编译模型库的示例命令LLM：
+以下是在 **MLC LLM** 中编译模型库的示例命令：
 
 ```bash
 export MODEL_LIB=$MLC_MODEL_PATH/lib.so

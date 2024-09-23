@@ -122,6 +122,17 @@ def main(config):
         blockwise_opt.save_model(save_quant_path)
         update_vllm_quant_config(blockwise_opt.model, config, save_quant_path)
 
+    if 'save' in config and config.save.get('save_sgl', False):
+        w, a = config.quant.weight, config.quant.get('act')
+        assert w.symmetric, 'Only symmetric quant is supported.'
+        assert w.bit in [4, 8], 'Supported quant: w4a16, w8a16, w8a8.'
+        if a:
+            assert a.symmetric, 'Only symmetric quant is supported.'
+            assert a.bit == 8, 'Supported quant: w4a16, w8a16, w8a8.'
+        blockwise_opt.deploy('sgl_quant')
+        blockwise_opt.save_model(save_quant_path)
+        update_vllm_quant_config(blockwise_opt.model, config, save_quant_path)
+
     if 'save' in config and config.save.get('save_autoawq', False):
         assert config.quant.weight.bit in [4] and 'act' not in config.quant, \
             'AutoAWQ supports only 4-bit weight-only quantization.'
@@ -199,6 +210,9 @@ if __name__ == '__main__':
             mkdirs(save_trtllm_engine_path)
         if config.save.get('save_vllm', False):
             save_quant_path = os.path.join(config.save.save_path, 'vllm_quant_model')
+            mkdirs(save_quant_path)
+        if config.save.get('save_sgl', False):
+            save_quant_path = os.path.join(config.save.save_path, 'sgl_quant_model')
             mkdirs(save_quant_path)
         if config.save.get('save_autoawq', False):
             save_quant_path = os.path.join(config.save.save_path, 'autoawq_quant_model')

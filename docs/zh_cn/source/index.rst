@@ -49,5 +49,6 @@ arxiv链接: https://arxiv.org/abs/2405.06001
    :caption: 量化推理后端
 
    backend/vllm.md
+   backend/sglang.md
    backend/autoawq.md
    backend/mlcllm.md

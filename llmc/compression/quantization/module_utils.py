@@ -628,6 +628,25 @@ class VllmRealQuantLinear(nn.Module):
         )
 
 
+class SglRealQuantLinear(VllmRealQuantLinear):
+    def __init__(self, weight, bias, scales, need_pack):
+        super().__init__(weight, bias, scales, need_pack)
+
+    def __repr__(self):
+        return (
+            'SglRealQuantLinear('
+            + f'in_features={self.in_features}, '
+            + f'out_features={self.out_features}, '
+            + f'bias={self.bias is not None}, '
+            + f'weight_shape={self.weight_shape}, '
+            + f'weight_dtype={self.weight_dtype}, '
+            + f'scales_shape={self.scales_shape}, '
+            + f'scales_dtype={self.scales_dtype}, '
+            + f'zeros_shape={self.zeros_shape}, '
+            + f'zeros_dtype={self.zeros_dtype})'
+        )
+
+
 class AutoawqRealQuantLinear(nn.Module):
     def __init__(self, weight, bias, scales, zeros):
         super().__init__()
@@ -870,6 +889,19 @@ _LLMC_LINEAR_TYPES_ = [
     FakeQuantLinear,
     EffcientFakeQuantLinear,
     VllmRealQuantLinear,
+    SglRealQuantLinear,
     AutoawqRealQuantLinear,
     MlcllmRealQuantLinear
 ]
+
+# {
+#     quant_format: llmc.linear
+# }
+_LLMC_LINEAR_MAP_ = {
+    'origin_float': OriginFloatLinear,
+    'fake_quant': EffcientFakeQuantLinear,
+    'vllm_quant': VllmRealQuantLinear,
+    'sgl_quant': SglRealQuantLinear,
+    'autoawq_quant': AutoawqRealQuantLinear,
+    'mlcllm_quant': MlcllmRealQuantLinear
+}

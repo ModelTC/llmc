@@ -42,7 +42,9 @@ quant:
     speical: # Special parameters required for the quantization algorithm. Refer to the comments in the configuration file and the original paper for usage.
 save:
     save_vllm: False # Whether to save the real quantized model for VLLM inference
+    save_sgl: False # Whether to save the real quantized model for Sglang inference
     save_autoawq: False # Whether to save the real quantized model for AutoAWQ inference
+    save_mlcllm: False # Whether to save the real quantized model for MLC-LLM inference
     save_trans: False # Whether to save the model after weight transformation
     save_fake: False # Whether to save the fake quantized weights
     save_path: /path/to/save # Save path
@@ -360,12 +362,45 @@ quant:
 
 ## save
 
-<font color=792ee5> save.save_trans </font>
+<font color=792ee5> save.save_vllm</font>
 
-Whether to save the adjusted model weights
+Whether to save as a [VLLM](https://github.com/vllm-project/vllm) inference backend-supported real quantized model.
 
-The saved weight is the weight that is more suitable for quantization after adjustment, and it is still saved in the form of FP16, and when it is deployed in the inference engine, you need to enable NAIVE quantization to achieve quantitative inference
+When this option is enabled, the saved model weights will significantly shrink (real quantization), and it can be directly loaded for inference using the VLLM backend. This improves inference speed and reduces memory usage. For more details on the [VLLM](https://github.com/vllm-project/vllm) inference backend, refer to [this section](https://llmc-en.readthedocs.io/en/latest/backend/vllm.html#).
 
-<font color=792ee5> save.save_path </font>
+<font color=792ee5> save.save_sgl</font>
 
-Save the path of the model, which needs to be a new directory path that does not exist, otherwise the llmc will terminate the operation with a corresponding error message
+Whether to save as a [Sglang](https://github.com/sgl-project/sglang) inference backend-supported real quantized model.
+
+When this option is enabled, the saved model weights will significantly shrink (real quantization), and it can be directly loaded for inference using the [Sglang](https://github.com/sgl-project/sglang) backend. This improves inference speed and reduces memory usage. For more details on the [Sglang](https://github.com/sgl-project/sglang) inference backend, refer to [this section](https://llmc-en.readthedocs.io/en/latest/backend/sglang.html).
+
+<font color=792ee5> save.save_autoawq</font>
+
+Whether to save as an [AutoAWQ](https://github.com/casper-hansen/AutoAWQ) inference backend-supported real quantized model.
+
+When this option is enabled, the saved model weights will significantly shrink (real quantization), and it can be directly loaded for inference using the [AutoAWQ](https://github.com/casper-hansen/AutoAWQ) backend. This improves inference speed and reduces memory usage. For more details on the [AutoAWQ](https://github.com/casper-hansen/AutoAWQ) inference backend, refer to [this section](https://llmc-en.readthedocs.io/en/latest/backend/autoawq.html).
+
+<font color=792ee5> save.save_mlcllm</font>
+
+Whether to save as an [MLC-LLM](https://github.com/mlc-ai/mlc-llm) inference backend-supported real quantized model.
+
+When this option is enabled, the saved model weights will significantly shrink (real quantization), and it can be directly loaded for inference using the [MLC-LLM](https://github.com/mlc-ai/mlc-llm) backend. This improves inference speed and reduces memory usage. For more details on the [MLC-LLM](https://github.com/mlc-ai/mlc-llm) inference backend, refer to [this section](https://llmc-en.readthedocs.io/en/latest/backend/mlcllm.html).
+
+<font color=792ee5> save.save_trans</font>
+
+Whether to save the adjusted model weights.
+
+The saved weights are adjusted to be more suitable for quantization, possibly containing fewer outliers. They are still saved in fp16/bf16 format (with the same file size as the original model). When deploying the model in the inference engine, the engine's built-in `naive quantization` needs to be used to achieve quantized inference.
+
+Unlike `save_vllm` and similar options, this option requires the inference engine to perform real quantization, while `llmc` provides a floating-point model weight that is more suitable for quantization.
+
+For example, the `save_trans` models exported by algorithms such as `SmoothQuant, Os+, AWQ, and Quarot` have `fewer outliers` and are more suitable for quantization.
+
+
+<font color=792ee5> save.save_fake</font>
+
+Whether to save the fake quantized model.
+
+<font color=792ee5> save.save_path</font>
+
+The path where the model is saved. This path must be a new, non-existent directory, otherwise, LLMC will terminate the run and issue an appropriate error message.

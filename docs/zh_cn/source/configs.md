@@ -42,7 +42,9 @@ quant:
     speical: # 量化算法需要的特殊参数，可参照每个算法的配置文件的注释以及原论文掌握其用法
 save:
     save_vllm: False # 是否保存真实量化的模型，以供VLLM推理
+    save_sgl: False # 是否保存真实量化的模型，以供Sglang推理
     save_autoawq: False # 是否保存真实量化的模型，以供AutoAWQ推理
+    save_mlcllm: False # 是否保存真实量化的模型，以供MLC-LLM推理
     save_trans: False # 是否保存权重变换之后的模型
     save_fake: False # 是否保存伪量化的权重
     save_path: /path/to/save # 保存路径
@@ -403,20 +405,39 @@ quant:
 
 <font color=792ee5> save.save_vllm </font>
 
-是否保存为VLLM推理后端支持的真实量化模型
+是否保存为[VLLM](https://github.com/vllm-project/vllm)推理后端支持的真实量化模型
 
-当开启该选项时，你会发现保存的模型权重显著变小(真实量化)，同时可以通过VLLM后端来直接加载推理，提高推理速度以及降低显存占用，有关于推理后端的内容见[该章节](https://llmc-zhcn.readthedocs.io/en/latest/backbend.md)
+当开启该选项时，你会发现保存的模型权重显著变小(真实量化)，同时可以通过VLLM后端来直接加载推理，提高推理速度以及降低显存占用，有关于[VLLM](https://github.com/vllm-project/vllm)推理后端的内容见[该章节](https://llmc-zhcn.readthedocs.io/en/latest/backend/vllm.html)
 
-类似地，后续llmc会支持更多的推理后端，例如lightllm，trtllm，mlc等，可通过save_lightllm, save_trtllm, save_mlc来保存对应推理后端的量化模型
+<font color=792ee5> save.save_sgl </font>
+
+是否保存为[Sglang](https://github.com/sgl-project/sglang)推理后端支持的真实量化
+
+当开启该选项时，你会发现保存的模型权重显著变小(真实量化)，同时可以通过[Sglang](https://github.com/sgl-project/sglang)后端来直接加载推理，提高推理速度以及降低显存占用，有关于[Sglang](https://github.com/sgl-project/sglang)推理后端的内容见[该章节](https://llmc-zhcn.readthedocs.io/en/latest/backend/sglang.html)
+
+
+<font color=792ee5> save.save_autoawq </font>
+
+是否保存为[AutoAWQ](https://github.com/casper-hansen/AutoAWQ)推理后端支持的真实量化模型
+
+当开启该选项时，你会发现保存的模型权重显著变小(真实量化)，同时可以通过[AutoAWQ](https://github.com/casper-hansen/AutoAWQ)后端来直接加载推理，提高推理速度以及降低显存占用，有关于[AutoAWQ](https://github.com/casper-hansen/AutoAWQ)推理后端的内容见[该章节](https://llmc-zhcn.readthedocs.io/en/latest/backend/autoawq.html)
+
+<font color=792ee5> save.save_mlcllm </font>
+
+是否保存为[MLC-LLM](https://github.com/mlc-ai/mlc-llm)推理后端支持的真实量化模型
+
+当开启该选项时，你会发现保存的模型权重显著变小(真实量化)，同时可以通过[MLC-LLM](https://github.com/mlc-ai/mlc-llm)后端来直接加载推理，提高推理速度以及降低显存占用，有关于[MLC-LLM](https://github.com/mlc-ai/mlc-llm)推理后端的内容见[该章节](https://llmc-zhcn.readthedocs.io/en/latest/backend/mlcllm.html)
 
 
 <font color=792ee5> save.save_trans </font>
 
 是否保存调整之后的模型权重
 
-保存的该权重，是经过调整之后的更适合量化的权重，其可能包含更少的离群值，其还是以fp16/bf16的格式保存(权重文件大小与原始模型保持一致)，在推理引擎中部署的时候，需要开启推理引擎的naive量化功能，即可实现量化推理。
+保存的该权重，是经过调整之后的更适合量化的权重，其可能包含更少的离群值，其还是以fp16/bf16的格式保存(权重文件大小与原始模型保持一致)，在推理引擎中部署的时候，需要开启推理引擎的`naive量化`功能，即可实现量化推理。
 
-与save_vllm不同的是，其需要该推理引擎来完成真实量化，而llmc提供一个更适合量化的模型权重。
+与`save_vllm`等不同的是，其需要该推理引擎来完成真实量化，而`llmc`提供一个更适合量化的浮点模型权重。
+
+例如`SmoothQuant/Os+/AWQ/Quarot`等算法导出的`save_trans`模型，其具有`更少的outliers`，更适合量化。
 
 <font color=792ee5> save.save_fake </font>
 

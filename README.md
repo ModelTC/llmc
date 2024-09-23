@@ -28,6 +28,8 @@
 
 ## News
 
+- **September 23, 2024:** 🔥 We have added support for exporting `real quantized` models from `LLMC` to advanced inference backends such as [SGLang](https://llmc-en.readthedocs.io/en/latest/backend/sglang.html), [AutoAWQ](https://llmc-en.readthedocs.io/en/latest/backend/autoawq.html), and [MLC-LLM](https://llmc-en.readthedocs.io/en/latest/backend/mlcllm.html) for quantized inference deployment on inference backends, allowing for `reduced memory usage` and `faster inference speeds`.
+
 - **Sep 9, 2024:** 🔥 We fix exporting quantized LLM to [vLLM](https://github.com/vllm-project/vllm)(see [here](https://llmc-en.readthedocs.io/en/latest/backend/vllm.html)). Moreover, we provide some configs of our best practice towards superior performance (see Best Practice [here](https://llmc-en.readthedocs.io/en/latest/)).
 
 * **Sep 3, 2024:** 🚀 We support opencompass to eval llmc model. Follow this [doc](https://llmc-en.readthedocs.io/en/latest/advanced/model_test_v2.html) and have a try!

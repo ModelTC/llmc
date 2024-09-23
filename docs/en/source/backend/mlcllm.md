@@ -17,7 +17,7 @@ python -m pip install --pre -U -f https://mlc.ai/wheels mlc-llm-nightly-cu122 ml
 
 The quantization format is the same as in [**AutoAWQ**](https://llmc-en.readthedocs.io/en/latest/backend/autoawq.html).
 
-## 1.3 Using LLMC Quantized Models
+## 1.3 Using LLMC for Model Quantization
 
 ### 1.3.1 Calibration Data
 
