@@ -7,7 +7,7 @@
 
 ## 1.1 Environment Setup
 
-To perform quantized inference using **MLC LLM**, you first need to install and configure the **MLC LLM** environment. For example, with CUDA 12.1:
+To perform quantized inference using **MLC LLM**, you first need to install and configure the **MLC LLM** environment. For example, with CUDA 12.2:
 
 ```bash
 python -m pip install --pre -U -f https://mlc.ai/wheels mlc-llm-nightly-cu122 mlc-ai-nightly-cu122
