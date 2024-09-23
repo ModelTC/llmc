@@ -18,6 +18,8 @@
 
 **中文文档**在[这里](https://llmc-zhcn.readthedocs.io/en/latest/).
 
+**docker hub**在[这里](https://hub.docker.com/r/llmcompression/llmc).
+
 **社区**:
 
 - [Discord群](https://discord.gg/qZKUDfhm)
