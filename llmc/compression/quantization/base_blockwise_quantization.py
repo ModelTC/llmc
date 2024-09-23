@@ -15,11 +15,9 @@ from llmc.utils import copy_files
 from ..blockwise_optimization import BlockwiseOpt
 from .hadamard_utils import apply_exact_had_to_linear, get_hadK
 from .module_utils import (_LLMC_LINEAR_TYPES_, _LLMC_LN_TYPES_,
-                           _TRANSFORMERS_LINEAR_TYPES_,
-                           _TRANSFORMERS_LN_TYPES_, AutoawqRealQuantLinear,
-                           EffcientFakeQuantLinear, FakeQuantLinear,
-                           MlcllmRealQuantLinear, OriginFloatLinear,
-                           RotateLinear, VllmRealQuantLinear)
+                           _REALQUANT_LINEAR_MAP_, _TRANSFORMERS_LINEAR_TYPES_,
+                           _TRANSFORMERS_LN_TYPES_, EffcientFakeQuantLinear,
+                           FakeQuantLinear, OriginFloatLinear, RotateLinear)
 from .quant import Quantizer
 from .utils import check_do_quant, check_w_only, get_aquantizer, get_wquantizer
 
@@ -67,7 +65,7 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
                 params_dict['aquantizer_default'] = self.aquantizer
                 params_dict['w_only_default'] = w_only
 
-        elif mode in ['vllm_quant', 'autoawq_quant', 'mlcllm_quant']:
+        elif mode in _REALQUANT_LINEAR_MAP_.keys():
             params_dict['w_q'] = partial(self.w_q, wquantizer=self.wquantizer)
             params_dict['quant_config'] = self.quant_config
 
@@ -800,11 +798,9 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
 
         module_mapping = {
             'origin_float': OriginFloatLinear,
-            'fake_quant': EffcientFakeQuantLinear,
-            'vllm_quant': VllmRealQuantLinear,
-            'autoawq_quant': AutoawqRealQuantLinear,
-            'mlcllm_quant': MlcllmRealQuantLinear
+            'fake_quant': EffcientFakeQuantLinear
         }
+        module_mapping.update(_REALQUANT_LINEAR_MAP_)
 
         if quant_format not in module_mapping:
             raise NotImplementedError(

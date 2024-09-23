@@ -27,7 +27,9 @@
 
 ## 新闻
 
-- **2024年9月9日:** 🔥 我们修复了将量化 LLM 导出到 [vLLM](https://llmc-zhcn.readthedocs.io/en/latest/backend/vllm.html)（参见[此处](https://llmc-en.readthedocs.io/en/latest/backend/vllm.html))的问题。此外，我们还提供了一些最佳实践的配置，以实现卓越的性能（参见[此处](https://llmc-zhcn.readthedocs.io/en/latest/)的最佳实践）。
+- **2024年9月23日:** 🔥 我们现已支持将 `LLMC` 的 `真实量化` 模型导出至 [SGLang](https://github.com/sgl-project/sglang)、[AutoAWQ](https://github.com/casper-hansen/AutoAWQ) 和 [MLC-LLM](https://github.com/mlc-ai/mlc-llm) 等先进推理后端，以进行量化推理部署，从而 `减少显存` 占用并 `加快推理速度`。详细使用请参考 [SGLang 文档](https://llmc-zhcn.readthedocs.io/en/latest/backend/sglang.html)、[AutoAWQ 文档](https://llmc-zhcn.readthedocs.io/en/latest/backend/autoawq.html) 以及 [MLC-LLM 文档](https://llmc-zhcn.readthedocs.io/en/latest/backend/mlcllm.html)。
+
+- **2024年9月9日:** 🔥 我们修复了将量化 LLM 导出到 [vLLM](https://llmc-zhcn.readthedocs.io/en/latest/backend/vllm.html)（参见[此处](https://llmc-en.readthedocs.io/en/latest/backend/vllm.html)）的问题。此外，我们还提供了一些最佳实践的配置，以实现卓越的性能（参见[此处](https://llmc-zhcn.readthedocs.io/en/latest/)的最佳实践）。
 
 - **2024年9月3日:** 🚀 我们支持了opencompass的精度评测。文档参考[这里](https://llmc-zhcn.readthedocs.io/en/latest/advanced/model_test_v2.html)。欢迎使用!
 

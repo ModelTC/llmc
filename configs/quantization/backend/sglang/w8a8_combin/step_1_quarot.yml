@@ -1,0 +1,39 @@
+base:
+    seed: &seed 0
+model:
+    type: model_type
+    path: model path
+    tokenizer_mode: slow
+    torch_dtype: auto
+eval:
+    eval_pos: [fake_quant]
+    name: wikitext2
+    download: False
+    path: /home/gushiqiao/nvme/nvme0/yongyang/llm_datasets/llmc/eval/wikitext2
+    seq_len: 2048
+    # For 7B / 13B model eval, bs can be set to "1", and inference_per_block can be set to "False".
+    # For 70B model eval, bs can be set to "20", and inference_per_block can be set to "True".
+    bs: 1
+    inference_per_block: False
+quant:
+    method: Quarot
+    weight:
+        bit: 8
+        symmetric: True
+        granularity: per_channel
+        group_size: -1
+        qmax_to_tensor: True
+        calib_algo: minmax
+    act:
+        bit: 8
+        symmetric: True
+        granularity: per_token
+        qmax_to_tensor: True
+    special:
+        rotate_mode: hadamard
+        fp32_had: True
+        online_rotate: False
+save:
+    # Save the Quarot-transformed model.
+    save_trans: True
+    save_path: /path/to/save_quarot_trans_for_gptq/

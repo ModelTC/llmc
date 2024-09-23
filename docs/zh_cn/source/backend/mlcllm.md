@@ -9,7 +9,7 @@
 
 ## 1.1 环境准备
 
-要使用 **MLC LLM** 进行量化推理，首先需要安装并配置 **MLC LLM** 环境，以CUDA 12.1为例：
+要使用 **MLC LLM** 进行量化推理，首先需要安装并配置 **MLC LLM** 环境，以CUDA 12.2为例：
 ```bash
 python -m pip install --pre -U -f https://mlc.ai/wheels mlc-llm-nightly-cu122 mlc-ai-nightly-cu122
 ```
@@ -111,7 +111,7 @@ mlc_llm gen_config $LOCAL_MODEL_PATH \
 
 ### 1.4.2 编译模型库
 
-以下是在 **MLC LLM** 中编译模型库的示例命令LLM：
+以下是在 **MLC LLM** 中编译模型库的示例命令：
 
 ```bash
 export MODEL_LIB=$MLC_MODEL_PATH/lib.so

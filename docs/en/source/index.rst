@@ -48,5 +48,6 @@ arxiv: https://arxiv.org/abs/2405.06001
    :caption: Backbend
 
    backend/vllm.md
+   backend/sglang.md
    backend/autoawq.md
    backend/mlcllm.md

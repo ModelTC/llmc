@@ -34,7 +34,7 @@ In this chapter, we use the **Pileval** and **Wikitext** academic datasets as ca
 
 In practical use, we recommend using real deployment data for offline quantization calibration.
 
-### 1.3.2 Quantization Algorithm Selection
+### 1.3.2 Choosing a Quantization Algorithm
 
 **W8A16**
 

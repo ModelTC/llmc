@@ -111,5 +111,5 @@ git clone https://github.com/casper-hansen/AutoAWQ.git
 ```bash
 cd examples/backend/autoawq
 
-python infer_with_autoawq.py
+CUDA_VISIBLE_DEVICES=0 python infer_with_autoawq.py
 ```
