@@ -27,7 +27,8 @@
 
 ## 新闻
 
-- **2024年9月23日:** 🔥 我们已支持将 `LLMC` 的`真实量化`模型导出到 [SGLang](https://llmc-zhcn.readthedocs.io/en/latest/backend/sglang.html)、[AutoAWQ](https://llmc-zhcn.readthedocs.io/en/latest/backend/autoawq.html) 和 [MLC-LLM](https://llmc-zhcn.readthedocs.io/en/latest/backend/mlcllm.html) 等先进的推理后端进行量化推理部署，从而`减少显存`占用并`加快推理速度`。
+- **2024年9月23日:** 🔥 我们现已支持将 `LLMC` 的 `真实量化` 模型导出至 [SGLang](https://github.com/sgl-project/sglang)、[AutoAWQ](https://github.com/casper-hansen/AutoAWQ) 和 [MLC-LLM](https://github.com/mlc-ai/mlc-llm) 等先进推理后端，以进行量化推理部署，从而 `减少显存` 占用并 `加快推理速度`。详细使用请参考 [SGLang 文档](https://llmc-zhcn.readthedocs.io/en/latest/backend/sglang.html)、[AutoAWQ 文档](https://llmc-zhcn.readthedocs.io/en/latest/backend/autoawq.html) 以及 [MLC-LLM 文档](https://llmc-zhcn.readthedocs.io/en/latest/backend/mlcllm.html)。
+
 
 - **2024年9月3日:** 🚀 我们支持了opencompass的精度评测。文档参考[这里](https://llmc-zhcn.readthedocs.io/en/latest/advanced/model_test_v2.html)。欢迎使用!
 
