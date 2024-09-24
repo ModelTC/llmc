@@ -1,18 +1,14 @@
-# llmc的安装
+# LLMC的安装
 
 ```
 git clone https://github.com/ModelTC/llmc.git
+cd llmc/
 pip install -r requirements.txt
-```
-
-llmc无需安装，使用llmc只需在脚本中添加
-```
-PYTHONPATH=llmc的下载路径:$PYTHONPATH
 ```
 
 # 准备模型
 
-llmc目前仅支持hugging face格式的模型。以Qwen2-0.5B为例，可以在[这里](https://huggingface.co/Qwen/Qwen2-0.5B)找到模型。下载方式可以参考[这里](https://zhuanlan.zhihu.com/p/663712983)
+**LLMC**目前仅支持`hugging face`格式的模型。以`Qwen2-0.5B`为例，可以在[这里](https://huggingface.co/Qwen/Qwen2-0.5B)找到模型。下载方式可以参考[这里](https://zhuanlan.zhihu.com/p/663712983)
 
 大陆地区用户还可以使用[hugging face镜像](https://hf-mirror.com/)
 
@@ -25,15 +21,22 @@ HF_ENDPOINT=https://hf-mirror.com HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli do
 
 # 下载数据集
 
-llmc需要的数据集可以分为校准数据集和测试数据集。校准数据集可以在[这里](https://github.com/ModelTC/llmc/blob/main/tools/download_calib_dataset.py)下载，测试数据集可以在[这里](https://github.com/ModelTC/llmc/blob/main/tools/download_eval_dataset.py)下载
+**LLMC**需要的数据集可以分为`校准数据集`和`测试数据集`。`校准数据集`可以在[这里](https://github.com/ModelTC/llmc/blob/main/tools/download_calib_dataset.py)下载，`测试数据`集可以在[这里](https://github.com/ModelTC/llmc/blob/main/tools/download_eval_dataset.py)下载
 
-当然llmc也支持在线下载数据集，只需要在config中的download设置为True即可。
+当然**LLMC**也支持在线下载数据集，只需要在`config`中的`download`设置为True即可。
 
-# 设置config
-
-以smoothquant为例，config在[这里](https://github.com/ModelTC/llmc/blob/main/configs/quantization/SmoothQuant/smoothquant_llama_w8a8_fakequant_eval.yml)
-
+```yaml
+calib:
+    name: pileval
+    download: True
 ```
+
+# 设置配置文件
+
+所有的`配置文件`都在[这里](https://github.com/ModelTC/llmc/blob/main/configs/)可以找到，同时关于`配置文件`的说明请参考[此章节](https://llmc-zhcn.readthedocs.io/en/latest/configs.html)
+以SmoothQuant为例，`config`在[这里](https://github.com/ModelTC/llmc/blob/main/configs/quantization/methods/SmoothQuant/smoothquant_w_a.yml)
+
+```yaml
 base:
     seed: &seed 42
 model:
@@ -67,39 +70,39 @@ quant:
         symmetric: True
         granularity: per_token
 save:
-    save_trans: True # 设置为True，可以保存下调整之后的权重
+    save_vllm: True # 当设置为True时，可以保存真实量化的整型模型，并通过VLLM推理引擎进行推理
+    save_trans: False # 当设置为True，可以保存下调整之后的浮点权重
     save_path: ./save
 ```
+有关于`save`的更多选项和说明，请参照[此章节](https://llmc-zhcn.readthedocs.io/en/latest/configs.html)
+
+
+**LLMC**在`configs/quantization/methods`路径下，提供了很多的[算法配置文件](https://github.com/ModelTC/llmc/tree/main/configs/quantization/methods)供大家参考。
 
 # 开始运行
 
-做好上面的准备之后，可以通过以下的命令运行
-```
-PYTHONPATH=llmc的下载路径:$PYTHONPATH \
-python -m llmc \
---config configs/quantization/methods/SmoothQuant/smoothquant_w_a.yml
-```
-llmc在configs/quantization/methods下，也提供了很多的[算法配置文件](https://github.com/ModelTC/llmc/tree/main/configs/quantization/methods)供大家参考
-
-```
-#!/bin/bash
-
-gpu_id=0 # 设置使用的GPU id
-export CUDA_VISIBLE_DEVICES=$gpu_id
-
-llmc= # 设置llmc的下载路径
+**LLMC**无需安装，只需在[运行脚本](https://github.com/ModelTC/llmc/blob/main/scripts/run_llmc.sh)中将`/path/to/llmc`修改为**LLMC**的`本地路径`即可。
+```bash
+llmc=/path/to/llmc
 export PYTHONPATH=$llmc:$PYTHONPATH
-
-task_name=smoothquant_llama_w8a8_fakequant_eval # 设置task_name，用于保存log的文件名
-
-# 选择某个config运行
-nohup \
-python -m llmc \
---config ../configs/quantization/methods/SmoothQuant/smoothquant_w_a.yml \
-> ${task_name}.log 2>&1 &
-
-echo $! > ${task_name}.pid
 ```
+
+根据你想运行的算法，需相应修改[运行脚本](https://github.com/ModelTC/llmc/blob/main/scripts/run_llmc.sh)中的配置路径。例如，`${llmc}/configs/quantization/methods/SmoothQuant/smoothquant_w_a.yml`对应的是 SmoothQuant 量化的配置文件。`task_name`用于指定**LLMC**运行时生成的`日志文件名称`。
+
+```bash
+task_name=smooth_w_a
+config=${llmc}/configs/quantization/methods/SmoothQuant/smoothquant_w_a.yml
+```
+
+当在运行脚本中，修改完相应的LLMC路径和config路径后，运行即可：
+
+```bash
+bash run_llmc.sh
+```
+
+# 量化推理
+
+假设你在配置文件中指定了保存`真实量化`模型的选项，例如 `save_vllm: True`，那么保存的`真实量化模型`即可直接用于对应的`推理后端`执行，具体可参照[文档](https://llmc-zhcn.readthedocs.io/en/latest)的`量化推理后端`章节。
 
 # 常见问题
 
