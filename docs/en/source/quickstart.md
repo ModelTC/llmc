@@ -1,48 +1,53 @@
-# Installation of llmc
+
+# Installing LLMC
 
 ```
 git clone https://github.com/ModelTC/llmc.git
+cd llmc/
 pip install -r requirements.txt
 ```
 
-llmc does not need to be installed. To use llmc you only need to add this to the script.
-```
-PYTHONPATH=[llmc's save path]:$PYTHONPATH
-```
+# Preparing the Model
 
-# Prepare the model
+**LLMC** currently supports only `hugging face` format models. For example, you can find the `Qwen2-0.5B` model [here](https://huggingface.co/Qwen/Qwen2-0.5B). Instructions for downloading can be found [here](https://zhuanlan.zhihu.com/p/663712983).
 
-Currently, llmc only supports models in the Hugging Face format. In the case of Qwen2-0.5B, the model can be found [here](https://huggingface.co/Qwen/Qwen2-0.5B). 
+For users in Mainland China, you can also use the [hugging face mirror](https://hf-mirror.com/).
 
-A simple download example can be used: 
+An example of a simple download can be:
+
 ```
 pip install -U hf-transfer
 
-HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download --resume-download Qwen/Qwen2-0.5B --local-dir Qwen2-0.5B
+HF_ENDPOINT=https://hf-mirror.com HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download --resume-download Qwen/Qwen2-0.5B --local-dir Qwen2-0.5B
 ```
 
-# Download the datasets
+# Downloading the Dataset
 
-The datasets required by llmc can be divided into calibration datasets and eval datasets. The calibration dataset can be downloaded [here](https://github.com/ModelTC/llmc/blob/main/tools/download_calib_dataset.py), and the eval dataset can be downloaded [here](https://github.com/ModelTC/llmc/blob/main/tools/download_eval_dataset.py).
+**LLMC** requires datasets which are categorized into `calibration datasets` and `evaluation datasets`. The `calibration dataset` can be downloaded [here](https://github.com/ModelTC/llmc/blob/main/tools/download_calib_dataset.py) and the `evaluation dataset` can be downloaded [here](https://github.com/ModelTC/llmc/blob/main/tools/download_eval_dataset.py).
 
-Of course, llmc also supports online download of datasets, as long as the download in the config is set to True.
+Additionally, **LLMC** supports downloading datasets online, by setting `download` to True in the `config`.
 
-
-# Set Configs
-
-In the case of smoothquant, the config is [here](https://github.com/ModelTC/llmc/blob/main/configs/quantization/SmoothQuant/smoothquant_llama_w8a8_fakequant_eval.yml).
-
+```yaml
+calib:
+    name: pileval
+    download: True
 ```
+
+# Setting Configuration Files
+
+All `configuration files` can be found [here](https://github.com/ModelTC/llmc/blob/main/configs/), and details on the `configuration files` can be referenced [in this section](https://llmc-en.readthedocs.io/en/latest/configs.html). For example, the SmoothQuant `config` is available [here](https://github.com/ModelTC/llmc/blob/main/configs/quantization/methods/SmoothQuant/smoothquant_w_a.yml).
+
+```yaml
 base:
     seed: &seed 42
 model:
-    type: Qwen2 # Set the model name, which can support Llama, Qwen2, Llava, Gemma2 and other models.
-    path: # Set model weight path.
+    type: Qwen2 # Set model name, supporting models like Llama, Qwen2, Llava, Gemma2, etc.
+    path: # Set the model weight path
     torch_dtype: auto
 calib:
     name: pileval
     download: False
-    path: # Set calibration dataset path.
+    path: # Set calibration dataset path
     n_samples: 512
     bs: 1
     seq_len: 512
@@ -52,7 +57,7 @@ eval:
     eval_pos: [pretrain, transformed, fake_quant]
     name: wikitext2
     download: False
-    path: # Set eval dataset path.
+    path: # Set evaluation dataset path
     bs: 1
     seq_len: 2048
 quant:
@@ -66,39 +71,40 @@ quant:
         symmetric: True
         granularity: per_token
 save:
-    save_trans: True # Set to True to save the adjusted weights.
+    save_vllm: True # If set to True, the real quantized integer model is saved for inference with VLLM engine
+    save_trans: False # If set to True, adjusted floating-point weights will be saved
     save_path: ./save
 ```
 
-# Start to run
+For more options and details about `save`, please refer to [this section](https://llmc-en.readthedocs.io/en/latest/configs.html).
 
-Once you are prepared above, you can run the following commands
-```
-PYTHONPATH=[llmc's save path]:$PYTHONPATH \
-python -m llmc \
---config ../configs/quantization/methods/SmoothQuant/smoothquant_w_a.yml \
-```
-LLMC provides many [algorithm configuration files](https://github.com/ModelTC/llmc/tree/main/configs/quantization/methods) in the `configs/quantization/methods` directory for reference.
+**LLMC** provides many [algorithm configuration files](https://github.com/ModelTC/llmc/tree/main/configs/quantization/methods) under the `configs/quantization/methods` path for reference.
 
-```
-#!/bin/bash
+# Running LLMC
 
-gpu_id=0 # Set the GPU id used.
-export CUDA_VISIBLE_DEVICES=$gpu_id
+**LLMC** does not require installation; simply modify the `local path` of **LLMC** in the [run script](https://github.com/ModelTC/llmc/blob/main/scripts/run_llmc.sh) as follows:
 
-llmc= # Set the save path of llmc.
+```bash
+llmc=/path/to/llmc
 export PYTHONPATH=$llmc:$PYTHONPATH
-
-task_name=smoothquant_llama_w8a8_fakequant_eval # Set task_name, the file name used to save the log.
-
-# Select a config to run.
-nohup \
-python -m llmc \
---config ../configs/quantization/methods/SmoothQuant/smoothquant_w_a.yml \
-> ${task_name}.log 2>&1 &
-
-echo $! > ${task_name}.pid
 ```
+
+You need to modify the configuration path in the [run script](https://github.com/ModelTC/llmc/blob/main/scripts/run_llmc.sh) according to the algorithm you want to run. For example, `${llmc}/configs/quantization/methods/SmoothQuant/smoothquant_w_a.yml` refers to the SmoothQuant quantization configuration file. `task_name` specifies the name of the `log file` generated by **LLMC** during execution.
+
+```bash
+task_name=smooth_w_a
+config=${llmc}/configs/quantization/methods/SmoothQuant/smoothquant_w_a.yml
+```
+
+Once you have modified the LLMC path and config path in the run script, execute it:
+
+```bash
+bash run_llmc.sh
+```
+
+# Quantization Inference
+
+If you have set the option to save `real quantized` models in the configuration file, such as `save_vllm: True`, then the saved `real quantized models` can be directly used for inference with the corresponding `inference backends`. For more details, refer to the `Backend` section of the [documentation](https://llmc-en.readthedocs.io/en/latest).
 
 # FAQ
 

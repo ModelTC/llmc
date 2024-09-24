@@ -111,10 +111,10 @@ quant:
 
 ```yaml
 save:
-    save_sglang: True
+    save_sgl: True
     save_path: /path/to/save_for_sglang_rtn_w8a16/
 ```
-请注意，务必将 `save_sglang` 设置为 `True`。对于 **W4A16** 和 **W8A16** 的量化设置，LLMC 会将权重打包为 `torch.int32` 形式导出，便于 VLLM 直接加载，并且会同时导出量化参数。
+请注意，务必将 `save_sgl` 设置为 `True`。对于 **W4A16** 和 **W8A16** 的量化设置，LLMC 会将权重打包为 `torch.int32` 形式导出，便于 VLLM 直接加载，并且会同时导出量化参数。
 
 对于 **W8A8** 的量化设置，LLMC 会将权重量化为 `torch.int8` 形式导出，便于 VLLM 直接加载，同时也会导出相关的量化参数。
 

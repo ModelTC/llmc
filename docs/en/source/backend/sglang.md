@@ -105,10 +105,10 @@ Additionally, if AWQ does not meet accuracy requirements, we recommend using the
 
 ```yaml
 save:
-    save_sglang: True
+    save_sgl: True
     save_path: /path/to/save_for_sglang_rtn_w8a16/
 ```
-Please note that you must set `save_sglang` to `True`. For **W4A16** and **W8A16** quantization settings, LLMC will "pack" the weights into `torch.int32` format for direct loading by VLLM, while also exporting the quantization parameters.
+Please note that you must set `save_sgl` to `True`. For **W4A16** and **W8A16** quantization settings, LLMC will "pack" the weights into `torch.int32` format for direct loading by VLLM, while also exporting the quantization parameters.
 
 For the **W8A8** quantization setting, LLMC will quantize the weights into `torch.int8` format for direct loading by VLLM, and export the relevant quantization parameters as well.
 

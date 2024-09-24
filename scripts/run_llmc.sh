@@ -2,7 +2,7 @@
 
 # export CUDA_VISIBLE_DEVICES=0,1
 
-llmc=llmc_path
+llmc=/path/to/llmc
 export PYTHONPATH=$llmc:$PYTHONPATH
 
 task_name=awq_w_only
