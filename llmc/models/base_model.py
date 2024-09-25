@@ -22,6 +22,8 @@ class BaseModel(metaclass=ABCMeta):
         self.torch_dtype = torch_dtype if torch_dtype == 'auto' else eval(torch_dtype)
         self.device_map = device_map
         self.use_cache = use_cache
+        self.vlm_model = None
+        self.processor = None
         self.build_model()
         self.model.eval()
         self.find_blocks()
@@ -86,7 +88,7 @@ class BaseModel(metaclass=ABCMeta):
         )
 
     @torch.no_grad()
-    def collect_first_block_input(self, calib_data):
+    def collect_first_block_input(self, calib_data, data_type='txt'):
         first_block_input = defaultdict(list)
 
         class Catcher(nn.Module):
@@ -103,15 +105,28 @@ class BaseModel(metaclass=ABCMeta):
                 raise ValueError
 
         self.move_embed_to_device('cuda')
+        if data_type == 'img_txt':
+            self.vision_tower = self.vision_tower.to('cuda')
+            self.multi_modal_projector = self.multi_modal_projector.to('cuda')
         self.blocks[0] = self.blocks[0].cuda()
         self.blocks[0] = Catcher(self.blocks[0])
 
         for data in calib_data:
             try:
-                self.model(data.to(next(self.model.parameters()).device))
+                if data_type == 'txt':
+                    self.model(data.to(next(self.model.parameters()).device))
+                elif data_type == 'img_txt':
+                    data = {
+                        k: v.to(next(self.model.parameters()).device)
+                        for k, v in data.items()
+                    }
+                    self.vlm_model.generate(**data, max_new_tokens=200, do_sample=False)
             except ValueError:
                 pass
         self.first_block_input = first_block_input
+        if data_type == 'img_txt':
+            self.vision_tower = self.vision_tower.cpu()
+            self.multi_modal_projector = self.multi_modal_projector.cpu()
         self.blocks[0] = self.blocks[0].module
         self.blocks[0] = self.blocks[0].cpu()
         self.move_embed_to_device('cpu')

@@ -19,6 +19,9 @@ class BlockwiseOpt(metaclass=ABCMeta):
             for i in range(len(input['kwargs'])):
                 if 'use_cache' in input['kwargs'][i]:
                     input['kwargs'][i].pop('use_cache')
+            for i in range(len(input['kwargs'])):
+                if 'past_key_value' in input['kwargs'][i]:
+                    input['kwargs'][i]['past_key_value'] = None
             self.n_samples = 0
             for i in range(len(input['data'])):
                 self.n_samples += input['data'][i].shape[0]

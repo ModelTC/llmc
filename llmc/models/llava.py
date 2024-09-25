@@ -6,7 +6,7 @@ from llmc.utils.registry_factory import MODEL_REGISTRY
 from .llama import Llama
 
 try:
-    from transformers import LlavaForConditionalGeneration
+    from transformers import AutoProcessor, LlavaForConditionalGeneration
 except Exception:
     logger.info(
         'LlavaForConditionalGeneration is not supported in this version of transfomers.'
@@ -32,5 +32,8 @@ class Llava(Llama):
             torch_dtype=self.torch_dtype,
             low_cpu_mem_usage=True,
         )
+        self.vision_tower = self.vlm_model.vision_tower
+        self.multi_modal_projector = self.vlm_model.multi_modal_projector
+        self.processor = AutoProcessor.from_pretrained(self.model_path)
         self.model = self.vlm_model.language_model
         self.model_config = self.vlm_model_config.text_config
