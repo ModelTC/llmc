@@ -56,9 +56,9 @@ def main(config):
         )
         blockwise_opt.run_block_loop()
     else:
-        dataset = BaseDataset(tokenizer.get_tokenizer(), config.calib)
+        dataset = BaseDataset(tokenizer.get_tokenizer(), config.calib, model.processor)
         calib_data = dataset.get_calib_dataset()
-        model.collect_first_block_input(calib_data)
+        model.collect_first_block_input(calib_data, config.calib.type)
         del calib_data
         gc.collect()
         torch.cuda.empty_cache()
