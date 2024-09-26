@@ -113,7 +113,7 @@ def main(config):
 
     if 'save' in config and config.save.get('save_vllm', False):
         w, a = config.quant.weight, config.quant.get('act')
-        if isinstance(w.bit, str) or isinstance(a.bit, str):
+        if isinstance(w.bit, str):
             assert a, 'Only WA float quant is supported.'
             assert w.symmetric and a.symmetric, 'Only symmetric quant is supported.'
             assert w.bit == a.bit and w.bit in ['e4m3', 'e5m2'] and \
@@ -130,7 +130,7 @@ def main(config):
 
     if 'save' in config and config.save.get('save_sgl', False):
         w, a = config.quant.weight, config.quant.get('act')
-        if isinstance(w.bit, str) or isinstance(a.bit, str):
+        if isinstance(w.bit, str):
             assert a, 'Only WA float quant is supported.'
             assert w.symmetric and a.symmetric, 'Only symmetric quant is supported.'
             assert w.bit == a.bit and w.bit in ['e4m3', 'e5m2'] and \
