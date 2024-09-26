@@ -56,6 +56,7 @@ def check_config(config):
     else:
         config.model.tokenizer_mode = 'slow'
         logger.info('Tokenizer_mode is set to slow.')
+
     if 'calib' in config and not config.calib.get('type', False):
         config.calib.type = 'txt'
 
