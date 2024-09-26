@@ -14,7 +14,8 @@ def update_vllm_quant_config(
         vllm_quant_format = 'float-quantized'
         quant_type = 'float'
         w_num_bits = 8
-        a_num_bits = 8
+        if 'act' in config.quant:
+            a_num_bits = 8
     elif need_pack:
         vllm_quant_format = 'pack-quantized'
         quant_type = 'int'
@@ -23,7 +24,8 @@ def update_vllm_quant_config(
         vllm_quant_format = 'int-quantized'
         quant_type = 'int'
         w_num_bits = config.quant.weight.bit
-        a_num_bits = config.quant.act.bit
+        if 'act' in config.quant:
+            a_num_bits = config.quant.act.bit
 
     if config.quant.weight.granularity == 'per_group':
         group_size = config.quant.weight.group_size
