@@ -538,7 +538,7 @@ class EffcientFakeQuantLinear(nn.Module):
 class VllmRealQuantLinear(nn.Module):
     def __init__(self, weight, bias, scales, need_pack):
         super().__init__()
-        weight_name = 'weight_packed' if need_pack is not None else 'weight'
+        weight_name = 'weight_packed' if need_pack else 'weight'
         self.register_buffer(weight_name, weight)
 
         (

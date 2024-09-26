@@ -230,8 +230,8 @@ class SpQR(BaseBlockwiseQuantization):
                     W[:, i].unsqueeze(1),
                     self.qparams['scales'],
                     self.qparams['zeros'],
-                    self.qparams['max_int'],
-                    self.qparams['min_int'],
+                    self.qparams['qmax'],
+                    self.qparams['qmin'],
                 ).squeeze(1)
 
                 err = (W[:, i] - q) / Hinv[i, i]
@@ -321,24 +321,24 @@ class SpQR(BaseBlockwiseQuantization):
     def get_group_qparams(self, c_tensor, idx):
         """get qparams for a group, idx is the index of a column within a
         group, c_tensor is a group."""
-        _, s, z, max_int, min_int = self.wquantizer.get_tensor_qparams(c_tensor)
+        _, s, z, qmax, qmin = self.wquantizer.get_tensor_qparams(c_tensor)
         _, ss, zs, Ps, Ns = self.scale_quantizer.get_tensor_qparams(s)
         args = {}
         args['scales'] = ss
         args['zeros'] = zs
-        args['min_int'] = Ns
-        args['max_int'] = Ps
+        args['qmin'] = Ns
+        args['qmax'] = Ps
         scales = self.scale_quantizer.fake_quant_weight_static(s.data, args)
         _, sz, zz, Pz, Nz = self.zero_quantizer.get_tensor_qparams(z)
         args['scales'] = sz
         args['zeros'] = zz
-        args['min_int'] = Nz
-        args['max_int'] = Pz
+        args['qmin'] = Nz
+        args['qmax'] = Pz
         zeros = self.zero_quantizer.fake_quant_weight_static(z.data, args)
         self.qparams['scales'] = scales
         self.qparams['zeros'] = zeros
-        self.qparams['max_int'] = max_int
-        self.qparams['min_int'] = min_int
+        self.qparams['qmax'] = qmax
+        self.qparams['qmin'] = qmin
         qparams = copy.deepcopy(self.qparams)
         self.groups[idx // self.wquantizer.group_size] = qparams
 
@@ -349,8 +349,8 @@ class SpQR(BaseBlockwiseQuantization):
         d['zeros'] = self.merge_qparams([g['zeros'] for g in self.groups])
         for k, v in d.items():
             layer.register_buffer('buf_' + k, copy.deepcopy(v))
-        layer.register_buffer('buf_max_int', torch.tensor(self.groups[0]['max_int']))
-        layer.register_buffer('buf_min_int', torch.tensor(self.groups[0]['min_int']))
+        layer.register_buffer('buf_qmax', torch.tensor(self.groups[0]['qmax']))
+        layer.register_buffer('buf_qmin', torch.tensor(self.groups[0]['qmin']))
 
     @torch.no_grad()
     def free(self, name):
@@ -373,8 +373,8 @@ class SpQR(BaseBlockwiseQuantization):
         args = {}
         args['scales'] = module.buf_scales
         args['zeros'] = module.buf_zeros
-        args['max_int'] = module.buf_max_int
-        args['min_int'] = module.buf_min_int
+        args['qmax'] = module.buf_qmax
+        args['qmin'] = module.buf_qmin
 
         weight = wquantizer.fake_quant_weight_static(weight, args).to(self.model_dtype)
 

@@ -665,14 +665,14 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
                             w, low_factor, up_factor
                         )
 
-                        scales, zeros, max_int, min_int = wquantizer.get_qparams(
+                        scales, zeros, qmax, qmin = wquantizer.get_qparams(
                             tensor_range, w.device
                         )
                         args = {}
                         args['scales'] = scales
                         args['zeros'] = zeros
-                        args['max_int'] = max_int
-                        args['min_int'] = min_int
+                        args['qmax'] = qmax
+                        args['qmin'] = qmin
                         q_w = wquantizer.fake_quant_weight_static(w, args)
                     else:
                         raise Exception('Not support other clip version')

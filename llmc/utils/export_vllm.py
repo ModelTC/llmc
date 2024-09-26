@@ -8,11 +8,22 @@ def update_vllm_quant_config(
     vllm_quant_method='compressed-tensors',
 
 ):
+
     need_pack = config.quant.weight.get('need_pack', False)
-    if need_pack:
+    if isinstance(config.quant.weight.bit, str):
+        vllm_quant_format = 'float-quantized'
+        quant_type = 'float'
+        w_num_bits = 8
+        a_num_bits = 8
+    elif need_pack:
         vllm_quant_format = 'pack-quantized'
+        quant_type = 'int'
+        w_num_bits = config.quant.weight.bit
     else:
         vllm_quant_format = 'int-quantized'
+        quant_type = 'int'
+        w_num_bits = config.quant.weight.bit
+        a_num_bits = config.quant.act.bit
 
     if config.quant.weight.granularity == 'per_group':
         group_size = config.quant.weight.group_size
@@ -26,17 +37,17 @@ def update_vllm_quant_config(
                 'input_activations': {
                     'dynamic': True,
                     'group_size': None,   # Don't support activations per-group quant.
-                    'num_bits': config.quant.act.bit,
+                    'num_bits': a_num_bits,
                     'observer': 'minmax',
                     'observer_kwargs': {},
                     'strategy': 'token',   # Now only support dynamic per-token
                     'symmetric': config.quant.act.symmetric,
-                    'type': 'int'
+                    'type': quant_type
                 } if 'act' in config.quant else None,
                 'weights': {
                     'dynamic': False,
                     'group_size': group_size,
-                    'num_bits': config.quant.weight.bit,
+                    'num_bits': w_num_bits,
                     'observer': 'minmax',  # Now only support "minmax".
                     'observer_kwargs': {},
                     'strategy': (
@@ -45,7 +56,7 @@ def update_vllm_quant_config(
                         else 'channel'
                     ),
                     'symmetric': config.quant.weight.symmetric,
-                    'type': 'int',
+                    'type': quant_type,
                 },
             }
         },

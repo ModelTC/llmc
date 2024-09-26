@@ -28,6 +28,8 @@
 
 ## 最新情報
 
+- **2024年9月26日:** 🔥 `LLMC`からの✨ `FP8量子化（E4M3、E5M2）`モデルを、VLLMやSGLangのような高度な推理バックエンドにエクスポートできるようになりました。🚀 詳細な使用方法については、[VLLMのドキュメント](https://llmc-en.readthedocs.io/en/latest/backend/vllm.html)と[SGLangのドキュメント](https://llmc-en.readthedocs.io/en/latest/backend/sglang.html)を参照してください。
+
 - **2024年9月24日:** 🔥 私たちは正式に ✨`Llama-3.1-405B` の ✅INT4 と ✅INT8 モデルをリリースしました。これらは 🚀`LLMC` の `save_lightllm` モードを使用して量子化されています。モデルパラメータは[こちら](https://huggingface.co/Dongz/llama31-405b-quant)からダウンロードできます。
 
 - **2024年9月23日:** 🔥 私たちは、🚀`LLMC` から ✨`実際の量子化された(INT4, INT8)` モデルを、 [VLLM](https://github.com/vllm-project/vllm), [SGLang](https://github.com/sgl-project/sglang), [AutoAWQ](https://github.com/casper-hansen/AutoAWQ), [MLC-LLM](https://github.com/mlc-ai/mlc-llm) などの高度な推論バックエンドにエクスポートするサポートを追加しました。これにより、✨`メモリ使用量の削減` と ✨`推論速度の向上` が可能になります。
@@ -39,7 +41,7 @@
 
 - **2024年8月22日:** 🔥私たちは現在のSOTAモデル [SmolLM](https://huggingface.co/collections/HuggingFaceTB/smollm-6695016cad7167254ce15966) を含む多くの小型言語モデルをサポートしています（[サポートされているモデルリスト](#supported-model-list)を参照してください）。
 
-- **2024年8月22日:** 🔥また、修正された [lm-evaluation-harness](https://github.com/EleutherAI/lm-evaluation-harness) を使用した下流タスクの評価もサポートしています 🤗。具体的には、`save_trans` モードを使用して（[構成](#configuration)の `save` 部分を参照）変換されたモデルを保存し、その後、[run_lm_eval.sh](scripts/run_lm_eval.sh) を参照して量子化されたモデルを直接評価できます。詳細は[こちら](https://llmc-en.readthedocs.io/en/latest/advanced/model_test_v1.html)をご覧ください。
+- **2024年8月22日:** 🔥また、修正された [lm-evaluation-harness](https://github.com/EleutherAI/lm-evaluation-harness) を使用した下流タスクの評価もサポートしています 🤗。具体的には、`save_trans` モードを使用して（[構成](https://llmc-en.readthedocs.io/en/latest/configs.html)の `save` 部分を参照）変換されたモデルを保存し、その後、[run_lm_eval.sh](scripts/run_lm_eval.sh) を参照して量子化されたモデルを直接評価できます。詳細は[こちら](https://llmc-en.readthedocs.io/en/latest/advanced/model_test_v1.html)をご覧ください。
 
 - **2024年7月23日:** 🍺🍺🍺 新しいベンチマーク論文をリリースしました：
 

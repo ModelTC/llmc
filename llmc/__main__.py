@@ -113,22 +113,34 @@ def main(config):
 
     if 'save' in config and config.save.get('save_vllm', False):
         w, a = config.quant.weight, config.quant.get('act')
-        assert w.symmetric, 'Only symmetric quant is supported.'
-        assert w.bit in [4, 8], 'Supported quant: w4a16, w8a16, w8a8.'
-        if a:
-            assert a.symmetric, 'Only symmetric quant is supported.'
-            assert a.bit == 8, 'Supported quant: w4a16, w8a16, w8a8.'
+        if isinstance(w.bit, str) or isinstance(a.bit, str):
+            assert a, 'Only WA float quant is supported.'
+            assert w.symmetric and a.symmetric, 'Only symmetric quant is supported.'
+            assert w.bit == a.bit and w.bit in ['e4m3', 'e5m2'] and \
+                a.bit in ['e4m3', 'e5m2'], 'Only WA FP8 quant is supported'
+        else:
+            assert w.symmetric, 'Only symmetric quant is supported.'
+            assert w.bit in [4, 8], 'Supported quant: w4a16, w8a16, w8a8.'
+            if a:
+                assert a.symmetric, 'Only symmetric quant is supported.'
+                assert a.bit == 8, 'Supported quant: w4a16, w8a16, w8a8.'
         blockwise_opt.deploy('vllm_quant')
         blockwise_opt.save_model(save_quant_path)
         update_vllm_quant_config(blockwise_opt.model, config, save_quant_path)
 
     if 'save' in config and config.save.get('save_sgl', False):
         w, a = config.quant.weight, config.quant.get('act')
-        assert w.symmetric, 'Only symmetric quant is supported.'
-        assert w.bit in [4, 8], 'Supported quant: w4a16, w8a16, w8a8.'
-        if a:
-            assert a.symmetric, 'Only symmetric quant is supported.'
-            assert a.bit == 8, 'Supported quant: w4a16, w8a16, w8a8.'
+        if isinstance(w.bit, str) or isinstance(a.bit, str):
+            assert a, 'Only WA float quant is supported.'
+            assert w.symmetric and a.symmetric, 'Only symmetric quant is supported.'
+            assert w.bit == a.bit and w.bit in ['e4m3', 'e5m2'] and \
+                a.bit in ['e4m3', 'e5m2'], 'Only WA FP8 quant is supported'
+        else:
+            assert w.symmetric, 'Only symmetric quant is supported.'
+            assert w.bit in [4, 8], 'Supported quant: w4a16, w8a16, w8a8.'
+            if a:
+                assert a.symmetric, 'Only symmetric quant is supported.'
+                assert a.bit == 8, 'Supported quant: w4a16, w8a16, w8a8.'
         blockwise_opt.deploy('sgl_quant')
         blockwise_opt.save_model(save_quant_path)
         update_vllm_quant_config(blockwise_opt.model, config, save_quant_path)

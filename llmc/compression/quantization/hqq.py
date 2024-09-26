@@ -34,13 +34,13 @@ class HQQ(BaseBlockwiseQuantization):
             )
 
     @torch.no_grad()
-    def optimize_weights_proximal(self, W_f, scales, zeros, max_int, min_int):
+    def optimize_weights_proximal(self, W_f, scales, zeros, qmax, qmin):
         best_error = 1e4
         current_beta = self.beta
         current_kappa = self.kappa
         scales = 1 / scales
         for i in range(self.iters):
-            W_q = torch.round(W_f * scales + zeros).clamp(min_int, max_int)
+            W_q = torch.round(W_f * scales + zeros).clamp(qmin, qmax)
             W_r = (W_q - zeros) / scales
             W_e = self.shrink_op(W_f - W_r, current_beta)
 
@@ -77,17 +77,17 @@ class HQQ(BaseBlockwiseQuantization):
                 tensor,
                 org_scales,
                 org_zeros,
-                max_int,
-                min_int,
+                qmax,
+                qmin,
             ) = self.wquantizer.get_tensor_qparams(tensor)
 
             best_scales, best_zeros = self.optimize_weights_proximal(
-                tensor, org_scales, org_zeros, max_int, min_int
+                tensor, org_scales, org_zeros, qmax, qmin
             )
             layer.register_buffer('buf_scales', best_scales)
             layer.register_buffer('buf_zeros', best_zeros)
-            layer.register_buffer('buf_max_int', torch.tensor(max_int))
-            layer.register_buffer('buf_min_int', torch.tensor(min_int))
+            layer.register_buffer('buf_qmax', torch.tensor(qmax))
+            layer.register_buffer('buf_qmin', torch.tensor(qmin))
 
         block = block.cpu()
         gc.collect()
@@ -99,7 +99,7 @@ class HQQ(BaseBlockwiseQuantization):
             args['dim'] = 'ic'
         args['scales'] = module.buf_scales
         args['zeros'] = module.buf_zeros
-        args['max_int'] = module.buf_max_int
-        args['min_int'] = module.buf_min_int
+        args['qmax'] = module.buf_qmax
+        args['qmin'] = module.buf_qmin
 
         return wquantizer.fake_quant_weight_static(module.weight, args)

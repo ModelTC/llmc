@@ -99,6 +99,32 @@ quant:
     quant_out: True 
 ```
 
+**FP8**
+
+In the FP8 quantization, it typically offers marginally better precision than INT8. In some cases, the use of the RTN (Round to Nearest) algorithm is sufficient. However, we still recommend utilizing the AWQ algorithm for enhanced quantization accuracy. The specific implementation can be referenced from the AWQ FP8 [configuration](https://github.com/ModelTC/llmc/tree/main/configs/quantization/backend/sglang/fp8/awq_fp8.yml).
+
+
+```yaml
+# configs/quantization/backend/sglang/fp8/awq_fp8.yml
+quant:
+    method: Awq
+    weight:
+        # Support ["e4m3", "e5m2"]
+        bit: e4m3
+        symmetric: True
+        granularity: per_channel
+    act:
+        # Support ["e4m3", "e5m2"]
+        bit: e4m3
+        symmetric: True
+        granularity: per_token
+    special:
+        trans: True
+        trans_version: v2
+        weight_clip: True
+    quant_out: True
+```
+
 Additionally, if AWQ does not meet accuracy requirements, we recommend using the **Quarot + GPTQ** combined algorithm as introduced in [this section](https://llmc-en.readthedocs.io/en/latest/practice/quarot_gptq.html) to further improve accuracy. The corresponding [configuration file](https://github.com/ModelTC/llmc/tree/main/configs/quantization/backend/sglang/w8a8_combin) is also provided.
 
 ### 1.3.3 Exporting Real Quantized Model

@@ -20,6 +20,7 @@ pip install vllm
 - **W4A16**：权重为 int4，激活为 float16；
 - **W8A16**：权重为 int8，激活为 float16；
 - **W8A8**：权重为 int8，激活为 int8；
+- **FP8 (E4M3, E5M2)**：权重为 float8，激活为 float8；
 - **权重 per-channel/group 量化**：按通道或按组进行量化；
 - **激活 per-token 动态量化**：针对每个 token 的动态量化方式，进一步提升量化精度和效率。
 - **权重\激活对称量化**：量化参数包括scale；
@@ -115,6 +116,31 @@ quant:
 
 此外，如果 AWQ 无法满足精度需求，我们建议使用 [章节](https://llmc-zhcn.readthedocs.io/en/latest/practice/quarot_gptq.html) 介绍的 **Quarot+GPTQ 组合算法** 来进一步提升精度。在此也给出相应的[配置文件](https://github.com/ModelTC/llmc/tree/main/configs/quantization/backend/vllm/w8a8_combin)
 
+
+**FP8**
+
+在 FP8 的量化中，其精度通常略优于 INT8，而且在某些情况下，使用RTN（Round to Nearest）算法就足够了。然而，我们仍然建议使用AWQ算法以获得更好的量化精度。具体的实现可以参考AWQ FP8的[配置文件](https://github.com/ModelTC/llmc/tree/main/configs/quantization/backend/vllm/fp8/awq_fp8.yml)。
+
+```yaml
+# configs/quantization/backend/vllm/fp8/awq_fp8.yml
+quant:
+    method: Awq
+    weight:
+        # Support ["e4m3", "e5m2"]
+        bit: e4m3
+        symmetric: True
+        granularity: per_channel
+    act:
+        # Support ["e4m3", "e5m2"]
+        bit: e4m3
+        symmetric: True
+        granularity: per_token
+    special:
+        trans: True
+        trans_version: v2
+        weight_clip: True
+    quant_out: True
+```
 
 ### 1.3.3 真实量化模型导出
 
