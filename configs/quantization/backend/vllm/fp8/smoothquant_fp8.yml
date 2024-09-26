@@ -1,13 +1,13 @@
 base:
     seed: &seed 42
 model:
-    type: Llama
-    path: /mnt/nvme0/llm_weights/llama2/llama2-7b/
+    type: model_type
+    path: model path
     torch_dtype: auto
 calib:
     name: pileval
     download: False
-    path: /home/gushiqiao/nvme/nvme0/yongyang/llm_datasets/llmc/calib/eval
+    path: calib data path
     n_samples: 512
     bs: 1
     seq_len: 512
@@ -17,7 +17,7 @@ eval:
     eval_pos: [fake_quant]
     name: wikitext2
     download: False
-    path: /home/gushiqiao/nvme/nvme0/yongyang/llm_datasets/llmc/eval/wikitext2
+    path: eval data path
     bs: 1
     seq_len: 2048
 quant:
