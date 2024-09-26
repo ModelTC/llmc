@@ -20,6 +20,7 @@ In **VLLM**'s fixed-point integer quantization, the following common formats are
 - **W4A16**: Weights are int4, activations are float16;
 - **W8A16**: Weights are int8, activations are float16;
 - **W8A8**: Weights are int8, activations are int8;
+- **FP8 (E4M3, E5M2)**: Weights are float8, activations are float8;
 - **Per-channel/group quantization**: Quantization is applied per channel or per group;
 - **Per-token dynamic quantization**: Dynamic quantization per token, which further improves quantization accuracy and efficiency;
 - **Weight/activation symmetric quantization**: quantization parameters include scale.
@@ -110,6 +111,32 @@ quant:
 ```
 
 If AWQ cannot meet accuracy requirements, we recommend using the **Quarot + GPTQ combination algorithm** described in [this chapter](https://llmc-en.readthedocs.io/en/latest/practice/quarot_gptq.html) to further improve accuracy. The corresponding [configuration file](https://github.com/ModelTC/llmc/tree/main/configs/quantization/backend/vllm/w8a8_combin) is also provided.
+
+**FP8**
+
+In the FP8 quantization, it typically offers marginally better precision than INT8. In some cases, the use of the RTN (Round to Nearest) algorithm is sufficient. However, we still recommend utilizing the AWQ algorithm for enhanced quantization accuracy. The specific implementation can be referenced from the AWQ FP8 [configuration](https://github.com/ModelTC/llmc/tree/main/configs/quantization/backend/vllm/fp8/awq_fp8.yml).
+
+
+```yaml
+# configs/quantization/backend/vllm/fp8/awq_fp8.yml
+quant:
+    method: Awq
+    weight:
+        # Support ["e4m3", "e5m2"]
+        bit: e4m3
+        symmetric: True
+        granularity: per_channel
+    act:
+        # Support ["e4m3", "e5m2"]
+        bit: e4m3
+        symmetric: True
+        granularity: per_token
+    special:
+        trans: True
+        trans_version: v2
+        weight_clip: True
+    quant_out: True
+```
 
 ### 1.3.3 Exporting Real Quantized Model
 

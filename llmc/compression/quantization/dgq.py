@@ -28,8 +28,8 @@ class DGQ(BaseBlockwiseQuantization):
         args = {}
         args['scales'] = s.reshape(-1, 1)
         args['zeros'] = zeros.reshape(-1, 1)
-        args['max_int'] = upper
-        args['min_int'] = lower
+        args['qmax'] = upper
+        args['qmin'] = lower
         # logger.info(f"s.shape : {s.shape}")
         # logger.info(f"scales.shape : {scales.shape}")
         # logger.info(f"zeros.shape : {zeros.shape}")
@@ -190,12 +190,12 @@ class DGQ(BaseBlockwiseQuantization):
                     _,
                     scales,
                     zeros,
-                    max_int,
-                    min_int,
+                    qmax,
+                    qmin,
                 ) = self.wquantizer_w4_perchannel.get_tensor_qparams(weight_OxG)
                 # Perchannel do not need reshape and restore tensor.
                 weight_OxG_fq = self.wquantizer_w4_perchannel.quant_dequant(
-                    weight_OxG, scales, zeros, max_int, min_int
+                    weight_OxG, scales, zeros, qmax, qmin
                 )
                 if not self.w_only:
                     inp_LxG_fq = self.a_qdq(inp_LxG)
@@ -224,8 +224,8 @@ class DGQ(BaseBlockwiseQuantization):
                 _,
                 qscales_8,
                 zeros,
-                max_int,
-                min_int,
+                qmax,
+                qmin,
             ) = self.wquantizer_w8.get_tensor_qparams(
                 weight_tmp.clamp(-w_max * ratio, w_max * ratio)
             )

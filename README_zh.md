@@ -28,6 +28,8 @@
 
 ## 最新消息
 
+- **2024年9月26日:** 🔥 我们现在支持从🚀 `LLMC`导出💥 `FP8 量化（E4M3，E5M2）`模型到一些先进的推理后端，例如[VLLM](https://github.com/vllm-project/vllm)和[SGLang](https://github.com/sgl-project/sglang)。关于详细使用方法，请参阅[VLLM文档](https://llmc-zhcn.readthedocs.io/en/latest/backend/vllm.html)和[SGLang文档](https://llmc-zhcn.readthedocs.io/en/latest/backend/sglang.html)。
+
 - **2024年9月24日:** 🔥 我们正式发布了 ✨`Llama-3.1-405B` 的 ✅INT4 和 ✅INT8 模型，这些模型通过 🚀`LLMC` 使用 `save_lightllm` 模式进行量化。你可以在[此处](https://huggingface.co/Dongz/llama31-405b-quant)下载模型参数。
 
 - **2024年9月23日:** 🔥 我们现在支持从 🚀`LLMC` 导出 ✨`真正量化的(INT4, INT8)` 模型到高级推理后端，例如 [VLLM](https://github.com/vllm-project/vllm), [SGLang](https://github.com/sgl-project/sglang), [AutoAWQ](https://github.com/casper-hansen/AutoAWQ), 和 [MLC-LLM](https://github.com/mlc-ai/mlc-llm) 用于量化推理部署，从而实现 ✨`减少内存使用` 和 ✨`加快推理速度`。
@@ -39,7 +41,7 @@
 
 - **2024年8月22日:** 🔥我们支持许多小型语言模型，包括当前SOTA的 [SmolLM](https://huggingface.co/collections/HuggingFaceTB/smollm-6695016cad7167254ce15966)(参见[支持的模型列表](#supported-model-list))。
 
-- **2024年8月22日:** 🔥此外，我们还支持通过我们修改的 [lm-evaluation-harness](https://github.com/EleutherAI/lm-evaluation-harness) 进行下游任务评估 🤗。具体操作，用户可以先采用 `save_trans` 模式（参见 [配置](#configuration) 中的 `save` 部分）保存权重修改后的模型。在获得转换模型后，可以直接参考 [run_lm_eval.sh](scripts/run_lm_eval.sh) 对量化模型进行评估。更多细节请见[此处](https://llmc-zhcn.readthedocs.io/en/latest/advanced/model_test_v1.html)。
+- **2024年8月22日:** 🔥此外，我们还支持通过我们修改的 [lm-evaluation-harness](https://github.com/EleutherAI/lm-evaluation-harness) 进行下游任务评估 🤗。具体操作，用户可以先采用 `save_trans` 模式（参见 [配置](https://llmc-zhcn.readthedocs.io/en/latest/configs.html) 中的 `save` 部分）保存权重修改后的模型。在获得转换模型后，可以直接参考 [run_lm_eval.sh](scripts/run_lm_eval.sh) 对量化模型进行评估。更多细节请见[此处](https://llmc-zhcn.readthedocs.io/en/latest/advanced/model_test_v1.html)。
 
 - **2024年7月23日:** 🍺🍺🍺 我们发布了全新的基准论文：
 

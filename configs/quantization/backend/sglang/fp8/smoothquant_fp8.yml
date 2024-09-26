@@ -1,0 +1,37 @@
+base:
+    seed: &seed 42
+model:
+    type: Llama
+    path: /mnt/nvme0/llm_weights/llama2/llama2-7b/
+    torch_dtype: auto
+calib:
+    name: pileval
+    download: False
+    path: /home/gushiqiao/nvme/nvme0/yongyang/llm_datasets/llmc/calib/eval
+    n_samples: 512
+    bs: 1
+    seq_len: 512
+    preproc: general
+    seed: *seed
+eval:
+    eval_pos: [fake_quant]
+    name: wikitext2
+    download: False
+    path: /home/gushiqiao/nvme/nvme0/yongyang/llm_datasets/llmc/eval/wikitext2
+    bs: 1
+    seq_len: 2048
+quant:
+    method: SmoothQuant
+    weight:
+        # Support ["e4m3", "e5m2"]
+        bit: e4m3
+        symmetric: True
+        granularity: per_channel
+    act:
+        # Support ["e4m3", "e5m2"]
+        bit: e4m3
+        symmetric: True
+        granularity: per_token
+save:
+    save_sgl: True
+    save_path: /path/to/save_for_sgl_smooth_fp8/
