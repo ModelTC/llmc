@@ -13,6 +13,8 @@ class Quantizer:
                 finfo = torch.finfo(fp8_dtype)
                 self.qmin = finfo.min
                 self.qmax = finfo.max
+            else:
+                self.fp8 = False
             self.use_fp = True
             self.e_bits = int(bit[1])
             self.m_bits = int(bit[-1])
