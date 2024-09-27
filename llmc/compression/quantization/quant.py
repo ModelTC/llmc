@@ -176,7 +176,7 @@ class Quantizer:
             scales = abs_max / qmax
             zeros = torch.tensor(0.0)
         else:
-            scales = (max_val - min_val).clamp(min=1e-5) / qmax
+            scales = (max_val - min_val).clamp(min=1e-5) / (qmax - qmin)
             zeros = (qmin - torch.round(min_val / scales)).clamp(qmin, qmax)
             if not self.round_zp:
                 zeros = qmin - (min_val / scales)
