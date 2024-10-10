@@ -21,7 +21,7 @@
 
 **Docker Hub**は[こちら](https://hub.docker.com/r/llmcompression/llmc)。
 
-**aliyun docker**镜像名: `registry.cn-hangzhou.aliyuncs.com/yongyang/llmcompression:[tag]`
+**aliyun docker**: `registry.cn-hangzhou.aliyuncs.com/yongyang/llmcompression:[tag]`
 
 以下のコマンドを使用して、llmcを実行できるDockerイメージをダウンロードできます。中国大陸のユーザーは、阿里云Dockerを使用することを推奨します。
 
