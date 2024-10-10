@@ -26,15 +26,16 @@
 以下のコマンドを使用して、llmcを実行できるDockerイメージをダウンロードできます。中国大陸のユーザーは、阿里云Dockerを使用することを推奨します。
 
 docker hub
+
 ```
 docker pull llmcompression/llmc:pure-lastest
 ```
 
 阿里云Docker
+
 ```
 docker pull registry.cn-hangzhou.aliyuncs.com/yongyang/llmcompression:pure-lastest
 ```
-
 
 **コミュニティ**:
 
