@@ -13,15 +13,16 @@ class Falcon(BaseModel):
 
     def find_embed_layers(self):
         self.word_embeddings = self.model.transformer.word_embeddings
+        self.rotary_emb = self.model.model.rotary_emb
 
     def find_block_name(self):
         self.block_name_prefix = 'model.transformer.h'
 
     def get_embed_layers(self):
-        return [self.word_embeddings]
+        return [self.word_embeddings, self.rotary_emb]
 
     def get_layers_except_blocks(self):
-        return [self.word_embeddings, self.model.transformer.ln_f]
+        return [self.word_embeddings, self.rotary_emb, self.model.transformer.ln_f]
 
     def has_bias(self):
         return False

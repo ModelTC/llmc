@@ -10,6 +10,7 @@ class StableLm(BaseModel):
 
     def find_blocks(self):
         self.blocks = self.model.model.layers
+        self.rotary_emb = self.model.model.rotary_emb
 
     def find_embed_layers(self):
         self.embed_tokens = self.model.model.embed_tokens
@@ -19,7 +20,7 @@ class StableLm(BaseModel):
         self.pairs = {'q_proj': 'qkv', 'o_proj': 'out', 'up_proj': 'fc1'}
 
     def get_embed_layers(self):
-        return [self.embed_tokens]
+        return [self.embed_tokens, self.rotary_emb]
 
     def get_head_layers(self):
         return [self.model.lm_head]
@@ -28,7 +29,7 @@ class StableLm(BaseModel):
         return [self.model.model.norm]
 
     def get_layers_except_blocks(self):
-        return [self.embed_tokens, self.model.model.norm, self.model.lm_head]
+        return [self.embed_tokens, self.rotary_emb, self.model.model.norm, self.model.lm_head] # noqa
 
     def skip_layer_name(self):
         return ['lm_head']
