@@ -17,3 +17,4 @@ from .qwenvl import QwenVL
 from .smollm import SmolLM
 from .stablelm import StableLm
 from .starcoder import Starcoder
+from .vit import Vit

@@ -14,7 +14,7 @@ from torch.distributed import destroy_process_group, init_process_group
 from llmc.compression.quantization import *
 from llmc.compression.sparsification import *
 from llmc.data import BaseDataset, BaseTokenizer
-from llmc.eval import PerplexityEval, TokenConsistencyEval
+from llmc.eval import AccuracyEval, PerplexityEval, TokenConsistencyEval
 from llmc.models import *
 from llmc.utils import (check_config, mkdirs, print_important_package_version,
                         seed_all, update_autoawq_quant_config,
@@ -43,13 +43,22 @@ def main(config):
             eval_config.name = name
             if len(name_list) != 1:  # eval multi datasets
                 eval_config.path = os.path.join(config.eval.path, name)
-            ppl_eval = PerplexityEval(tokenizer.get_tokenizer(), eval_config)
-            eval_list.append(ppl_eval)
+            if config.eval.type == 'acc':
+                acc_eval = AccuracyEval(eval_config)
+                eval_list.append(acc_eval)
+            else:
+                ppl_eval = PerplexityEval(tokenizer.get_tokenizer(), eval_config)
+                eval_list.append(ppl_eval)
 
     if 'eval' in config and 'pretrain' in config.eval.eval_pos:
-        for ppl_eval in eval_list:
-            ppl = ppl_eval.eval(model)
-            logger.info(f'{ppl_eval.dataset} ppl : {ppl}')
+        if config.eval.type == 'acc':
+            for acc_eval in eval_list:
+                acc = acc_eval.eval(model)
+                logger.info(f'{config.eval.name} acc : {acc}')
+        else:
+            for ppl_eval in eval_list:
+                ppl = ppl_eval.eval(model)
+                logger.info(f'{ppl_eval.dataset} ppl : {ppl}')
     if not config.get('calib', False):
         blockwise_opt = ALGO_REGISTRY[config.quant.method](
             model, quant_config=config.quant, input=None, config=config
@@ -93,9 +102,14 @@ def main(config):
 
     if 'eval' in config and 'fake_quant' in config.eval.eval_pos:
         blockwise_opt.deploy('fake_quant')
-        for ppl_eval in eval_list:
-            ppl = ppl_eval.eval(model)
-            logger.info(f'{ppl_eval.dataset} ppl : {ppl}')
+        if config.eval.type == 'acc':
+            for acc_eval in eval_list:
+                acc = acc_eval.eval(model)
+                logger.info(f'{config.eval.name} acc : {acc}')
+        else:
+            for ppl_eval in eval_list:
+                ppl = ppl_eval.eval(model)
+                logger.info(f'{ppl_eval.dataset} ppl : {ppl}')
 
         if 'eval_token_consist' in config.eval and config.eval.eval_token_consist:
             org_model = MODEL_REGISTRY[config.model.type](
