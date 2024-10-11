@@ -11,7 +11,7 @@ from .specified_preproc import PREPROC_REGISTRY
 
 
 class BaseDataset(metaclass=ABCMeta):
-    def __init__(self, tokenizer, calib_cfg, processor):
+    def __init__(self, tokenizer, calib_cfg, processor=None):
         # calib_cfg
         logger.info(f'calib_cfg : {calib_cfg}')
         self.tokenizer = tokenizer
