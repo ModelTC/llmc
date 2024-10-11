@@ -13,13 +13,14 @@ class Phi(BaseModel):
 
     def find_embed_layers(self):
         self.embed_tokens = self.model.model.embed_tokens
+        self.rotary_emb = self.model.model.rotary_emb
 
     def find_block_name(self):
         self.block_name_prefix = 'model.layers'
         self.pairs = {'q_proj': 'qkv', 'o_proj': 'out', 'up_proj': 'fc1'}
 
     def get_embed_layers(self):
-        return [self.embed_tokens]
+        return [self.embed_tokens, self.rotary_emb]
 
     def get_head_layers(self):
         return [self.model.lm_head]
@@ -28,7 +29,7 @@ class Phi(BaseModel):
         return [self.model.model.final_layernorm]
 
     def get_layers_except_blocks(self):
-        return [self.embed_tokens, self.model.model.final_layernorm, self.model.lm_head]
+        return [self.embed_tokens, self.rotary_emb, self.model.model.final_layernorm, self.model.lm_head] # noqa
 
     def skip_layer_name(self):
         return ['lm_head']
