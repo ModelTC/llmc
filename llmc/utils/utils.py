@@ -60,7 +60,7 @@ def check_config(config):
     if 'calib' in config and not config.calib.get('type', False):
         config.calib.type = 'txt'
     if 'eval' in config and not config.eval.get('type', False):
-        config.calib.type = 'ppl'
+        config.eval.type = 'ppl'
 
 
 def mkdirs(path):
