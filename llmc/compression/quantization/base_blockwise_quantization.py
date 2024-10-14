@@ -248,15 +248,19 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
     def block_opt(self, block):
         block = block.cuda()
         named_linears = self.model.get_block_linears(block)
-        logger.info(f'named_linears: {named_linears}')
+        extra_modules = self.model.get_extra_modules(block)
+        input_feat_modules = {
+            k: v for d in [named_linears, extra_modules] for k, v in d.items()
+        }
+        logger.info(f'input_feat_modules: {input_feat_modules}')
         input_feat = defaultdict(list)
         handles = []
         self.block_init(block)
 
         if not self.data_free:
-            for name in named_linears:
+            for name in input_feat_modules:
                 handles.append(
-                    named_linears[name].register_forward_hook(
+                    input_feat_modules[name].register_forward_hook(
                         functools.partial(
                             self.cache_input_hook, name=name, feat_dict=input_feat
                         )
