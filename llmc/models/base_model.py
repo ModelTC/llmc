@@ -148,6 +148,9 @@ class BaseModel(metaclass=ABCMeta):
             if isinstance(m, tuple(_LLMC_LINEAR_TYPES_ + _TRANSFORMERS_LINEAR_TYPES_))
         }
 
+    def get_extra_modules(self, block):
+        return {}
+
     def set_mix_bits_params_dict(self, block_idx, name, params_dict):
 
         logger.info('set_mix_bits_params_dict')

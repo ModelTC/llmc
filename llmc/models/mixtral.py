@@ -35,6 +35,11 @@ class Mixtral(BaseModel):
             'post_attention_layernorm': block.post_attention_layernorm,
         }
 
+    def get_extra_modules(self, block):
+        return {
+            'block_sparse_moe': block.block_sparse_moe
+        }
+
     def get_subsets_in_block(self, block):
         return [
             {
@@ -56,11 +61,25 @@ class Mixtral(BaseModel):
                 'has_kwargs': False,
             },
             {
-                'layers': {'block_sparse_moe.gate': block.block_sparse_moe.gate},
+                'layers': {
+                    **{f'block_sparse_moe.experts.{i}.w1': block.block_sparse_moe.experts[i].w1 for i in range(len(block.block_sparse_moe.experts))}, # noqa
+                    **{f'block_sparse_moe.experts.{i}.w3': block.block_sparse_moe.experts[i].w3 for i in range(len(block.block_sparse_moe.experts))}, # noqa
+                },
                 'prev_op': [block.post_attention_layernorm],
-                'input': ['block_sparse_moe.gate'],
-                'inspect': block.block_sparse_moe.gate,
+                'input': ['block_sparse_moe'],
+                'inspect': block.block_sparse_moe,
                 'has_kwargs': False,
+                'is_mlp': True,
             },
-            # Moe layers can not transform.
+            *[
+                {
+                    'layers': {f'block_sparse_moe.experts.{i}.w2': block.block_sparse_moe.experts[i].w2}, # noqa
+                    'prev_op': [block.block_sparse_moe.experts[i].w3],
+                    'input': [f'block_sparse_moe.experts.{i}.w2'],
+                    'inspect': block.block_sparse_moe.experts[i].w2,
+                    'has_kwargs': False,
+                    'is_mlp': True,
+                }
+                for i in range(len(block.block_sparse_moe.experts))
+            ],
         ]
