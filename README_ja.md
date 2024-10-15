@@ -28,13 +28,13 @@
 docker hub
 
 ```
-docker pull llmcompression/llmc:pure-lastest
+docker pull llmcompression/llmc:pure-latest
 ```
 
 阿里云Docker
 
 ```
-docker pull registry.cn-hangzhou.aliyuncs.com/yongyang/llmcompression:pure-lastest
+docker pull registry.cn-hangzhou.aliyuncs.com/yongyang/llmcompression:pure-latest
 ```
 
 **コミュニティ**:

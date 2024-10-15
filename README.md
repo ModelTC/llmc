@@ -28,13 +28,13 @@ You can download the Docker image that can run llmc with the following command. 
 docker hub
 
 ```
-docker pull llmcompression/llmc:pure-lastest
+docker pull llmcompression/llmc:pure-latest
 ```
 
 aliyun docker
 
 ```
-docker pull registry.cn-hangzhou.aliyuncs.com/yongyang/llmcompression:pure-lastest
+docker pull registry.cn-hangzhou.aliyuncs.com/yongyang/llmcompression:pure-latest
 ```
 
 **Community**:
