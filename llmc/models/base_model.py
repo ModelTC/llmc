@@ -29,6 +29,7 @@ class BaseModel(metaclass=ABCMeta):
         self.find_blocks()
         self.find_embed_layers()
         self.find_block_name()
+        self.add_layernorms_class()
 
     @abstractmethod
     def find_blocks(self):
@@ -86,6 +87,19 @@ class BaseModel(metaclass=ABCMeta):
             torch_dtype=self.torch_dtype,
             low_cpu_mem_usage=True,
         )
+
+    def add_layernorms_class(self):
+        ln_class_list = []
+        single_block = self.get_blocks()[0]
+        ln_dict = self.get_layernorms_in_block(single_block)
+        for ln_name in ln_dict:
+            ln_class = ln_dict[ln_name].__class__
+            if ln_class not in ln_class_list:
+                ln_class_list.append(ln_class)
+        for ln_class in ln_class_list:
+            if ln_class not in _TRANSFORMERS_LN_TYPES_:
+                _TRANSFORMERS_LN_TYPES_.append(ln_class)
+        logger.info(f'_TRANSFORMERS_LN_TYPES_ : {_TRANSFORMERS_LN_TYPES_}')
 
     @torch.no_grad()
     def collect_first_block_input(self, calib_data, data_type='txt'):
