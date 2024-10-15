@@ -1,4 +1,3 @@
-import gc
 import math
 from functools import partial
 
@@ -6,31 +5,6 @@ import numpy as np
 import torch
 import torch.nn as nn
 from loguru import logger
-from transformers.models.llama.modeling_llama import LlamaRMSNorm
-from transformers.models.mistral.modeling_mistral import MistralRMSNorm
-from transformers.models.mixtral.modeling_mixtral import MixtralRMSNorm
-
-try:
-    from transformers.models.qwen2.modeling_qwen2 import Qwen2RMSNorm
-except Exception:
-    logger.info(
-        'Qwen2RMSNorm not installed. '
-        'If you need it, please update your transformers lib.'
-    )
-
-    class Qwen2RMSNorm(nn.Module):
-        pass
-
-try:
-    from transformers.models.gemma2.modeling_gemma2 import Gemma2RMSNorm
-except Exception:
-    logger.info(
-        'Gemma2RMSNorm not installed. '
-        'If you need it, please update your transformers lib.'
-    )
-
-    class Gemma2RMSNorm(nn.Module):
-        pass
 from transformers.pytorch_utils import ALL_LAYERNORM_LAYERS
 
 try:
@@ -43,7 +17,7 @@ except Exception:
         'If you need it, please install it firstly.'
     )
 
-from .utils import calculate_zeros_width, make_divisible
+from .utils import calculate_zeros_width
 
 
 class LlmcLayerNorm(nn.Module):
@@ -845,14 +819,7 @@ class MlcllmRealQuantLinear(AutoawqRealQuantLinear):
         )
 
 
-_TRANSFORMERS_LN_TYPES_ = ALL_LAYERNORM_LAYERS + [
-    MistralRMSNorm,
-    MixtralRMSNorm,
-    Qwen2RMSNorm,
-    LlamaRMSNorm,
-    Gemma2RMSNorm,
-    nn.LayerNorm,
-]
+_TRANSFORMERS_LN_TYPES_ = ALL_LAYERNORM_LAYERS
 _TRANSFORMERS_LINEAR_TYPES_ = [nn.Linear]
 
 _MODEL_LN_TYPES_PAIRS_ = {
