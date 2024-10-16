@@ -8,13 +8,13 @@ calib:
     name: pileval
     download: False
     path: calib data path
-    n_samples: 512
+    n_samples: 128
     bs: -1
     seq_len: 512
     preproc: general
     seed: *seed
 eval:
-    eval_pos: [pretrain, fake_quant]
+    eval_pos: [pretrain, transformed, fake_quant]
     name: wikitext2
     download: False
     path: eval data path
