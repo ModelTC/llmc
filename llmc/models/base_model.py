@@ -128,7 +128,11 @@ class BaseModel(metaclass=ABCMeta):
         for data in calib_data:
             try:
                 if data_type == 'txt':
-                    self.model(data.to(next(self.model.parameters()).device))
+                    data = {
+                        k: v.to(next(self.model.parameters()).device)
+                        for k, v in data.items()
+                    }
+                    self.model(**data)
                 elif data_type == 'img':
                     data = {
                         k: v.to(next(self.model.parameters()).device)
