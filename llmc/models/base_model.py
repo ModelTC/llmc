@@ -129,6 +129,12 @@ class BaseModel(metaclass=ABCMeta):
             try:
                 if data_type == 'txt':
                     self.model(data.to(next(self.model.parameters()).device))
+                elif data_type == 'img':
+                    data = {
+                        k: v.to(next(self.model.parameters()).device)
+                        for k, v in data.items()
+                    }
+                    self.model(**data)
                 elif data_type == 'img_txt':
                     data = {
                         k: v.to(next(self.model.parameters()).device)

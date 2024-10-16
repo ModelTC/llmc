@@ -160,6 +160,20 @@ def vlm_clip_min(calib_dataset, processor, n_samples):
 
 
 @PREPROC_REGISTRY
+def img_sampler(calib_dataset, processor, n_samples):
+    random.shuffle(calib_dataset)
+    samples = []
+    n_run = 0
+    for image in calib_dataset:
+        inp = processor(images=image, return_tensors='pt')
+        samples.append(inp)
+        n_run += 1
+        if n_run == n_samples:
+            break
+    return samples
+
+
+@PREPROC_REGISTRY
 def random_truncate_txt(calib_dataset, tokenizer, n_samples, seq_len):
     random.shuffle(calib_dataset)
     trainenc = tokenizer('\n\n'.join(calib_dataset), return_tensors='pt')
