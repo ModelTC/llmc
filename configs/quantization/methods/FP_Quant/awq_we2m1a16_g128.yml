@@ -11,7 +11,7 @@ calib:
     n_samples: 128
     bs: -1
     seq_len: 512
-    preproc: pileval_awq
+    preproc: general
     seed: *seed
 eval:
     eval_pos: [pretrain, transformed, fake_quant]
@@ -27,11 +27,13 @@ eval:
     eval_token_consist: True
 quant:
     method: Awq
+    quant_type: float-quant
     weight:
-        bit: 4
+        bit: e2m1
         symmetric: False
         granularity: per_group
         group_size: 128
+        use_qtorch: True
     special:
         trans: True
         # The options for "trans_version" include "v1" and "v2".

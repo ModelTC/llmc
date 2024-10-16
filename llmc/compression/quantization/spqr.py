@@ -13,7 +13,7 @@ from llmc.utils.registry_factory import ALGO_REGISTRY
 
 from .base_blockwise_quantization import BaseBlockwiseQuantization
 from .module_utils import FakeQuantLinear
-from .quant import Quantizer
+from .quant import IntegerQuantizer
 
 
 @ALGO_REGISTRY
@@ -50,9 +50,11 @@ class SpQR(BaseBlockwiseQuantization):
         scale_config = special_config['scale']
         zero_config = special_config['zero']
 
-        self.scale_quantizer = Quantizer(**scale_config)
-        self.zero_quantizer = Quantizer(**zero_config)
-        self.Q = Quantizer(
+        self.quant_type = self.quant_config.get('quant_type', 'int_quant')
+        assert self.quant_type != 'float_quant', 'SPQR do not support Float quant now.'
+        self.scale_quantizer = IntegerQuantizer(**scale_config)
+        self.zero_quantizer = IntegerQuantizer(**zero_config)
+        self.Q = IntegerQuantizer(
             self.wquantizer.bit, self.wquantizer.sym, 'per_channel', round_zp=False
         )
 

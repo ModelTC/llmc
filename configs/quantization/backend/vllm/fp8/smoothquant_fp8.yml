@@ -22,16 +22,19 @@ eval:
     seq_len: 2048
 quant:
     method: SmoothQuant
+    quant_type: float_quant
     weight:
         # Support ["e4m3", "e5m2"]
         bit: e4m3
         symmetric: True
         granularity: per_channel
+        use_qtorch: True
     act:
         # Support ["e4m3", "e5m2"]
         bit: e4m3
         symmetric: True
         granularity: per_token
+        use_qtorch: True
 save:
     save_vllm: True
     save_path: /path/to/save_for_vllm_smooth_fp8/

@@ -17,14 +17,17 @@ eval:
     inference_per_block: False
 quant:
     method: RTN
+    quant_type: float_quant
     weight:
         bit: e4m3
         symmetric: True
         granularity: per_channel
+        use_qtorch: True
     act:
         bit: e4m3
         symmetric: True
         granularity: per_token
+        use_qtorch: True
 save:
     save_sgl: True
     save_path: /path/to/save_for_sgl_rtn_fp8/

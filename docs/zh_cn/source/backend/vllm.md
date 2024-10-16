@@ -125,22 +125,34 @@ quant:
 # configs/quantization/backend/vllm/fp8/awq_fp8.yml
 quant:
     method: Awq
+    quant_type: float_quant
     weight:
         # Support ["e4m3", "e5m2"]
         bit: e4m3
         symmetric: True
         granularity: per_channel
+        use_qtorch: True
     act:
         # Support ["e4m3", "e5m2"]
         bit: e4m3
         symmetric: True
         granularity: per_token
+        use_qtorch: True
     special:
         trans: True
         trans_version: v2
         weight_clip: True
     quant_out: True
 ```
+
+请确保将 `quant_type` 设置为 `float_quant`，表示浮点量化。同时，将 `use_qtorch` 设置为 `True`，因为 `LLMC` 的浮点量化实现依赖 [QPyTorch](https://github.com/Tiiiger/QPyTorch) 库中的部分功能。
+
+您可以使用以下命令来安装 [QPyTorch](https://github.com/Tiiiger/QPyTorch)：
+
+```bash
+pip install qtorch
+```
+
 
 ### 1.3.3 真实量化模型导出
 

@@ -72,7 +72,7 @@ quant:
         weight_clip: True
     quant_out: True  
 ```
-请注意，在此步骤中需要将 `need_pack` 参数设置为 `True`, 这会将4-bit的权重`打包`为`torch.int32`的格式存储，供**VLLM**直接加载推理。
+请注意，在此步骤中需要将 `need_pack` 参数设置为 `True`, 这会将4-bit的权重`打包`为`torch.int32`的格式存储，供**SGlang**直接加载推理。
 
 
 此外，如果 AWQ 无法满足精度需求，我们建议使用 [章节](https://llmc-zhcn.readthedocs.io/en/latest/practice/awq_omni.html)介绍的 **AWQ+OmniQuant 组合算法** 来进一步提升精度。在此也给出相应的[配置文件](https://github.com/ModelTC/llmc/tree/main/configs/quantization/backend/sglang/w4a16_combin)
@@ -108,28 +108,39 @@ quant:
 
 **FP8**
 
-在 FP8 的量化中，其精度通常略优于 INT8，而且在某些情况下，使用RTN（Round to Nearest）算法就足够了。然而，我们仍然建议使用AWQ算法以获得更好的量化精度。具体的实现可以参考AWQ FP8的[配置文件](https://github.com/ModelTC/llmc/tree/main/configs/quantization/backend/vllm/fp8/awq_fp8.yml)。
+在 FP8 的量化中，其精度通常略优于 INT8，而且在某些情况下，使用RTN（Round to Nearest）算法就足够了。然而，我们仍然建议使用AWQ算法以获得更好的量化精度。具体的实现可以参考AWQ FP8的[配置文件](https://github.com/ModelTC/llmc/tree/main/configs/quantization/backend/sglang/fp8/awq_fp8.yml)。
 
 ```yaml
-# configs/quantization/backend/vllm/fp8/awq_fp8.yml
+# configs/quantization/backend/sglang/fp8/awq_fp8.yml
 quant:
     method: Awq
+    quant_type: float_quant
     weight:
         # Support ["e4m3", "e5m2"]
         bit: e4m3
         symmetric: True
         granularity: per_channel
+        use_qtorch: True
     act:
         # Support ["e4m3", "e5m2"]
         bit: e4m3
         symmetric: True
         granularity: per_token
+        use_qtorch: True
     special:
         trans: True
         trans_version: v2
         weight_clip: True
     quant_out: True
 ```
+请确保将 `quant_type` 设置为 `float_quant`，表示浮点量化。同时，将 `use_qtorch` 设置为 `True`，因为 `LLMC` 的浮点量化实现依赖 [QPyTorch](https://github.com/Tiiiger/QPyTorch) 库中的部分功能。
+
+您可以使用以下命令来安装 [QPyTorch](https://github.com/Tiiiger/QPyTorch)：
+
+```bash
+pip install qtorch
+```
+
 
 ### 1.3.3 真实量化模型导出
 
@@ -138,9 +149,9 @@ save:
     save_sgl: True
     save_path: /path/to/save_for_sglang_rtn_w8a16/
 ```
-请注意，务必将 `save_sgl` 设置为 `True`。对于 **W4A16** 和 **W8A16** 的量化设置，LLMC 会将权重打包为 `torch.int32` 形式导出，便于 VLLM 直接加载，并且会同时导出量化参数。
+请注意，务必将 `save_sgl` 设置为 `True`。对于 **W4A16** 和 **W8A16** 的量化设置，LLMC 会将权重打包为 `torch.int32` 形式导出，便于 SGlang 直接加载，并且会同时导出量化参数。
 
-对于 **W8A8** 的量化设置，LLMC 会将权重量化为 `torch.int8` 形式导出，便于 VLLM 直接加载，同时也会导出相关的量化参数。
+对于 **W8A8** 的量化设置，LLMC 会将权重量化为 `torch.int8` 形式导出，便于 SGlang 直接加载，同时也会导出相关的量化参数。
 
 
 ### 1.3.4 运行LLMC

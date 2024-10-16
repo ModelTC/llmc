@@ -1,9 +1,19 @@
 base:
-    seed: &seed 42
+    seed: &seed 0
 model:
     type: model_type
     path: model path
+    tokenizer_mode: slow
     torch_dtype: auto
+calib:
+    name: wikitext2
+    download: False
+    n_samples: 128
+    path: calib data path
+    bs: 1
+    seq_len: 2048
+    preproc: wikitext2_gptq
+    seed: *seed
 eval:
     eval_pos: [pretrain, fake_quant]
     name: wikitext2
@@ -17,13 +27,21 @@ eval:
     # Consistency of tokens between original and fake-quantized model output.
     eval_token_consist: True
 quant:
-    method: RTN
+    method: GPTQ
     quant_type: float_quant
     weight:
         bit: e2m1
         symmetric: True
         granularity: per_group
         group_size: 128
+        use_qtorch: True
+    special:
+        actorder: True
+        static_groups: False
+        percdamp: 0.01
+        blocksize: 128
+        true_sequential: True
+    quant_out: True
 save:
     save_fake: False
     save_path: /path/to/save/
