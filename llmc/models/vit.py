@@ -3,10 +3,13 @@ from transformers import (AutoConfig, ViTForImageClassification,
                           ViTImageProcessor)
 
 from llmc.utils.registry_factory import MODEL_REGISTRY
-
+from collections import defaultdict
+import torch
+import torch.nn as nn
+import inspect
 from .base_model import BaseModel
 
-
+# Only verified that vit-base-patch16-224 is correct.
 @MODEL_REGISTRY
 class Vit(BaseModel):
     def __init__(self, model_path, torch_dtype, device_map=None, use_cache=False):
@@ -60,27 +63,27 @@ class Vit(BaseModel):
         return [
             {
                 'layers': {
-                    'attention.query': block.attention.query,
-                    'attention.key': block.attention.key,
-                    'attention.value': block.attention.value,
+                    'attention.attention.query': block.attention.attention.query,
+                    'attention.attention.key': block.attention.attention.key,
+                    'attention.attention.value': block.attention.attention.value,
                 },
                 'prev_op': [block.layernorm_before],
-                'input': ['attention.query'],
-                'inspect': block.attention,
+                'input': ['attention.attention.query'],
+                'inspect': block.attention.attention,
                 'has_kwargs': True,
             },
             {
                 'layers': {'attention.output.dense': block.attention.output.dense},
-                'prev_op': [block.attention.value],
-                'input': ['attention.output'],
-                'inspect': block.attention.output,
+                'prev_op': [block.attention.attention.value],
+                'input': ['attention.output.dense'],
+                'inspect': block.attention.output.dense,
                 'has_kwargs': False,
             },
             {
                 'layers': {'intermediate.dense': block.intermediate.dense},
                 'prev_op': [block.layernorm_after],
                 'input': ['intermediate.dense'],
-                'inspect': block.intermediate,
+                'inspect': block.intermediate.dense,
                 'has_kwargs': False,
                 'is_mlp': True,
             },
@@ -88,8 +91,63 @@ class Vit(BaseModel):
                 'layers': {'output.dense': block.output.dense},
                 'prev_op': [block.intermediate],
                 'input': ['output.dense'],
-                'inspect': block.output,
+                'inspect': block.output.dense,
                 'has_kwargs': False,
                 'is_mlp': True,
             },
         ]
+    
+    @torch.no_grad()
+    def collect_first_block_input(self, calib_data, data_type='txt'):
+        first_block_input = defaultdict(list)
+
+        class Catcher(nn.Module):
+            def __init__(self, module):
+                super().__init__()
+                self.module = module
+                self.signature = inspect.signature(module.forward)
+
+            def forward(self, *args, **kwargs):
+                params = list(self.signature.parameters.keys())
+                for i, arg in enumerate(args):
+                    if i > 0:
+                        kwargs[params[i]] = arg
+                first_block_input['data'].append(args[0])
+                if 'output_router_logits' in kwargs:
+                    assert kwargs['output_router_logits'] is False
+                    kwargs.pop('output_router_logits')
+                first_block_input['kwargs'].append(kwargs)
+                raise ValueError
+
+        self.move_embed_to_device('cuda')
+        if data_type == 'img_txt':
+            self.vision_tower = self.vision_tower.to('cuda')
+            self.multi_modal_projector = self.multi_modal_projector.to('cuda')
+        self.blocks[0] = self.blocks[0].cuda()
+        self.blocks[0] = Catcher(self.blocks[0])
+
+        for data in calib_data:
+            try:
+                if data_type == 'txt':
+                    self.model(data.to(next(self.model.parameters()).device))
+                elif data_type == 'img':
+                    data = {
+                        k: v.to(next(self.model.parameters()).device)
+                        for k, v in data.items()
+                    }
+                    self.model(**data)
+                elif data_type == 'img_txt':
+                    data = {
+                        k: v.to(next(self.model.parameters()).device)
+                        for k, v in data.items()
+                    }
+                    self.vlm_model.generate(**data, max_new_tokens=200, do_sample=False)
+            except ValueError:
+                pass
+        self.first_block_input = first_block_input
+        if data_type == 'img_txt':
+            self.vision_tower = self.vision_tower.cpu()
+            self.multi_modal_projector = self.multi_modal_projector.cpu()
+        self.blocks[0] = self.blocks[0].module
+        self.blocks[0] = self.blocks[0].cpu()
+        self.move_embed_to_device('cpu')
