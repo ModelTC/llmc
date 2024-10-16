@@ -184,3 +184,13 @@ def random_truncate_txt(calib_dataset, tokenizer, n_samples, seq_len):
         inp = trainenc.input_ids[:, i:j]
         samples.append(inp)
     return samples
+
+
+@PREPROC_REGISTRY
+def original_txt(calib_dataset, tokenizer, n_samples, seq_len):
+    random.shuffle(calib_dataset)
+    samples = []
+    for i in range(n_samples):
+        trainenc = tokenizer(calib_dataset[i], return_tensors='pt')
+        samples.append(trainenc.input_ids)
+    return samples

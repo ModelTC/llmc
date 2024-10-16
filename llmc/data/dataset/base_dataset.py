@@ -6,6 +6,7 @@ import torch
 from datasets import load_dataset, load_from_disk
 from loguru import logger
 from PIL import Image
+from torch.nn import functional as F
 
 from .specified_preproc import PREPROC_REGISTRY
 
@@ -18,6 +19,7 @@ class BaseDataset(metaclass=ABCMeta):
         self.processor = processor
         self.calib_dataset_name = calib_cfg['name']
         self.calib_dataset_type = calib_cfg.get('type', 'txt')
+        self.padding = calib_cfg.get('padding', False)
         self.download = calib_cfg['download']
         self.load_from_txt = calib_cfg.get('load_from_txt', False)
         self.calib_dataset_path = calib_cfg.get('path', None)
@@ -129,6 +131,138 @@ class BaseDataset(metaclass=ABCMeta):
             )
         return samples
 
+    def txt_group_samples_with_mask(self, samples):
+        calib_samples = []
+        input_ids = []
+        attention_mask = []
+        pad_token_id = self.tokenizer.convert_tokens_to_ids(self.tokenizer.eos_token)
+        if self.calib_bs < 0:
+            samples_len = [sample.shape[-1] for sample in samples]
+            max_len = max(samples_len)
+            samples_tmp = []
+            attention_mask_tmp = []
+            for sample in samples:
+                samples_tmp.append(
+                    F.pad(sample, [0, max_len - sample.shape[-1]], value=pad_token_id)
+                )
+                attention_mask_tmp.append(
+                    F.pad(
+                        torch.ones(1, sample.shape[-1], dtype=torch.int64),
+                        [0, max_len - sample.shape[-1]],
+                        value=0
+                    )
+                )
+            batch_input_ids = torch.cat(samples_tmp, dim=0)
+            batch_attention_mask = torch.cat(attention_mask_tmp, dim=0)
+            calib_samples.append(
+                {'input_ids': batch_input_ids, 'attention_mask': batch_attention_mask}
+            )
+        elif self.calib_bs == 1:
+            input_ids = samples
+            attention_mask = [torch.ones(1, sample.shape[-1], dtype=torch.int64) for sample in samples] # noqa
+            for i in range(len(samples)):
+                calib_samples.append(
+                    {'input_ids': input_ids[i], 'attention_mask': attention_mask[i]}
+                )
+        elif self.calib_bs > 1:
+            for i in range(0, len(samples), self.calib_bs):
+                start = i
+                end = min(i + self.calib_bs, len(samples))
+                batch_samples = samples[start:end]
+                batch_samples_len = [sample.shape[-1] for sample in batch_samples]
+                batch_max_len = max(batch_samples_len)
+                samples_tmp = []
+                attention_mask_tmp = []
+                for sample in batch_samples:
+                    samples_tmp.append(
+                        F.pad(
+                            sample,
+                            [0, batch_max_len - sample.shape[-1]],
+                            value=pad_token_id
+                        )
+                    )
+                    attention_mask_tmp.append(
+                        F.pad(
+                            torch.ones(1, sample.shape[-1], dtype=torch.int64),
+                            [0, batch_max_len - sample.shape[-1]],
+                            value=0
+                        )
+                    )
+                batch_input_ids = torch.cat(samples_tmp, dim=0)
+                batch_attention_mask = torch.cat(attention_mask_tmp, dim=0)
+                calib_samples.append(
+                    {
+                        'input_ids': batch_input_ids,
+                        'attention_mask': batch_attention_mask
+                    }
+                )
+        return calib_samples
+
+    def txt_group_samples_wo_mask(self, samples):  # without mask
+        calib_samples = []
+        if self.calib_bs < 0:
+            batch = torch.cat(samples, dim=0)
+            calib_samples.append({'input_ids': batch})
+        elif self.calib_bs == 1:
+            for i in range(len(samples)):
+                calib_samples.append({'input_ids': samples[i]})
+        elif self.calib_bs > 1:
+            for i in range(0, len(samples), self.calib_bs):
+                start = i
+                end = min(i + self.calib_bs, len(samples))
+                batch = samples[start:end]
+                batch = torch.cat(batch, dim=0)
+                calib_samples.append({'input_ids': batch})
+        return calib_samples
+
+    def img_txt_group_samples_wo_mask(self, samples):  # without mask
+        calib_samples = []
+        if self.calib_bs < 0:
+            batch = self.processor(
+                text=samples['prompts'],
+                images=samples['raw_images'],
+                return_tensors='pt',
+                padding=True
+            )
+            calib_samples.append(batch)
+        elif self.calib_bs == 1:
+            for prompt, raw_image in zip(samples['prompts'], samples['raw_images']):
+                batch = self.processor(
+                    text=prompt,
+                    images=raw_image,
+                    return_tensors='pt'
+                )
+                calib_samples.append(batch)
+        elif self.calib_bs > 1:
+            for i in range(0, len(samples['prompts']), self.calib_bs):
+                start = i
+                end = min(i + self.calib_bs, len(samples['prompts']))
+                batch = self.processor(
+                    text=samples['prompts'][start:end],
+                    images=samples['raw_images'][start:end],
+                    return_tensors='pt',
+                    padding=True
+                )
+                calib_samples.append(batch)
+        return calib_samples
+
+    def img_group_samples_wo_mask(self, samples):  # without mask
+        calib_samples = []
+        if self.calib_bs < 0:
+            batch = {'pixel_values': torch.cat([sample['pixel_values']
+                                                for sample in samples], dim=0)}
+            calib_samples.append(batch)
+        elif self.calib_bs == 1:
+            calib_samples = samples
+        elif self.calib_bs > 1:
+            for i in range(0, len(samples), self.calib_bs):
+                start = i
+                end = min(i + self.calib_bs, len(samples))
+                batch = samples[start:end]
+                batch = {'pixel_values': torch.cat([sample['pixel_values']
+                                                    for sample in batch], dim=0)}
+                calib_samples.append(batch)
+
     def get_calib_dataset(self):
         samples = self.get_calib_samples()
         if self.calib_dataset_type in ['txt', 'img']:
@@ -149,61 +283,14 @@ class BaseDataset(metaclass=ABCMeta):
             logger.info(f'len(samples) rank : {samples_len}')
         calib_samples = []
         if self.calib_dataset_type == 'txt':
-            if self.calib_bs < 0:
-                batch = torch.cat(samples, dim=0)
-                calib_samples.append(batch)
-            elif self.calib_bs == 1:
-                calib_samples = samples
-            elif self.calib_bs > 1:
-                for i in range(0, len(samples), self.calib_bs):
-                    start = i
-                    end = min(i + self.calib_bs, len(samples))
-                    batch = samples[start:end]
-                    batch = torch.cat(batch, dim=0)
-                    calib_samples.append(batch)
+            if self.padding:
+                calib_samples = self.txt_group_samples_with_mask(samples)
+            else:
+                calib_samples = self.txt_group_samples_wo_mask(samples)
         elif self.calib_dataset_type == 'img':
-            if self.calib_bs < 0:
-                batch = {'pixel_values': torch.cat([sample['pixel_values']
-                                                    for sample in samples], dim=0)}
-                calib_samples.append(batch)
-            elif self.calib_bs == 1:
-                calib_samples = samples
-            elif self.calib_bs > 1:
-                for i in range(0, len(samples), self.calib_bs):
-                    start = i
-                    end = min(i + self.calib_bs, len(samples))
-                    batch = samples[start:end]
-                    batch = {'pixel_values': torch.cat([sample['pixel_values']
-                                                        for sample in batch], dim=0)}
-                    calib_samples.append(batch)
+            calib_samples = self.img_group_samples_wo_mask(samples)
         elif self.calib_dataset_type == 'img_txt':
-            if self.calib_bs < 0:
-                batch = self.processor(
-                    text=samples['prompts'],
-                    images=samples['raw_images'],
-                    return_tensors='pt',
-                    padding=True
-                )
-                calib_samples.append(batch)
-            elif self.calib_bs == 1:
-                for prompt, raw_image in zip(samples['prompts'], samples['raw_images']):
-                    batch = self.processor(
-                        text=prompt,
-                        images=raw_image,
-                        return_tensors='pt'
-                    )
-                    calib_samples.append(batch)
-            elif self.calib_bs > 1:
-                for i in range(0, len(samples['prompts']), self.calib_bs):
-                    start = i
-                    end = min(i + self.calib_bs, len(samples['prompts']))
-                    batch = self.processor(
-                        text=samples['prompts'][start:end],
-                        images=samples['raw_images'][start:end],
-                        return_tensors='pt',
-                        padding=True
-                    )
-                    calib_samples.append(batch)
+            calib_samples = self.img_txt_group_samples_wo_mask(samples)
         logger.info(f'len(calib_samples) : {len(calib_samples)}')
         return calib_samples
 
