@@ -101,6 +101,15 @@ class BaseDataset(metaclass=ABCMeta):
                                 f'Error processing image {img_path} and'
                                 f'QA file {qa_path}: {e}'
                             )
+        elif self.calib_dataset_type == 'img':
+            self.calib_dataset = []
+            logger.info(f'calib_dataset_path: {self.calib_dataset_path}')
+            for root, _, files in os.walk(self.calib_dataset_path):
+                for name in files:
+                    if name.endswith(('.jpg', '.png', '.JPEG')):
+                        img_path = os.path.join(root, name)
+                        raw_image = Image.open(img_path)
+                        self.calib_dataset.append(raw_image)
         else:
             raise ValueError(f'Unsupported data type: {self.calib_dataset_type}')
 
@@ -109,7 +118,7 @@ class BaseDataset(metaclass=ABCMeta):
             samples = self.general_preproc(
                 self.calib_dataset, self.tokenizer, self.n_samples, self.seq_len
             )
-        elif self.preproc.startswith('vlm_'):
+        elif self.preproc.startswith(('vlm_', 'img_')):
             preproc = PREPROC_REGISTRY[self.preproc]
             samples = preproc(self.calib_dataset, self.processor, self.n_samples)
         else:
@@ -122,7 +131,7 @@ class BaseDataset(metaclass=ABCMeta):
 
     def get_calib_dataset(self):
         samples = self.get_calib_samples()
-        if self.calib_dataset_type == 'txt':
+        if self.calib_dataset_type in ['txt', 'img']:
             logger.info(f'len(samples) all : {len(samples)}')
             assert len(samples) % int(os.environ['WORLD_SIZE']) == 0
             samples = samples[int(os.environ['RANK'])::int(os.environ['WORLD_SIZE'])]
@@ -151,6 +160,21 @@ class BaseDataset(metaclass=ABCMeta):
                     end = min(i + self.calib_bs, len(samples))
                     batch = samples[start:end]
                     batch = torch.cat(batch, dim=0)
+                    calib_samples.append(batch)
+        elif self.calib_dataset_type == 'img':
+            if self.calib_bs < 0:
+                batch = {'pixel_values': torch.cat([sample['pixel_values'] 
+                                                    for sample in samples], dim=0)}
+                calib_samples.append(batch)
+            elif self.calib_bs == 1:
+                calib_samples = samples
+            elif self.calib_bs > 1:
+                for i in range(0, len(samples), self.calib_bs):
+                    start = i
+                    end = min(i + self.calib_bs, len(samples))
+                    batch = samples[start:end]
+                    batch = {'pixel_values': torch.cat([sample['pixel_values'] 
+                                                        for sample in batch], dim=0)}
                     calib_samples.append(batch)
         elif self.calib_dataset_type == 'img_txt':
             if self.calib_bs < 0:

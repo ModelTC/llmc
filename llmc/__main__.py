@@ -83,9 +83,14 @@ def main(config):
 
     if 'eval' in config and 'transformed' in config.eval.eval_pos:
         blockwise_opt.deploy('origin_float')
-        for ppl_eval in eval_list:
-            ppl = ppl_eval.eval(model)
-            logger.info(f'{ppl_eval.dataset} ppl : {ppl}')
+        if config.eval.type == 'acc':
+            for acc_eval in eval_list:
+                acc = acc_eval.eval(model)
+                logger.info(f'{config.eval.name} acc : {acc}')
+        else:
+            for ppl_eval in eval_list:
+                ppl = ppl_eval.eval(model)
+                logger.info(f'{ppl_eval.dataset} ppl : {ppl}')
 
     if 'save' in config and config.save.get('save_trans', False):
         blockwise_opt.save_model(save_trans_path)
