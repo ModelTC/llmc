@@ -1,4 +1,5 @@
 from .bloom import Bloom
+from .deepseekv2 import DeepseekV2
 from .falcon import Falcon
 from .gemma2 import Gemma2
 from .internlm2 import InternLM2
