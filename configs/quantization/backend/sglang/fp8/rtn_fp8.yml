@@ -1,30 +1,32 @@
 base:
     seed: &seed 42
 model:
-    type: model_type
-    path: model path
-    tokenizer_mode: slow
+    type: Llama
+    path: /mnt/nvme0/llm_weights/llama2/llama2-7b/
     torch_dtype: auto
-eval:
-    eval_pos: [fake_quant]
-    name: wikitext2
-    download: False
-    path: eval data path
-    seq_len: 2048
-    # For 7B / 13B model eval, bs can be set to "1", and inference_per_block can be set to "False".
-    # For 70B model eval, bs can be set to "20", and inference_per_block can be set to "True".
-    bs: 1
-    inference_per_block: False
+# eval:
+#     eval_pos: [fake_quant]
+#     name: wikitext2
+#     download: False
+#     path: eval data path
+#     seq_len: 2048
+#     # For 7B / 13B model eval, bs can be set to "1", and inference_per_block can be set to "False".
+#     # For 70B model eval, bs can be set to "20", and inference_per_block can be set to "True".
+#     bs: 1
+#     inference_per_block: False
 quant:
     method: RTN
+    quant_type: float_quant
     weight:
         bit: e4m3
         symmetric: True
         granularity: per_channel
+        use_qtorch: True
     act:
         bit: e4m3
         symmetric: True
         granularity: per_token
+        use_qtorch: True
 save:
     save_sgl: True
-    save_path: /path/to/save_for_sgl_rtn_fp8/
+    save_path: ./save_for_sgl_rtn_fp8/

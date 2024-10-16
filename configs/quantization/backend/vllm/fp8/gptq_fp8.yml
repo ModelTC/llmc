@@ -5,6 +5,15 @@ model:
     path: model path
     tokenizer_mode: slow
     torch_dtype: auto
+calib:
+    name: wikitext2
+    download: False
+    n_samples: 128
+    path: calib data path
+    bs: 1
+    seq_len: 2048
+    preproc: wikitext2_gptq
+    seed: *seed
 eval:
     eval_pos: [fake_quant]
     name: wikitext2
@@ -16,18 +25,27 @@ eval:
     bs: 1
     inference_per_block: False
 quant:
-    method: RTN
+    method: GPTQ
     quant_type: float_quant
     weight:
+        # Support ["e4m3", "e5m2"]
         bit: e4m3
         symmetric: True
         granularity: per_channel
         use_qtorch: True
     act:
+        # Support ["e4m3", "e5m2"]
         bit: e4m3
         symmetric: True
         granularity: per_token
         use_qtorch: True
+    special:
+        actorder: True
+        static_groups: False
+        percdamp: 0.01
+        blocksize: 128
+        true_sequential: True
+    quant_out: True
 save:
-    save_vllm: True
-    save_path: /path/to/save_for_vllm_rtn_fp8/
+    save_sgl: True
+    save_path: /path/to/save_for_vllm_gptq_fp8/

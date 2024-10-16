@@ -69,7 +69,7 @@ quant:
         weight_clip: True
     quant_out: True  
 ```
-Please note that in this step, the `need_pack` parameter must be set to `True`, which will "pack" the 4-bit weights into the `torch.int32` format for **VLLM** to directly load for inference.
+Please note that in this step, the `need_pack` parameter must be set to `True`, which will "pack" the 4-bit weights into the `torch.int32` format for **SGlang** to directly load for inference.
 
 Additionally, if AWQ does not meet accuracy requirements, we recommend using the **AWQ + OmniQuant** combined algorithm as introduced in [this section](https://llmc-en.readthedocs.io/en/latest/practice/awq_omni.html) to further improve accuracy. The corresponding [configuration file](https://github.com/ModelTC/llmc/tree/main/configs/quantization/backend/sglang/w4a16_combin) is also provided.
 
@@ -99,6 +99,9 @@ quant:
     quant_out: True 
 ```
 
+Additionally, if AWQ does not meet accuracy requirements, we recommend using the **Quarot + GPTQ** combined algorithm as introduced in [this section](https://llmc-en.readthedocs.io/en/latest/practice/quarot_gptq.html) to further improve accuracy. The corresponding [configuration file](https://github.com/ModelTC/llmc/tree/main/configs/quantization/backend/sglang/w8a8_combin) is also provided.
+
+
 **FP8**
 
 In the FP8 quantization, it typically offers marginally better precision than INT8. In some cases, the use of the RTN (Round to Nearest) algorithm is sufficient. However, we still recommend utilizing the AWQ algorithm for enhanced quantization accuracy. The specific implementation can be referenced from the AWQ FP8 [configuration](https://github.com/ModelTC/llmc/tree/main/configs/quantization/backend/sglang/fp8/awq_fp8.yml).
@@ -108,16 +111,19 @@ In the FP8 quantization, it typically offers marginally better precision than IN
 # configs/quantization/backend/sglang/fp8/awq_fp8.yml
 quant:
     method: Awq
+    quant_type: float_quant
     weight:
         # Support ["e4m3", "e5m2"]
         bit: e4m3
         symmetric: True
         granularity: per_channel
+        use_qtorch: True
     act:
         # Support ["e4m3", "e5m2"]
         bit: e4m3
         symmetric: True
         granularity: per_token
+        use_qtorch: True
     special:
         trans: True
         trans_version: v2
@@ -125,7 +131,13 @@ quant:
     quant_out: True
 ```
 
-Additionally, if AWQ does not meet accuracy requirements, we recommend using the **Quarot + GPTQ** combined algorithm as introduced in [this section](https://llmc-en.readthedocs.io/en/latest/practice/quarot_gptq.html) to further improve accuracy. The corresponding [configuration file](https://github.com/ModelTC/llmc/tree/main/configs/quantization/backend/sglang/w8a8_combin) is also provided.
+Please ensure that the `quant_type` is set to `float_quant`, which represents floating-point quantization. Additionally, set `use_qtorch` to `True`, as `LLMC`'s floating-point quantization implementation relies on functionalities from the [QPyTorch](https://github.com/Tiiiger/QPyTorch) library.
+
+You can install [QPyTorch](https://github.com/Tiiiger/QPyTorch) using the following command:
+
+```bash
+pip install qtorch
+```
 
 ### 1.3.3 Exporting Real Quantized Model
 
@@ -134,9 +146,9 @@ save:
     save_sgl: True
     save_path: /path/to/save_for_sglang_rtn_w8a16/
 ```
-Please note that you must set `save_sgl` to `True`. For **W4A16** and **W8A16** quantization settings, LLMC will "pack" the weights into `torch.int32` format for direct loading by VLLM, while also exporting the quantization parameters.
+Please note that you must set `save_sgl` to `True`. For **W4A16** and **W8A16** quantization settings, LLMC will "pack" the weights into `torch.int32` format for direct loading by SGlang, while also exporting the quantization parameters.
 
-For the **W8A8** quantization setting, LLMC will quantize the weights into `torch.int8` format for direct loading by VLLM, and export the relevant quantization parameters as well.
+For the **W8A8** quantization setting, LLMC will quantize the weights into `torch.int8` format for direct loading by SGlang, and export the relevant quantization parameters as well.
 
 ### 1.3.4 Running LLMC
 

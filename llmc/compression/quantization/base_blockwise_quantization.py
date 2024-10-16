@@ -18,7 +18,7 @@ from .module_utils import (_LLMC_LINEAR_TYPES_, _LLMC_LN_TYPES_,
                            _REALQUANT_LINEAR_MAP_, _TRANSFORMERS_LINEAR_TYPES_,
                            _TRANSFORMERS_LN_TYPES_, EffcientFakeQuantLinear,
                            FakeQuantLinear, OriginFloatLinear, RotateLinear)
-from .quant import Quantizer
+from .quant import FloatQuantizer, IntegerQuantizer
 from .utils import check_do_quant, check_w_only, get_aquantizer, get_wquantizer
 
 
@@ -92,10 +92,10 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
         for i in range(len(mix_bits_settings)):
             mix_bits_setting = mix_bits_settings[f'setting_{i}']
             if mix_bits_setting['do_quant']:
-                wquantizer_mix_bits = Quantizer(**mix_bits_setting['weight'])
+                wquantizer_mix_bits = self.quant_module(**mix_bits_setting['weight'])
                 if 'act' in mix_bits_setting:
                     w_only_mix_bits = False
-                    aquantizer_mix_bits = Quantizer(**mix_bits_setting['act'])
+                    aquantizer_mix_bits = self.quant_module(**mix_bits_setting['act'])
                 else:
                     w_only_mix_bits = True
                 self.quantizer_mix_bits.append(
@@ -148,14 +148,22 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
         self.tp = self.quant_config.get('tp', 1)
         self.quant_config['weight']['tp'] = self.tp
 
+        # select quant module
+        self.quant_type = self.quant_config.get('quant_type', 'int_quant')
+        if self.quant_type == 'int_quant':
+            self.quant_module = IntegerQuantizer
+        else:
+            self.quant_module = FloatQuantizer
+        logger.info(f'The used Quant Module is {self.quant_module}')
+
         # set weight quant config
-        self.wquantizer = Quantizer(**self.quant_config['weight'])
+        self.wquantizer = self.quant_module(**self.quant_config['weight'])
 
         # set act quant config
         if 'act' in self.quant_config:
             self.w_only = False
             self.quant_config['act']['tp'] = self.tp
-            self.aquantizer = Quantizer(**self.quant_config['act'])
+            self.aquantizer = self.quant_module(**self.quant_config['act'])
         else:
             self.w_only = True
             self.aquantizer = None

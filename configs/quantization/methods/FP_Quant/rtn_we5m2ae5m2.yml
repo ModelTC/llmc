@@ -18,6 +18,7 @@ eval:
     eval_token_consist: True
 quant:
     method: RTN
+    quant_type: float_quant
     weight:
         bit: e5m2
         symmetric: True

@@ -121,21 +121,32 @@ In the FP8 quantization, it typically offers marginally better precision than IN
 # configs/quantization/backend/vllm/fp8/awq_fp8.yml
 quant:
     method: Awq
+    quant_type: float_quant
     weight:
         # Support ["e4m3", "e5m2"]
         bit: e4m3
         symmetric: True
         granularity: per_channel
+        use_qtorch: True
     act:
         # Support ["e4m3", "e5m2"]
         bit: e4m3
         symmetric: True
         granularity: per_token
+        use_qtorch: True
     special:
         trans: True
         trans_version: v2
         weight_clip: True
     quant_out: True
+```
+
+Please ensure that the `quant_type` is set to `float_quant`, which represents floating-point quantization. Additionally, set `use_qtorch` to `True`, as `LLMC`'s floating-point quantization implementation relies on functionalities from the [QPyTorch](https://github.com/Tiiiger/QPyTorch) library.
+
+You can install [QPyTorch](https://github.com/Tiiiger/QPyTorch) using the following command:
+
+```bash
+pip install qtorch
 ```
 
 ### 1.3.3 Exporting Real Quantized Model

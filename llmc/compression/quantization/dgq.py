@@ -8,7 +8,7 @@ from llmc.utils.registry_factory import ALGO_REGISTRY
 
 from .base_blockwise_quantization import BaseBlockwiseQuantization
 from .module_utils import _LLMC_LN_TYPES_, _TRANSFORMERS_LN_TYPES_
-from .quant import Quantizer
+from .quant import IntegerQuantizer
 
 
 @ALGO_REGISTRY
@@ -43,21 +43,22 @@ class DGQ(BaseBlockwiseQuantization):
             self.quant_out = True
         else:
             self.quant_out = False
-
+        self.quant_type = self.quant_config.get('quant_type', 'int_quant')
+        assert self.quant_type != 'float_quant', 'DGQ do not support Float quant now.'
         # set weight quant config
-        self.wquantizer_w4 = Quantizer(**self.quant_config['weight']['w_1'])
+        self.wquantizer_w4 = IntegerQuantizer(**self.quant_config['weight']['w_1'])
         perchannel_setting = {
             'bit': self.quant_config['weight']['w_1']['bit'],
             'symmetric': self.quant_config['weight']['w_1']['symmetric'],
             'granularity': 'per_channel',
         }
-        self.wquantizer_w4_perchannel = Quantizer(**perchannel_setting)
-        self.wquantizer_w8 = Quantizer(**self.quant_config['weight']['w_2'])
+        self.wquantizer_w4_perchannel = IntegerQuantizer(**perchannel_setting)
+        self.wquantizer_w8 = IntegerQuantizer(**self.quant_config['weight']['w_2'])
 
         # set act quant config
         if 'act' in self.quant_config and self.quant_config['act'] is not None:
             self.w_only = False
-            self.aquantizer = Quantizer(**self.quant_config['act'])
+            self.aquantizer = IntegerQuantizer(**self.quant_config['act'])
         else:
             self.w_only = True
 
