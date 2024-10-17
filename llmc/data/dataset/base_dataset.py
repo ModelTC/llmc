@@ -295,7 +295,11 @@ class BaseDataset(metaclass=ABCMeta):
         elif self.calib_dataset_type == 'img_txt':
             calib_samples = self.img_txt_group_samples_wo_mask(samples)
         logger.info(f'len(calib_samples) : {len(calib_samples)}')
-        return calib_samples
+        if self.padding:
+            padding_mask = [calib_sample['attention_mask'] for calib_sample in calib_samples] # noqa
+        else:
+            padding_mask = None
+        return calib_samples, padding_mask
 
     def general_preproc(self, calib_dataset, tokenizer, n_samples, seq_len):
         dataset = calib_dataset.shuffle(seed=self.seed)
