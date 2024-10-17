@@ -166,7 +166,11 @@ class Awq(BaseBlockwiseQuantization):
         if self.weight_clip:
             logger.info('auto_clip start')
             logger.info(f'clip version: {self.clip_version}')
-            self.auto_clip(block, input_feat, n_sample_token=self.config.calib.seq_len)
+            self.auto_clip(
+                block,
+                input_feat,
+                n_sample_token=self.config.calib.get('seq_len', None)
+            )
             logger.info('auto_clip finished')
         else:
             logger.info('disable weight clip')

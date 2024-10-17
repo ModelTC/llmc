@@ -106,7 +106,7 @@ class OsPlus(BaseBlockwiseQuantization):
             self.auto_clip(
                 block,
                 clip_input_feat,
-                n_sample_token=self.config.calib.seq_len,
+                n_sample_token=self.config.calib.get('seq_len', None),
                 eps=3e-1,
             )
 
