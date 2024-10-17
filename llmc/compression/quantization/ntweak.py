@@ -19,8 +19,8 @@ from .train_utils import LossFunction, NativeScalerWithGradNormCount
 
 @ALGO_REGISTRY
 class NormTweaking(BaseBlockwiseQuantization):
-    def __init__(self, model, quant_config, input, config):
-        super().__init__(model, quant_config, input, config)
+    def __init__(self, model, quant_config, input, padding_mask, config):
+        super().__init__(model, quant_config, input, padding_mask, config)
         self.add_quant_config()
 
         model_type = self.config['model']['type']

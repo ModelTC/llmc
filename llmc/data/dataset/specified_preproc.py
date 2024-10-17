@@ -96,7 +96,7 @@ def pileval_omni(calib_dataset, tokenizer, n_samples, seq_len):
         j = i + seq_len
         inp = trainenc.input_ids[:, i:j]
         samples.append(inp)
-    return samples, None
+    return samples
 
 
 @PREPROC_REGISTRY
@@ -187,10 +187,14 @@ def random_truncate_txt(calib_dataset, tokenizer, n_samples, seq_len):
 
 
 @PREPROC_REGISTRY
-def original_txt(calib_dataset, tokenizer, n_samples, seq_len):
+def original_txt(calib_dataset, tokenizer, n_samples, seq_len=None):
     random.shuffle(calib_dataset)
+    n_samples = min(n_samples, len(calib_dataset))
     samples = []
     for i in range(n_samples):
         trainenc = tokenizer(calib_dataset[i], return_tensors='pt')
-        samples.append(trainenc.input_ids)
+        inp = trainenc.input_ids
+        if seq_len and len(inp) > seq_len:
+            inp = inp[:seq_len]
+        samples.append(inp)
     return samples

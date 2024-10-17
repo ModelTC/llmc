@@ -390,7 +390,7 @@ if __name__ == '__main__':
         torch.cuda.empty_cache()
 
         blockwise_opt = ALGO_REGISTRY[config.quant.method](
-            t_model, config.quant, t_model.get_first_block_input(), config
+            t_model, config.quant, t_model.get_first_block_input(), None, config
         )
         blockwise_opt.run_block_loop()
         t_model = blockwise_opt.model

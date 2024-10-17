@@ -17,8 +17,8 @@ from .utils import check_do_quant, check_w_only, get_aquantizer, get_wquantizer
 
 @ALGO_REGISTRY
 class Awq(BaseBlockwiseQuantization):
-    def __init__(self, model, quant_config, input, config):
-        super().__init__(model, quant_config, input, config)
+    def __init__(self, model, quant_config, input, padding_mask, config):
+        super().__init__(model, quant_config, input, padding_mask, config)
         special_config = self.quant_config.get('special', {})
         self.trans = special_config.get('trans', True)
         self.trans_version = special_config.get('trans_version', 'v2')
@@ -130,6 +130,10 @@ class Awq(BaseBlockwiseQuantization):
 
                 if isinstance(out, tuple):
                     out = out[0]
+
+                if self.padding_mask:
+                    org_out = org_out * self.padding_mask[i].unsqueeze(dim=-1).to(org_out.device) # noqa
+                    out = out * self.padding_mask[i].unsqueeze(dim=-1).to(out.device)
 
                 loss = (org_out - out).float().pow(2).mean().item()
                 loss_mean += x.shape[0] * 1.0 / self.n_samples * loss

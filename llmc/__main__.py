@@ -61,23 +61,35 @@ def main(config):
                 logger.info(f'{ppl_eval.dataset} ppl : {ppl}')
     if not config.get('calib', False):
         blockwise_opt = ALGO_REGISTRY[config.quant.method](
-            model, quant_config=config.quant, input=None, config=config
+            model,
+            quant_config=config.quant,
+            input=None,
+            padding_mask=None,
+            config=config
         )
         blockwise_opt.run_block_loop()
     else:
         dataset = BaseDataset(tokenizer.get_tokenizer(), config.calib, model.processor)
-        calib_data = dataset.get_calib_dataset()
+        calib_data, padding_mask = dataset.get_calib_dataset()
         model.collect_first_block_input(calib_data, config.calib.type)
         del calib_data
         gc.collect()
         torch.cuda.empty_cache()
         if not config.get('sparse', False):
             blockwise_opt = ALGO_REGISTRY[config.quant.method](
-                model, config.quant, model.get_first_block_input(), config
+                model,
+                config.quant,
+                model.get_first_block_input(),
+                padding_mask,
+                config
             )
         else:
             blockwise_opt = ALGO_REGISTRY[config.sparse.method](
-                model, config.sparse, model.get_first_block_input(), config
+                model,
+                config.sparse,
+                model.get_first_block_input(),
+                padding_mask,
+                config
             )
         blockwise_opt.run_block_loop()
 
