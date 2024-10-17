@@ -9,21 +9,22 @@ class BaseQuantizer(object):
         self.sym = symmetric
         self.granularity = granularity
         self.kwargs = kwargs
-        if 'calib_algo' in self.kwargs:
-            self.calib_algo = self.kwargs['calib_algo']
-        else:
-            self.calib_algo = 'minmax'
+
+        self.calib_algo = self.kwargs.get('calib_algo', 'minmax')
 
         if self.granularity == 'per_group':
             self.group_size = self.kwargs['group_size']
         elif self.granularity == 'per_head':
             self.head_num = self.kwargs['head_num']
 
-        if 'ste' in self.kwargs and self.kwargs['ste']:
+        self.mse_b_num = self.kwargs.get('mse_b_num', 1)
+
+        if self.kwargs.get('ste', False):
             self.round_func = lambda x: (x.round() - x).detach() + x
         else:
             self.round_func = torch.round
-        self.round_zp = 'round_zp' not in self.kwargs or self.kwargs['round_zp']
+
+        self.round_zp = self.kwargs.get('round_zp', True)
         self.sigmoid = torch.nn.Sigmoid()
 
     def get_tensor_range(self, tensor, args={}):
@@ -34,7 +35,7 @@ class BaseQuantizer(object):
         elif self.calib_algo == 'learnable':
             return self.get_learnable_range(tensor, **args)
         else:
-            logger.info('Calibration Algorithm Not Found!')
+            raise ValueError(f'Unsupported calibration algorithm: {self.calib_algo}')
 
     def get_minmax_range(self, tensor):
         if self.granularity == 'per_tensor':
@@ -47,20 +48,16 @@ class BaseQuantizer(object):
         return (min_val, max_val)
 
     def get_mse_range(self, tensor, grid=100, norm=2.4, maxshrink=0.8, bs=256):
-        if tensor.shape[0] % bs != 0:
-            logger.warning(
-                'Batch size is not a multiple of the tensor size,'
-                'set batch size to {}'.format(
-                    tensor.shape[0]
-                )
-            )
-            bs = tensor.shape[0]
+
+        assert self.mse_b_num >= 1 and tensor.shape[0] % self.mse_b_num == 0, \
+            'Batch number must be divisible by tensor.shape[0],'
+        bs = tensor.shape[0] // self.mse_b_num
         tensor = tensor.float()
         min_val, max_val = self.get_minmax_range(tensor)
 
         dev = tensor.device
 
-        for b_num in range(tensor.shape[0] // bs):
+        for b_num in range(self.mse_b_num):
             _tensor = tensor[b_num * bs: (b_num + 1) * bs, :]
             _min_val, _max_val = (
                 min_val[b_num * bs: (b_num + 1) * bs, :],
@@ -110,6 +107,22 @@ class BaseQuantizer(object):
                 min_val[b_num * bs: (b_num + 1) * bs, :],
                 max_val[b_num * bs: (b_num + 1) * bs, :],
             ) = (best_min_val, best_max_val)
+
+        return (min_val, max_val)
+
+    def get_learnable_range(self, tensor, lowbound_factor=None, upbound_factor=None):
+        min_val, max_val = self.get_minmax_range(tensor)
+        if self.sym:
+            if upbound_factor is not None:
+                abs_max = torch.max(max_val.abs(), min_val.abs())
+                abs_max = abs_max.clamp(min=1e-5)
+                abs_max = self.sigmoid(upbound_factor) * abs_max
+                min_val = -abs_max
+                max_val = abs_max
+        else:
+            if upbound_factor is not None and lowbound_factor is not None:
+                min_val = self.sigmoid(lowbound_factor) * min_val
+                max_val = self.sigmoid(upbound_factor) * max_val
 
         return (min_val, max_val)
 
@@ -436,33 +449,33 @@ class FloatQuantizer(BaseQuantizer):
         if self.use_qtorch:
             try:
                 from qtorch.quant import float_quantize
-                self.float_quantize = float_quantize
-
-                if 'float_range' in self.kwargs:
-                    self.qmin, self.qmax = self.kwargs['float_range']
-                else:
-                    bit_ranges = {
-                        ('e4m3', 8): torch.float8_e4m3fn,
-                        ('e5m2', 8): torch.float8_e5m2,
-                        ('e3m2', 6): (-28, 28),
-                        ('e4m7', 12): (-510, 510),
-                        ('e2m1', 4): (-6, 6),
-                    }
-
-                    key = (self.bit, self.num_bits)
-                    if key in bit_ranges:
-                        if isinstance(bit_ranges[key], tuple):
-                            self.qmin, self.qmax = bit_ranges[key]
-                        else:
-                            finfo = torch.finfo(bit_ranges[key])
-                            self.qmin, self.qmax = finfo.min, finfo.max
-                    else:
-                        raise NotImplementedError('Only 4, 6, 8, and \
-                                                  12-bit quantization is supported.')
-
             except ImportError:
-                raise ImportError('Please install qtorch \
-                                  (pip install qtorch) to use this function.')
+                logger.error('qtorch not found, please install qtorch.')
+                raise ImportError('Please install qtorch (pip install qtorch).')
+
+            self.float_quantize = float_quantize
+
+            if 'float_range' in self.kwargs:
+                self.qmin, self.qmax = self.kwargs['float_range']
+            else:
+                bit_ranges = {
+                    ('e4m3', 8): torch.float8_e4m3fn,
+                    ('e5m2', 8): torch.float8_e5m2,
+                    ('e3m2', 6): (-28, 28),
+                    ('e4m7', 12): (-510, 510),
+                    ('e2m1', 4): (-6, 6),
+                }
+
+                key = (self.bit, self.num_bits)
+                if key in bit_ranges:
+                    if isinstance(bit_ranges[key], tuple):
+                        self.qmin, self.qmax = bit_ranges[key]
+                    else:
+                        finfo = torch.finfo(bit_ranges[key])
+                        self.qmin, self.qmax = finfo.min, finfo.max
+                else:
+                    raise NotImplementedError('Only 4, 6, 8, and \
+                                                12-bit quantization is supported.')
 
     def get_float_qparams(self, tensor, tensor_range, device):
         min_val, max_val = tensor_range[0], tensor_range[1]
