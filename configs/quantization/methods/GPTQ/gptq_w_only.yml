@@ -29,6 +29,8 @@ quant:
         symmetric: False
         granularity: per_group
         group_size: 128
+        # calib_algo: mse
+        # mse_b_num: 2
     special:
         actorder: True
         static_groups: False
