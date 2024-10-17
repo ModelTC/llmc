@@ -19,7 +19,10 @@ class Falcon(BaseModel):
         self.block_name_prefix = 'model.transformer.h'
 
     def get_embed_layers(self):
-        return [self.word_embeddings, self.rotary_emb]
+        return [self.word_embeddings]
+
+    def get_attention_rotary_layers(self):
+        return [self.rotary_emb]
 
     def get_layers_except_blocks(self):
         return [self.word_embeddings, self.rotary_emb, self.model.transformer.ln_f]

@@ -68,6 +68,9 @@ class BaseModel(metaclass=ABCMeta):
     def has_bias(self):
         pass
 
+    def get_attention_rotary_layers(self):
+        return []
+
     def __str__(self):
         return f'\nConfig: \n{str(self.model_config)} \nModel: \n{str(self.model)}'
 
@@ -163,7 +166,9 @@ class BaseModel(metaclass=ABCMeta):
 
     def move_embed_to_device(self, device):
         for embed_layer in self.get_embed_layers():
-            embed_layer = embed_layer.to(device)
+            embed_layer.to(device)
+        for attention_rotary_layer in self.get_attention_rotary_layers():
+            attention_rotary_layer.to(device)
 
     def get_block_linears(self, block):
         return {
