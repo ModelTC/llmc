@@ -194,7 +194,5 @@ def original_txt(calib_dataset, tokenizer, n_samples, seq_len=None):
     for i in range(n_samples):
         trainenc = tokenizer(calib_dataset[i], return_tensors='pt')
         inp = trainenc.input_ids
-        if seq_len and len(inp) > seq_len:
-            inp = inp[:seq_len]
         samples.append(inp)
     return samples

@@ -12,7 +12,6 @@ calib:
     path: ./inputs.txt
     n_samples: 128
     bs: -1
-    seq_len: 512
     preproc: original_txt
     padding: True
     seed: *seed
@@ -27,7 +26,7 @@ eval:
     bs: 1
     inference_per_block: False
     # Consistency of tokens between original and fake-quantized model output.
-    eval_token_consist: True
+    eval_token_consist: False
 quant:
     method: Awq
     weight:

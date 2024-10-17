@@ -386,7 +386,7 @@ class OmniQuant(BaseBlockwiseQuantization):
                 n,
                 m.weight.data,
                 inputs,
-                n_sample_token=self.config.calib.seq_len,
+                n_sample_token=self.config.calib.get('seq_len', None),
             )
 
             up_factor, low_factor = self.get_clip_factor(m, min_val, max_val, n)

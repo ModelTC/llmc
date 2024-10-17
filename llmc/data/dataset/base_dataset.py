@@ -25,8 +25,10 @@ class BaseDataset(metaclass=ABCMeta):
         self.calib_dataset_path = calib_cfg.get('path', None)
         self.n_samples = calib_cfg['n_samples']
         self.calib_bs = calib_cfg['bs']
-        self.seq_len = calib_cfg['seq_len']
+        self.seq_len = calib_cfg.get('seq_len', None)
         self.preproc = calib_cfg['preproc']
+        if self.preproc == 'original_txt':
+            assert self.seq_len is None
         self.seed = calib_cfg['seed']
         self.dataset_key = {
             'pileval': 'text',

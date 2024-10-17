@@ -648,11 +648,16 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
                     input[i] = input[i].to(w.device)
                     x = input[i]
                     x = x.view(-1, x.shape[-1])
+                    if self.padding_mask:
+                        mask_tmp = self.padding_mask[i].flatten()
+                        x = x[mask_tmp.bool()]
                     try:
                         x = x.reshape(1, x.shape[0], -1, group_size)
                     except RuntimeError:
                         x = self.wquantizer.reshape_tensor(x)
                         x = x.reshape(1, x.shape[0], -1, group_size)
+                    if n_sample_token is None:
+                        n_sample_token = min(x.shape[1], 512)
                     x = x[:, 0:: x.shape[1] // n_sample_token]
                     if i in org_out_dict:
                         org_out = org_out_dict[i]
