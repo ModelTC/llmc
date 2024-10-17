@@ -23,8 +23,8 @@ from .utils import check_do_quant, check_w_only, get_aquantizer, get_wquantizer
 
 
 class BaseBlockwiseQuantization(BlockwiseOpt):
-    def __init__(self, model, quant_config, input, config):
-        super().__init__(model, quant_config, input, config)
+    def __init__(self, model, quant_config, input, padding_mask, config):
+        super().__init__(model, quant_config, input, padding_mask, config)
         self.set_quant_config()
 
     def w_qdq(self, module, wquantizer):

@@ -18,8 +18,8 @@ from .quant import IntegerQuantizer
 
 @ALGO_REGISTRY
 class SpQR(BaseBlockwiseQuantization):
-    def __init__(self, model, quant_config, input, config):
-        super().__init__(model, quant_config, input, config)
+    def __init__(self, model, quant_config, input, padding_mask, config):
+        super().__init__(model, quant_config, input, padding_mask, config)
         assert (
             self.wquantizer.granularity == 'per_group'
         ), 'SpQR only supports per_group quantization'

@@ -8,8 +8,8 @@ from .base_blockwise_quantization import BaseBlockwiseQuantization
 
 @ALGO_REGISTRY
 class RTN(BaseBlockwiseQuantization):
-    def __init__(self, model, quant_config, input, config):
-        super().__init__(model, quant_config, input, config)
+    def __init__(self, model, quant_config, input, padding_mask, config):
+        super().__init__(model, quant_config, input, padding_mask, config)
         if quant_config.get('act', False) and quant_config['act'].get('static', False):
             logger.info('Activation quant is static. Calibration is required.')
             self.act_static = True
