@@ -16,8 +16,8 @@ from .module_utils import (_LLMC_LN_TYPES_, _TRANSFORMERS_LN_TYPES_,
 
 @ALGO_REGISTRY
 class Quarot(BaseBlockwiseQuantization):
-    def __init__(self, model, quant_config, input, config):
-        super().__init__(model, quant_config, input, config)
+    def __init__(self, model, quant_config, input, padding_mask, config):
+        super().__init__(model, quant_config, input, padding_mask, config)
         self.dev = torch.device('cuda')
         self.add_quant_config()
         self.preprocess()
