@@ -432,33 +432,37 @@ class FloatQuantizer(BaseQuantizer):
         self.num_bits = self.e_bits + self.m_bits + self.sign_bits
         self.default_bias = 2 ** (self.e_bits - 1)
 
-        if 'float_range' in self.kwargs:
-            self.qmin, self.qmax = self.kwargs['float_range']
-        else:
-            # E4M3 E5M2
-            if self.num_bits == 8 and self.bit in ['e4m3', 'e5m2']:
-                fp8_dtype = torch.float8_e4m3fn if self.bit == 'e4m3'\
-                    else torch.float8_e5m2
-                finfo = torch.finfo(fp8_dtype)
-                self.qmin, self.qmax = finfo.min, finfo.max
-            # E3M2
-            elif self.num_bits == 6:
-                self.qmin, self.qmax = -28, 28
-            # E4M7
-            elif self.num_bits == 12:
-                self.qmin, self.qmax = -510, 510
-            # E2M1
-            else:
-                self.qmin, self.qmax = -6, 6
-
         self.use_qtorch = self.kwargs.get('use_qtorch')
         if self.use_qtorch:
             try:
                 from qtorch.quant import float_quantize
                 self.float_quantize = float_quantize
-                assert self.bit in ['e4m3', 'e5m2', 'e3m2', 'e2m1', 'e4m7']
+
+                if 'float_range' in self.kwargs:
+                    self.qmin, self.qmax = self.kwargs['float_range']
+                else:
+                    bit_ranges = {
+                        ('e4m3', 8): torch.float8_e4m3fn,
+                        ('e5m2', 8): torch.float8_e5m2,
+                        ('e3m2', 6): (-28, 28),
+                        ('e4m7', 12): (-510, 510),
+                        ('e2m1', 4): (-6, 6),
+                    }
+
+                    key = (self.bit, self.num_bits)
+                    if key in bit_ranges:
+                        if isinstance(bit_ranges[key], tuple):
+                            self.qmin, self.qmax = bit_ranges[key]
+                        else:
+                            finfo = torch.finfo(bit_ranges[key])
+                            self.qmin, self.qmax = finfo.min, finfo.max
+                    else:
+                        raise NotImplementedError('Only 4, 6, 8, and \
+                                                  12-bit quantization is supported.')
+
             except ImportError:
-                raise ImportError('Please install qtorch to use this function')
+                raise ImportError('Please install qtorch \
+                                  (pip install qtorch) to use this function.')
 
     def get_float_qparams(self, tensor, tensor_range, device):
         min_val, max_val = tensor_range[0], tensor_range[1]
