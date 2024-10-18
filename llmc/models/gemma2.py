@@ -1,34 +1,12 @@
-from loguru import logger
-
 from llmc.utils.registry_factory import MODEL_REGISTRY
-
-try:
-    from transformers.models.gemma2.modeling_gemma2 import Gemma2RMSNorm
-except Exception:
-    logger.warning('Gemma2 not found')
-from types import MethodType
-
-import torch.nn as nn
 
 from .base_model import BaseModel
 
 
-def gemma2_rms_norm_forward(self, x):
-    output = self._norm(x.float())
-    output = output * self.weight.float()
-    return output.type_as(x)
-
-
 @MODEL_REGISTRY
 class Gemma2(BaseModel):
-    def __init__(self, model_path, torch_dtype, device_map=None, use_cache=False):
-        super().__init__(model_path, torch_dtype, device_map, use_cache)
-        for m in self.model.modules():
-            if isinstance(m, Gemma2RMSNorm):
-                w = m.weight.data
-                del m.weight
-                m.weight = nn.Parameter(w + 1.0)
-                m.forward = MethodType(gemma2_rms_norm_forward, m)
+    def __init__(self, model_path, torch_dtype):
+        super().__init__(model_path, torch_dtype)
 
     def find_blocks(self):
         self.blocks = self.model.model.layers
@@ -43,17 +21,8 @@ class Gemma2(BaseModel):
     def get_embed_layers(self):
         return [self.embed_tokens]
 
-    def get_head_layers(self):
-        return [self.model.lm_head]
-
-    def get_pre_head_layernorm_layers(self):
-        return [self.model.model.norm]
-
     def get_layers_except_blocks(self):
         return [self.embed_tokens, self.model.model.norm, self.model.lm_head]
-
-    def skip_layer_name(self):
-        return ['lm_head']
 
     def has_bias(self):
         return False
@@ -93,7 +62,6 @@ class Gemma2(BaseModel):
                 'input': ['mlp.gate_proj'],
                 'inspect': block.mlp,
                 'has_kwargs': False,
-                'is_mlp': True,
             },
             {
                 'layers': {'mlp.down_proj': block.mlp.down_proj},
@@ -101,6 +69,5 @@ class Gemma2(BaseModel):
                 'input': ['mlp.down_proj'],
                 'inspect': block.mlp.down_proj,
                 'has_kwargs': False,
-                'is_mlp': True,
             },
         ]

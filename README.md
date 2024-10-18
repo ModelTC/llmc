@@ -1,4 +1,4 @@
-# LLMC: Towards Accurate and Efficient LLM Compression
+# llmc: Towards Accurate and Efficient LLM Compression
 
 <img src="./imgs/llmc.png" alt="llmc" style="zoom:35%;" />
 
@@ -13,53 +13,20 @@
 
 **\[ English | [中文](README_zh.md) | [日本語](README_ja.md) \]**
 
-**LLMC** is an off-the-shell tool designed for compressing LLM, leveraging state-of-the-art compression algorithms to enhance efficiency and reduce model size without compromising performance.
+**llmc** is an off-the-shell tool designed for compressing LLM, leveraging state-of-the-art compression algorithms to enhance efficiency and reduce model size without compromising performance.
 
 **English doc** is [here](https://llmc-en.readthedocs.io/en/latest/).
 
 **Chinese doc** is [here](https://llmc-zhcn.readthedocs.io/en/latest/).
-
-**docker hub** is [here](https://hub.docker.com/r/llmcompression/llmc).
-
-**aliyun docker**: `registry.cn-hangzhou.aliyuncs.com/yongyang/llmcompression:[tag]`
-
-You can download the Docker image that can run llmc with the following command. Users in mainland China are recommended to use Alibaba Cloud Docker.
-
-docker hub
-
-```
-docker pull llmcompression/llmc:pure-latest
-```
-
-aliyun docker
-
-```
-docker pull registry.cn-hangzhou.aliyuncs.com/yongyang/llmcompression:pure-latest
-```
 
 **Community**:
 
 - [Discord Server](https://discord.gg/qZKUDfhm)
 - [Tencent QQ Group](http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=I9IGPWWj8uuRXWH3_ELWjouf6gkIMgUl&authKey=GA3WbFAsm90ePJf%2FCbc7ZyXXq4ShQktlBaLxgqS5yuSPAsr3%2BDKMRdosUiLYoilO&noverify=0&group_code=526192592)
 
-## Latest News
+## News
 
-- **Sep 26, 2024:** 🔥 We now support exporting 💥`FP8 quantized(E4M3, E5M2)` models from 🚀`LLMC` to advanced inference backends such as [VLLM](https://github.com/vllm-project/vllm) and [SGLang](https://github.com/sgl-project/sglang). For detailed usage, please refer to the [VLLM documentation](https://llmc-en.readthedocs.io/en/latest/backend/vllm.html) and [SGLang documentation](https://llmc-en.readthedocs.io/en/latest/backend/sglang.html).
-
-- **Sep 24, 2024:** 🔥 We have officially released ✅INT4 and ✅INT8 models of ✨`Llama-3.1-405B`, quantized using 🚀`LLMC` in `save_lightllm` mode. You can download the model parameters [here](https://huggingface.co/Dongz/llama31-405b-quant).
-
-- **Sep 23, 2024:** 🔥 We now support exporting ✨`real quantized(INT4, INT8)` models from 🚀`LLMC` to advanced inference backends such as [VLLM](https://github.com/vllm-project/vllm), [SGLang](https://github.com/sgl-project/sglang), [AutoAWQ](https://github.com/casper-hansen/AutoAWQ), and [MLC-LLM](https://github.com/mlc-ai/mlc-llm) for quantized inference deployment, enabling ✨`reduced memory usage` and ✨`faster inference speeds`.
-  For detailed usage, please refer to the [VLLM documentation](https://llmc-en.readthedocs.io/en/latest/backend/vllm.html), [SGLang documentation](https://llmc-en.readthedocs.io/en/latest/backend/sglang.html), [AutoAWQ documentation](https://llmc-en.readthedocs.io/en/latest/backend/autoawq.html), and [MLC-LLM documentation](https://llmc-en.readthedocs.io/en/latest/backend/mlcllm.html).
-
-- **Sep 9, 2024:** 🔥 We provide some configs of our best practice towards superior performance (see Best Practice [here](https://llmc-en.readthedocs.io/en/latest/)).
-
-* **Sep 3, 2024:** 🔥 We support [opencompass](https://github.com/open-compass/opencompass) 🤗 to eval 🚀`LLMC` model. Follow this [doc](https://llmc-en.readthedocs.io/en/latest/advanced/model_test_v2.html) and have a try!
-
-* **Aug 22, 2024:** 🔥We support lots of small language models, including current SOTA [SmolLM](https://huggingface.co/collections/HuggingFaceTB/smollm-6695016cad7167254ce15966)(see [Supported Model List](#supported-model-list)).
-
-* **Aug 22, 2024:** 🔥 Additionally, we also support down stream task evaluation through our modified [lm-evaluation-harness](https://github.com/EleutherAI/lm-evaluation-harness) 🤗. Specifically, people can first employ `save_trans` mode(see `save` part in [Configuration](https://llmc-en.readthedocs.io/en/latest/configs.html)) to save a weight modified model. After obtaining the transformed model, they can directly evaluate the quantized model referring to [run_lm_eval.sh](scripts/run_lm_eval.sh). More details can be found in [here](https://llmc-en.readthedocs.io/en/latest/advanced/model_test_v1.html).
-
-* **Jul 23, 2024:** 🍺🍺🍺 We release a brand new version benchmark paper:
+- **Jul 23, 2024:** 🍺🍺🍺 We release a brand new version benchmark paper:
 
   [**LLMC: Benchmarking Large Language Model Quantization with a Versatile Compression Toolkit**](https://arxiv.org/abs/2405.06001v2).
 
@@ -67,12 +34,20 @@ docker pull registry.cn-hangzhou.aliyuncs.com/yongyang/llmcompression:pure-lates
 
   (\* denotes equal contribution, 📧 denotes corresponding author.)
 
-<details close>
-<summary>Previous News</summary>
+  <div align=center>
+   <img src="./imgs/K.png" alt="comp" width="800" />
+  </div>
+
+  Instead of focusing on the best practice, We modularly and fairly benchmark LLM quantization considering calibration data, algorithms, and data formats. With detailed observation and analysis, we provide various types of novel points for performance and method improvements under different configurations. With the powerful toolkit LLMC and comprehensive insights, future LLM researchers can efficiently integrate suitable algorithms and low-bit formats for their applications, thereby democratizing the compression of large language models.
 
 - **Jul 16, 2024:** 🔥We support Wanda/Naive(Magnitude) for llm sparsification and layer-wise mix bits quantization now!
 
 - **Jul 14, 2024:** 🔥We support rotation based quantization QuaRot now!
+
+- **Jul 4, 2024:** 📱 We open our discussion channel. If you have any questions, please join our community:
+
+  - [Discord Server](https://discord.gg/qZKUDfhm)
+  - [Tencent QQ Group](http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=I9IGPWWj8uuRXWH3_ELWjouf6gkIMgUl&authKey=GA3WbFAsm90ePJf%2FCbc7ZyXXq4ShQktlBaLxgqS5yuSPAsr3%2BDKMRdosUiLYoilO&noverify=0&group_code=526192592)
 
 - **May 17, 2024:** 🚀 We support some advanced large models, e.g., LLaVA, Mixtral, LLaMA V3 and Qwen V2 now. Have a try!
 
@@ -94,23 +69,157 @@ docker pull registry.cn-hangzhou.aliyuncs.com/yongyang/llmcompression:pure-lates
 
 - **Mar 7, 2024:** 🚀 We release the quantization part of a powerful and efficient LLM compression tool. Notably, our benchmark paper is coming soon😊.
 
-</details>
-
 ## Highlight Feature
 
-- 💥**Comprehensive Algorithm Support**: Provides a broad range of ✨`SOTA compression algorithms`, including ✅quantization, ✅mixed-precision quantization, and ✅sparsity, while maintaining accuracy consistent with the original repositories. ✨`Quantization best practices` (see 🚀`Best Practices` [here](https://llmc-en.readthedocs.io/en/latest/)) are also available to ensure optimal performance and efficiency.
-
-- 💥**Supported Formats**: Supports both ✨`quantization` (integer and floating-point) and ✨`sparsity`, specifically including ✅weight-activation, ✅weight-only, ✅mixed-precision quantization, as well as ✅structured and ✅unstructured sparsity.
-
-- 💥**Wide Model Support**: Offers support for a diverse array of ✨`LLM models`, including ✅LLama, ✅Mistral, ✅InternLM2, ✅Qwen2, among others, as well as ✅MOE and ✅VLM models (see [Supported Model List](#supported-model-list)).
-
-- 💥**Multi-backend Compatibility**: Seamlessly integrates with various backends for enhanced deployment flexibility. Multiple quantization settings and model formats are compatible with a wide range of backends and hardware platforms, such as ✅VLLM, ✅Sglang, ✅LightLLM, ✅MLC-LLM, and ✅AutoAWQ, making it highly versatile(see Section `Backend` [here](https://llmc-en.readthedocs.io/en/latest/)).
-
-- 💥**Performance Efficiency**: Enables quantization of large LLMs, such as ✨`Llama3.1-405B` and ✨`OPT-175B`, with PPL evaluation on a `single A100/H100/H800 GPU`.
+- Quantize LLMs, e.g., Llama2-70B, OPT-175B,  and evaluate their PPL on only one A100/H100/H800 GPU💥.
+- SOTA compression algorithms [align with the origin repos](benchmark/align.md), for users to choose from, and users can sequentially employ multiple algorithms on one LLM💥.
+- Transformed model (`save_trans`  mode in `quant` part in [Configuration](#configuration)) exported by our tool with a specifical compression algorithm can go through naive quantization by multiple backends, e.g., [Lightllm](https://github.com/ModelTC/lightllm), [TensorRT-LLM](https://github.com/NVIDIA/TensorRT-LLM) to get a specifical-compression-algorithm-optimized model, which the corresponding backend can infer 💥.
+- Our compressed model (`save_lightllm`  mode in `quant` part in [Configuration](#configuration)) with a shallow memory footprint can be directly inferred by [Lightllm](https://github.com/ModelTC/lightllm)💥.
 
 ## Usage
 
-Please refer to the 🚀`Quick Start` section in the [documentation](https://llmc-en.readthedocs.io/en/latest/).
+1. Clone this repository and install packages:
+
+   ```shell
+   # install packages
+   cd llmc
+   pip install -r requirements.txt
+   ```
+
+2. Prepare models and data.
+
+   ```shell
+   # After downloading LLMs from huggingface, prepare calibration and evaluation data as follows:
+   cd tools
+   python download_calib_dataset.py --save_path [calib data path]
+   python download_eval_dataset.py --save_path [eval data path]
+   ```
+
+3. Choose an algorithm to quantize your model:
+
+   ```shell
+   # Here's an example about Awq:
+   cd scripts
+   # Modify the path of llmc, ``llmc_path``, in the bash file. You can also choose one config
+   # placed in ``llmc/configs/quantization/Awq/`` to quantize your model, or your own
+   # config referring to those we provide by changing the ``--config`` argument in run_awq_llama.sh.
+   bash run_awq_llama.sh
+   ```
+
+## Configuration
+
+To help users design their configs, we now explain some universal configurations in all configs we provide under `llmc/configs/`:
+
+- `model`:
+
+  ```yaml
+  model:
+      # Replace by the name of the class in ``llmc/models/*.py``.
+      type: Llama
+      # Replace by the path of your model.
+      path: model path
+      torch_dtype: auto
+  ```
+
+- `calib`:
+
+  ```yaml
+  # Note: some algorithms do not need ``calib``, like naive... So, you can remove this part.
+  calib:
+      # Replace by the calibration data name, e.g., pileval, c4, wikitext2, or ptb, downloaded before.
+      name: pileval
+      download: False
+      # Replace by the path of one of the calibration data, e.g., pileval, c4, wikitext2, or ptb,
+      # downloaded before.
+      path: calib data path
+      n_samples: 128
+      bs: -1
+      seq_len: 512
+      # Replace by the function name in ``llmc/data/dataset/specified_preproc.py``.
+      preproc: general
+      seed: *seed
+  ```
+
+- `eval`:
+
+  ```yaml
+  # If you want to evaluate PPL of your pretrained/transformed/fake_quant model.
+  eval:
+      # You can evaluate the pretrain, transformed, fake_quant model, and set the position
+      # you want to evaluate.
+      eval_pos: [pretrain, transformed, fake_quant]
+      # Replace by the name of the eval data, e.g., c4, wikitext2, ptb or [c4, wikitext2],
+      # downloaded before.
+      name: wikitext2
+      download: False
+      path: eval data path
+      # For 70B model eval, bs can be set to 20, and inference_per_block can be set to True.
+      # For 7B / 13B model eval, bs can be set to 1, and inference_per_block can be set to False.
+      bs: 1
+      inference_per_block: False
+      seq_len: 2048
+  ```
+
+- `save`:
+
+  ```yaml
+  save:
+      # ``save_trans`` is True, which means you want to export the transformed model, e.g., parameter-modified
+      # model, whose performance and structure are the same as the original model, and users can
+      # utilize naive quantization to the transformed model to obtain the same performance as
+      # the specifical-algorithm-quantized model.
+      save_trans: False
+      # ``save_lightllm`` is True, which means you want to export a real quant model, e.g.,
+      # low-bit weights with weight and activation quantization parameters.
+      save_lightllm: False
+      # ``save_fake`` is True means you want to export fake_quant model, e.g.,
+      # dequantized weight with activation quantization parameters.
+      save_fake: False
+      save_path: ./save
+  ```
+
+- `quant`:
+
+  ```yaml
+  quant:
+      # Replace by the class name in ``llmc/compression/quantization/*.py``
+      method: OmniQuant
+      # weight-only quantization does not have ``act`` part.
+      weight:
+          bit: 8
+          symmetric: True
+          # Quantization granularity: per_channel, per_tensor, per_head (not recommended).
+          granularity: per_channel
+          group_size: -1
+          # Calibration algorithms: learnble, mse, and minmax (default).
+          calib_algo: learnable
+          # Utilize Stright-Through Estimation, which is necessary for learnable
+          # calibration algorithms.
+          ste: True
+      act:
+          bit: 8
+          symmetric: True
+          # Quantization granularity: per_token, per_tensor
+          granularity: per_token
+          ste: True
+          # Static quantization (quantization during calibration)or dynamic
+          # quantization (quantization during inference).
+          static: True
+      # This part is designed for specific algorithms, users can refer to
+      # those we provide to design their own.
+      special:
+          let: True
+          lwc_lr: 0.01
+          let_lr: 0.005
+          use_shift: False
+          alpha: 0.5
+          deactive_amp: True
+          epochs: 20
+          wd: 0
+      # If quant_out is True, employ the outputs of the former quantized block as the
+      # calibration data of the proceeding block.
+      quant_out: True
+  ```
 
 ## Supported Model List
 
@@ -138,33 +247,7 @@ Please refer to the 🚀`Quick Start` section in the [documentation](https://llm
 
 ✅ [LLaVA](https://github.com/haotian-liu/LLaVA)
 
-✅ [InternLM2.5](https://huggingface.co/internlm)
-
-✅ [StableLM](https://github.com/Stability-AI/StableLM)
-
-✅ [Gemma2](https://huggingface.co/docs/transformers/main/en/model_doc/gemma2)
-
-✅ [Phi2](https://huggingface.co/microsoft/phi-2)
-
-✅ [Phi 1.5](https://huggingface.co/microsoft/phi-1_5)
-
-✅ [MiniCPM](https://github.com/OpenBMB/MiniCPM)
-
-✅ [SmolLM](https://huggingface.co/collections/HuggingFaceTB/smollm-6695016cad7167254ce15966)
-
 You can add your own model type referring to files under `llmc/models/*.py`.
-
-## Supported Backend List
-
-✅ [VLLM](https://github.com/vllm-project/vllm)
-
-✅ [LightLLM](https://github.com/ModelTC/lightllm)
-
-✅ [Sglang](https://github.com/sgl-project/sglang)
-
-✅ [MLC-LLM](https://github.com/mlc-ai/mlc-llm)
-
-✅ [AutoAWQ](https://github.com/casper-hansen/AutoAWQ)
 
 ## Supported Algorithm List
 
@@ -225,7 +308,6 @@ We develop our code referring to the following repos:
 - https://github.com/mobiusml/hqq
 - [https://github.com/spcl/QuaRot](https://github.com/spcl/QuaRot)
 - [https://github.com/locuslab/wanda](https://github.com/locuslab/wanda)
-- [https://github.com/EleutherAI/lm-evaluation-harness](https://github.com/EleutherAI/lm-evaluation-harness)
 
 ## Star History
 

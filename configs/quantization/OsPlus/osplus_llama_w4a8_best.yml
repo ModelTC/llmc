@@ -1,0 +1,46 @@
+base:
+    seed: &seed 42
+model:
+    type: Llama
+    path: model path
+    torch_dtype: auto
+calib:
+    name: pileval
+    download: False
+    path: calib data path
+    n_samples: 1
+    bs: 1
+    seq_len: 512
+    preproc: general
+    seed: *seed
+eval:
+    eval_pos: [pretrain, transformed, fake_quant]
+    name: wikitext2
+    download: False
+    path: eval data path
+    bs: 1
+    seq_len: 2048
+quant:
+    method: OsPlus
+    weight:
+        bit: 4
+        symmetric: False
+        granularity: per_channel
+        group_size: -1
+        calib_algo: learnable
+    act:
+        bit: 8
+        symmetric: False
+        granularity: per_token
+    special:
+        use_shift: False
+        weight_clip: True
+        save_scale: True
+        scale_path: scale path
+        save_clip: True
+        clip_path: clip path
+        clip_version: v2
+    quant_out: True
+save:
+    save_trans: False
+    save_path: ./save

@@ -17,8 +17,8 @@ from .base_blockwise_sparsification import BaseBlockwiseSparsification
 
 @ALGO_REGISTRY
 class ShortGPT(BaseBlockwiseSparsification):
-    def __init__(self, model, sparsity_config, input, padding_mask, config):
-        super().__init__(model, sparsity_config, input, padding_mask, config)
+    def __init__(self, model, sparsity_config, input, config):
+        super().__init__(model, sparsity_config, input, config)
 
     def block_opt(self, block):
         block = block.cuda()

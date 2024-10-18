@@ -5,8 +5,8 @@ from .base_model import BaseModel
 
 @MODEL_REGISTRY
 class Opt(BaseModel):
-    def __init__(self, model_path, torch_dtype, device_map=None, use_cache=False):
-        super().__init__(model_path, torch_dtype, device_map, use_cache)
+    def __init__(self, model_path, torch_dtype):
+        super().__init__(model_path, torch_dtype)
 
     def find_blocks(self):
         self.blocks = self.model.model.decoder.layers
@@ -37,9 +37,6 @@ class Opt(BaseModel):
         if self.model.model.decoder.final_layer_norm:
             layers.append(self.model.model.decoder.final_layer_norm)
         return layers
-
-    def skip_layer_name(self):
-        return ['lm_head']
 
     def has_bias(self):
         return True

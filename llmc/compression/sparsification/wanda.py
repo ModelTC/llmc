@@ -9,12 +9,12 @@ from .base_blockwise_sparsification import BaseBlockwiseSparsification
 
 @ALGO_REGISTRY
 class Wanda(BaseBlockwiseSparsification):
-    def __init__(self, model, sparsity_config, input, padding_mask, config):
-        super().__init__(model, sparsity_config, input, padding_mask, config)
+    def __init__(self, model, sparsity_config, input, config):
+        super().__init__(model, sparsity_config, input, config)
 
     @torch.no_grad()
     def get_row_scale(self, layer, act):
-        if len(act.shape) == 2:
+        if len(act) == 2:
             act = act.unsqueeze(0)
         nsamples = act.shape[0]
         if isinstance(layer, nn.Linear):

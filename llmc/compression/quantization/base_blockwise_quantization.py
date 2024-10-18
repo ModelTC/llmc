@@ -1,12 +1,10 @@
 import functools
 import gc
 import json
-import os
 from collections import defaultdict
 from functools import partial
 
 import torch
-import torch.distributed as dist
 import torch.nn as nn
 from loguru import logger
 
@@ -15,16 +13,18 @@ from llmc.utils import copy_files
 from ..blockwise_optimization import BlockwiseOpt
 from .hadamard_utils import apply_exact_had_to_linear, get_hadK
 from .module_utils import (_LLMC_LINEAR_TYPES_, _LLMC_LN_TYPES_,
-                           _REALQUANT_LINEAR_MAP_, _TRANSFORMERS_LINEAR_TYPES_,
+                           _TRANSFORMERS_LINEAR_TYPES_,
                            _TRANSFORMERS_LN_TYPES_, EffcientFakeQuantLinear,
-                           FakeQuantLinear, OriginFloatLinear, RotateLinear)
-from .quant import FloatQuantizer, IntegerQuantizer
+                           FakeQuantLinear, OriginFloatLinear, RealQuantLinear,
+                           RotateLinear)
+from .quant import Quantizer
+from .rotate_utils import ActRotater, WeightRotater
 from .utils import check_do_quant, check_w_only, get_aquantizer, get_wquantizer
 
 
 class BaseBlockwiseQuantization(BlockwiseOpt):
-    def __init__(self, model, quant_config, input, padding_mask, config):
-        super().__init__(model, quant_config, input, padding_mask, config)
+    def __init__(self, model, quant_config, input, config):
+        super().__init__(model, quant_config, input, config)
         self.set_quant_config()
 
     def w_qdq(self, module, wquantizer):
@@ -45,7 +45,14 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
     def logit(self, x):
         return torch.log(x / (1 - x))
 
-    def get_replacement_params(self, mode='fake_quant', w_only=False, name=None):
+    def random_orthogonal_matrix(self, hidden_size, dev):
+        torch.cuda.empty_cache()
+        random_matrix = torch.randn(size, size, dtype=torch.float64).to(device)
+        q, r = torch.linalg.qr(random_matrix)
+        q *= torch.sign(torch.diag(r)).unsqueeze(0)
+        return q
+
+    def get_replacement_params(self, mode='fake_quant', w_only=False, name=None, args={}):
         params_dict = {}
         if mode == 'fake_quant':
             if not self.mix_bits:
@@ -65,37 +72,47 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
                 params_dict['aquantizer_default'] = self.aquantizer
                 params_dict['w_only_default'] = w_only
 
-        elif mode in _REALQUANT_LINEAR_MAP_.keys():
+        elif mode == 'real_quant':
             params_dict['w_q'] = partial(self.w_q, wquantizer=self.wquantizer)
             params_dict['quant_config'] = self.quant_config
 
-        elif mode == 'online_rotate':
+        elif mode == 'rotate':
+            params_dict['w_rot'], params_dict['a_rot'] = None, None
+            if hasattr(self, 'weight_rotate') and self.weight_rotate:
+                params_dict['w_rot'] = partial(self.w_rot, w_rotater=self.w_rotater, args=args)
 
-            had_K, K = get_hadK(
-                self.intermediate_size if 'down_proj' in name else self.num_heads
-            )
-            params_dict = {
-                'had_K': had_K,
-                'K': K,
-                'online_full_had': 'down_proj' in name,
-                'online_partial_had': 'o_proj' in name,
-                'had_dim': (
-                    None if 'down_proj' in name else self.hidden_size // self.num_heads
-                ),
-                'fp32_had': self.fp32_had,
-            }
+            if hasattr(self, 'online_rotate') and self.online_rotate:
+                if hasattr(self, 'weight_rotate') and self.weight_rotate:
+                    if name is None or not 'down_proj' in name:
+                        return params_dict
+                else:
+                    if name is None or not ('down_proj' in name):
+                        return params_dict
+
+                had_K, K = get_hadK(
+                    self.intermediate_size if 'down_proj' in name else self.num_heads
+                )
+                a_rotater = ActRotater(
+                    online_full_had=True if 'down_proj' in name else False,
+                    online_partial_had=True if 'o_proj' in name else False,
+                    fp32_had=self.fp32_had,
+                    K=K,
+                    had_K=had_K,
+                    had_dim=None if 'down_proj' in name else self.hidden_size // self.num_heads,
+                )
+                params_dict['a_rot'] = partial(self.a_rot, a_rotater=a_rotater)
+
 
         return params_dict
 
     def alloc_bits(self, mix_bits_settings):
-
         for i in range(len(mix_bits_settings)):
             mix_bits_setting = mix_bits_settings[f'setting_{i}']
             if mix_bits_setting['do_quant']:
-                wquantizer_mix_bits = self.quant_module(**mix_bits_setting['weight'])
+                wquantizer_mix_bits = Quantizer(**mix_bits_setting['weight'])
                 if 'act' in mix_bits_setting:
                     w_only_mix_bits = False
-                    aquantizer_mix_bits = self.quant_module(**mix_bits_setting['act'])
+                    aquantizer_mix_bits = Quantizer(**mix_bits_setting['act'])
                 else:
                     w_only_mix_bits = True
                 self.quantizer_mix_bits.append(
@@ -145,25 +162,14 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
         self.quantizer_mix_bits = []
 
         self.quant_out = self.quant_config.get('quant_out', False)
-        self.tp = self.quant_config.get('tp', 1)
-        self.quant_config['weight']['tp'] = self.tp
-
-        # select quant module
-        self.quant_type = self.quant_config.get('quant_type', 'int_quant')
-        if self.quant_type == 'int_quant':
-            self.quant_module = IntegerQuantizer
-        else:
-            self.quant_module = FloatQuantizer
-        logger.info(f'The used Quant Module is {self.quant_module}')
 
         # set weight quant config
-        self.wquantizer = self.quant_module(**self.quant_config['weight'])
+        self.wquantizer = Quantizer(**self.quant_config['weight'])
 
         # set act quant config
         if 'act' in self.quant_config:
             self.w_only = False
-            self.quant_config['act']['tp'] = self.tp
-            self.aquantizer = self.quant_module(**self.quant_config['act'])
+            self.aquantizer = Quantizer(**self.quant_config['act'])
         else:
             self.w_only = True
             self.aquantizer = None
@@ -210,28 +216,11 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
             assert self.config['model']['type'] in ['Opt', 'Llama']
 
         self.hidden_size = self.model.model_config.hidden_size
-        if self.online_rotate:
-            self.num_heads = self.model.model_config.num_attention_heads
-            self.head_dim = self.hidden_size // self.num_heads
-            self.intermediate_size = self.model.model_config.intermediate_size
-            self.fp32_had = special_config.get('fp32_had', False)
-
-    def replace_rotate_linears(self, block):
-        for n, m in block.named_modules():
-            if isinstance(m, nn.Linear) and ('down_proj' in n
-                                             or 'o_proj' in n
-                                             or 'fc2' in n
-                                             or 'out_proj' in n):
-                subset = {'layers': {n: m}}
-                self.model.replace_module_subset(
-                    RotateLinear,
-                    block,
-                    subset,
-                    None,
-                    self.get_replacement_params(
-                        mode='online_rotate', w_only=self.w_only, name=n
-                    ),
-                )
+        # if self.online_rotate:
+        self.num_heads = self.model.model_config.num_attention_heads
+        self.head_dim = self.hidden_size // self.num_heads
+        self.intermediate_size = self.model.model_config.intermediate_size
+        self.fp32_had = special_config.get('fp32_had', False)
 
     def block_forward(self, block, input_data=None):
         output = []
@@ -256,19 +245,15 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
     def block_opt(self, block):
         block = block.cuda()
         named_linears = self.model.get_block_linears(block)
-        extra_modules = self.model.get_extra_modules(block)
-        input_feat_modules = {
-            k: v for d in [named_linears, extra_modules] for k, v in d.items()
-        }
-        logger.info(f'input_feat_modules: {input_feat_modules}')
+        logger.info(f'named_linears: {named_linears}')
         input_feat = defaultdict(list)
         handles = []
         self.block_init(block)
 
         if not self.data_free:
-            for name in input_feat_modules:
+            for name in named_linears:
                 handles.append(
-                    input_feat_modules[name].register_forward_hook(
+                    named_linears[name].register_forward_hook(
                         functools.partial(
                             self.cache_input_hook, name=name, feat_dict=input_feat
                         )
@@ -334,7 +319,7 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
     def filter_subset(self, subset):
         return True
 
-    def collect_layers_weights(self, layers, tensor_parallelize_style=None):
+    def collect_layers_weights(self, layers):
         weights = []
         for _m in layers:
             weights.append(_m.weight)
@@ -379,7 +364,7 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
     def scale_fc_fc(self, fc1, fc2, scales):
         scales = scales.to(fc1.weight.device)
         if fc1.out_features == fc2.in_features * 3:
-            num_heads = self.model.get_num_attention_heads()
+            num_heads = self.model.get_model_config().to_dict().get('n_head', None)
             fc1.weight.t_()
             org_shape = fc1.weight.shape
             fc1.weight.data = fc1.weight.data.reshape(org_shape[0] * num_heads, 3, -1)
@@ -461,7 +446,7 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
         scales = scales.to(ln.weight.device)
         ln.weight.div_(scales)
 
-        if hasattr(ln, 'bias') and ln.bias is not None:
+        if self.model.has_bias():
             ln.bias.div_(scales)
 
         for fc in fcs:
@@ -506,12 +491,6 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
                     n_sample_token=n_sample_token,
                 )
 
-                dist.all_reduce(max_val, op=dist.ReduceOp.SUM)
-                max_val /= int(os.environ['WORLD_SIZE'])
-
-                dist.all_reduce(min_val, op=dist.ReduceOp.SUM)
-                min_val /= int(os.environ['WORLD_SIZE'])
-
                 self.apply_clip(m, min_val, max_val, n)
 
     @torch.no_grad()
@@ -519,20 +498,12 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
         if self.clip_version == 'v1':
             max_val = max_val.to(layer.weight.device)
             org_shape = layer.weight.shape
-            try:
-                layer.weight.data = layer.weight.data.reshape(*max_val.shape[:2], -1)
-            except RuntimeError:
-                layer.weight.data = self.wquantizer.reshape_tensor(layer.weight.data)
-                layer.weight.data = layer.weight.data.reshape(*max_val.shape[:2], -1)
+            layer.weight.data = layer.weight.data.reshape(*max_val.shape[:2], -1)
             if self.clip_sym:
                 min_val = -max_val
 
             layer.weight.data = torch.clamp(layer.weight.data, min_val, max_val)
-            try:
-                layer.weight.data = layer.weight.data.reshape(org_shape)
-            except RuntimeError:
-                layer.weight.data = self.wquantizer \
-                    .restore_tensor(layer.weight.data, org_shape)
+            layer.weight.data = layer.weight.data.reshape(org_shape)
         elif self.clip_version == 'v2':
             up_factor, low_factor = self.get_clip_factor(
                 layer, min_val, max_val, layer_name
@@ -607,11 +578,7 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
         else:
             group_size = w.shape[1]
 
-        try:
-            w = w.reshape(w.shape[0], 1, -1, group_size)
-        except RuntimeError:
-            w = self.wquantizer.reshape_tensor(w)
-            w = w.reshape(w.shape[0], 1, -1, group_size)
+        w = w.reshape(w.shape[0], 1, -1, group_size)
         oc_batch_size = 256 if w.shape[0] % 256 == 0 else 64  # prevent OOM
         assert w.shape[0] % oc_batch_size == 0
 
@@ -620,7 +587,7 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
         best_min_val_all = []
 
         for i_b in range(w.shape[0] // oc_batch_size):
-            w = w_all[i_b * oc_batch_size: (i_b + 1) * oc_batch_size]
+            w = w_all[i_b * oc_batch_size : (i_b + 1) * oc_batch_size]
 
             if self.clip_sym:
                 org_max_val = w.abs().amax(dim=-1, keepdim=True)
@@ -648,17 +615,8 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
                     input[i] = input[i].to(w.device)
                     x = input[i]
                     x = x.view(-1, x.shape[-1])
-                    if self.padding_mask:
-                        mask_tmp = self.padding_mask[i].flatten()
-                        x = x[mask_tmp.bool()]
-                    try:
-                        x = x.reshape(1, x.shape[0], -1, group_size)
-                    except RuntimeError:
-                        x = self.wquantizer.reshape_tensor(x)
-                        x = x.reshape(1, x.shape[0], -1, group_size)
-                    if n_sample_token is None:
-                        n_sample_token = min(x.shape[1], 512)
-                    x = x[:, 0:: x.shape[1] // n_sample_token]
+                    x = x.reshape(1, x.shape[0], -1, group_size)
+                    x = x[:, 0 :: x.shape[1] // n_sample_token]
                     if i in org_out_dict:
                         org_out = org_out_dict[i]
                     else:
@@ -682,14 +640,14 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
                             w, low_factor, up_factor
                         )
 
-                        scales, zeros, qmax, qmin = wquantizer.get_qparams(
+                        scales, zeros, max_int, min_int = wquantizer.get_qparams(
                             tensor_range, w.device
                         )
                         args = {}
                         args['scales'] = scales
                         args['zeros'] = zeros
-                        args['qmax'] = qmax
-                        args['qmin'] = qmin
+                        args['max_int'] = max_int
+                        args['min_int'] = min_int
                         q_w = wquantizer.fake_quant_weight_static(w, args)
                     else:
                         raise Exception('Not support other clip version')
@@ -740,41 +698,87 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
         torch.cuda.empty_cache()
         return best_max_val.squeeze(1), best_min_val.squeeze(1)
 
+    def replace_rotate_fc(self, block, n, m, Q1=None, Q2=None, transpose=False):
+        args = {}
+        if hasattr(self, 'weight_rotate') and self.weight_rotate:
+            args['Q1'] = Q1
+            args['Q2'] = Q2
+            args['transpose'] = transpose
+
+        params_dict = self.get_replacement_params(mode='rotate', w_only=self.w_only, name=n, args=args)
+        if params_dict == {}:
+            return
+
+        subset = {'layers': {n: m}}
+        self.model.replace_module_subset(
+            RotateLinear,
+            block,
+            subset,
+            self.block_idx,
+            params_dict
+        )
+
+    def replace_rotate_fcs(self, block):
+        for n, m in block.named_modules():
+            if isinstance(m, nn.Linear):
+               self.replace_rotate_fc(block, n, m)
+
+    def rotate_weight(self, weight, bias, Q, transpose):
+        dtype = weight.dtype
+        dev = weight.data.device
+        R_b = bias
+
+        W = weight.data.to(device=dev, dtype=torch.float64)
+        Q = Q.to(device=dev, dtype=torch.float64)
+        if not transpose:
+            R_W = torch.matmul(W, Q).to(device='cpu', dtype=dtype)
+        else:
+            R_W = torch.matmul(Q.T, W).to(device='cpu', dtype=dtype)
+            if bias is not None:
+                b = bias.data.to(device=dev, dtype=torch.float64)
+                R_b = torch.matmul(Q.T, b).to(device='cpu', dtype=dtype)
+
+        return R_W, R_b
+
     def rotate_pre_layers(self, pre_layers, Q):
+        transpose = False
         for layer in pre_layers:
-            dtype = layer.weight.dtype
-            device = layer.weight.data.device
-            W = layer.weight.data.to(device=device, dtype=torch.float64)
-            layer.weight.data = torch.matmul(W, Q).to(device='cpu', dtype=dtype)
+            layer.weight.data, _ = self.rotate_weight(layer.weight, None, Q, transpose)
 
     def rotate_post_layers(self, post_layers, Q, exact_had=False):
+        transpose = True
         for layer in post_layers:
-            dtype = layer.weight.dtype
-            device = layer.weight.data.device
-            W = layer.weight.data.to(device=device, dtype=torch.float64)
-            layer.weight.data = torch.matmul(Q.T, W).to(device='cpu', dtype=dtype)
+            weight = layer.weight
+            if hasattr(layer, 'bias') and layer.bias is not None:
+                bias = layer.bias
+            else:
+                bias = None
+            R_weight, R_bias = self.rotate_weight(
+                weight, bias, Q, transpose
+            )
+            layer.weight.data = R_weight
+            if bias is not None:
+                layer.bias.data = bias
 
             if exact_had and self.online_rotate:
                 apply_exact_had_to_linear(layer, had_dim=-1, output=False)
 
-            if hasattr(layer, 'bias') and layer.bias is not None:
-                b = layer.bias.data.to(device=device, dtype=torch.float64)
-                layer.bias.data = torch.matmul(Q.T, b).to(device='cpu', dtype=dtype)
-
     def rotate_embeddings(self, Q):
+        transpose = False
         embeddings = self.model.get_embed_layers()
         assert len(embeddings) == 1
         for layer in embeddings:
-            dtype = layer.weight.data.dtype
-            W = layer.weight.data.to(device=self.dev, dtype=torch.float64)
-            layer.weight.data = torch.matmul(W, Q).to(device='cpu', dtype=dtype)
+            layer.weight.data, _ = self.rotate_weight(
+                layer.weight, None, Q, transpose
+            )
 
     def rotate_head(self, Q):
+        transpose = False
         heads = self.model.get_head_layers()
         for layer in heads:
-            dtype = layer.weight.data.dtype
-            W = layer.weight.data.to(device=self.dev, dtype=torch.float64)
-            layer.weight.data = torch.matmul(W, Q).to(device='cpu', dtype=dtype)
+            layer.weight.data, _ = self.rotate_weight(
+                layer.weight, None, Q, transpose
+            )
 
     def fuse_ln_fcs(self, ln, fcs):
         for fc in fcs:
@@ -786,8 +790,7 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
                     fc.bias = torch.nn.Parameter(
                         torch.zeros(fc.out_features, dtype=torch.float64)
                     )
-                fc.bias.data = fc.bias.data.double().to(device=W.device) \
-                    + torch.matmul(W, ln.bias.double())
+                fc.bias.data = fc.bias.data.double() + torch.matmul(W, ln.bias.double())
                 fc.bias.data = fc.bias.data.to(fc_dtype)
 
     def remove_mean_from_embed(self):
@@ -809,15 +812,15 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
             fc.bias.data = fc.bias.data.to(fc_dtype)
 
     @torch.no_grad()
-    def deploy(self, quant_format, keep_device=False):
+    def deploy(self, quant_format):
         logger.info(f'-- deploy_{quant_format}_model start --')
         logger.info(f'quant_config : {self.quant_config}')
 
         module_mapping = {
+            'fake_quant': EffcientFakeQuantLinear,
+            'real_quant': RealQuantLinear,
             'origin_float': OriginFloatLinear,
-            'fake_quant': EffcientFakeQuantLinear
         }
-        module_mapping.update(_REALQUANT_LINEAR_MAP_)
 
         if quant_format not in module_mapping:
             raise NotImplementedError(
@@ -826,17 +829,14 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
 
         module = module_mapping[quant_format]
         self.model.replace_module_all(
-            module,
-            self.get_replacement_params(mode=quant_format, w_only=self.w_only),
-            keep_device=keep_device
+            module, self.get_replacement_params(mode=quant_format, w_only=self.w_only)
         )
 
         logger.info(f'-- deploy_{quant_format}_model done --')
 
     @torch.no_grad()
     def copy_tokenizer(self, path):
-        for substring in self.config.save.get('tokenizer_file_substring',
-                                              ['token', 'merges', 'vocab']):
+        for substring in self.config.save.get('tokenizer_file_substring', ['token']):
             copy_files(self.config.model.path, path, substring)
         logger.info('copy tokenizer done --')
 
@@ -852,18 +852,11 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
 
     @torch.no_grad()
     def save_model(self, path):
-        if int(os.environ['RANK']) != 0:
-            return
-        self.contiguous_params()
-        if self.config.model.type in ['Llava', 'InternVL2']:
-            self.model.vlm_model.language_model = self.model.get_model()
-            self.model.vlm_model.save_pretrained(path)
-            logger.info('save model done --')
-            self.copy_tokenizer(path)
-            copy_files(self.config.model.path, path, 'preprocessor_config')
-        elif self.config.model.type in ['InternOmni']:
-            self.model.avlm_model.language_model = self.model.get_model()
-            self.model.avlm_model.save_pretrained(path)
+        if self.online_rotate:
+            self.contiguous_params()
+        if self.config.model.type == 'Llava':
+            self.model.llava_model.language_model = self.model.get_model()
+            self.model.llava_model.save_pretrained(path)
             logger.info('save model done --')
             self.copy_tokenizer(path)
             copy_files(self.config.model.path, path, 'preprocessor_config')

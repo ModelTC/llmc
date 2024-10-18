@@ -20,7 +20,6 @@ eval:
     path: /home/runner/work/llmc/llmc/check/datasets/eval/wikitext2
     bs: 1
     seq_len: 16       # 2048
-    eval_token_consist: True
 quant:
     method: Awq
     weight:

@@ -8,8 +8,8 @@ from .base_blockwise_quantization import BaseBlockwiseQuantization
 
 @ALGO_REGISTRY
 class RTN(BaseBlockwiseQuantization):
-    def __init__(self, model, quant_config, input, padding_mask, config):
-        super().__init__(model, quant_config, input, padding_mask, config)
+    def __init__(self, model, quant_config, input, config):
+        super().__init__(model, quant_config, input, config)
         if quant_config.get('act', False) and quant_config['act'].get('static', False):
             logger.info('Activation quant is static. Calibration is required.')
             self.act_static = True
@@ -18,8 +18,7 @@ class RTN(BaseBlockwiseQuantization):
 
     @torch.no_grad()
     def block_opt(self, *opt_kwargs):
-        if self.act_static:
-            super().block_opt(*opt_kwargs)
+        pass
 
     def a_qdq(self, act, module, aquantizer):
         if self.act_static:
@@ -30,11 +29,11 @@ class RTN(BaseBlockwiseQuantization):
             args['zeros'] = (
                 module.buf_act_zeros if hasattr(module, 'buf_act_zeros') else None
             )
-            args['qmax'] = (
-                module.buf_act_qmax if hasattr(module, 'buf_act_qmax') else None
+            args['max_int'] = (
+                module.buf_act_max_int if hasattr(module, 'buf_act_max_int') else None
             )
-            args['qmin'] = (
-                module.buf_act_qmin if hasattr(module, 'buf_act_qmin') else None
+            args['min_int'] = (
+                module.buf_act_min_int if hasattr(module, 'buf_act_min_int') else None
             )
             return aquantizer.fake_quant_act_static(act, args)
         else:
@@ -60,18 +59,18 @@ class RTN(BaseBlockwiseQuantization):
                     avg_max_val = max_val / len(act_tensors)
                 else:
                     avg_max_val += max_val / len(act_tensors)
-        scales, zeros, qmax, qmin = self.aquantizer.get_qparams(
+        scales, zeros, max_int, min_int = self.aquantizer.get_qparams(
             (avg_min_val, avg_max_val), act_tensors[0].device
         )
         for name in layers_dict:
             layers_dict[name].register_buffer('buf_act_scales', scales)
             layers_dict[name].register_buffer('buf_act_zeros', zeros)
-            layers_dict[name].register_buffer('buf_act_qmax', qmax)
-            layers_dict[name].register_buffer('buf_act_qmin', qmin)
+            layers_dict[name].register_buffer('buf_act_max_int', max_int)
+            layers_dict[name].register_buffer('buf_act_min_int', min_int)
             logger.info(f'{name} act_scales : {scales}')
             logger.info(f'{name} act_zeros : {zeros}')
-            logger.info(f'{name} act_qmax : {qmax}')
-            logger.info(f'{name} act_qmin : {qmin}')
+            logger.info(f'{name} act_max_int : {max_int}')
+            logger.info(f'{name} act_min_int : {min_int}')
 
     @torch.no_grad()
     def subset_transform(

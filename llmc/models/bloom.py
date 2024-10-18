@@ -5,8 +5,8 @@ from .base_model import BaseModel
 
 @MODEL_REGISTRY
 class Bloom(BaseModel):
-    def __init__(self, model_path, torch_dtype, device_map=None, use_cache=False):
-        super().__init__(model_path, torch_dtype, device_map, use_cache)
+    def __init__(self, model_path, torch_dtype):
+        super().__init__(model_path, torch_dtype)
 
     def find_blocks(self):
         self.blocks = self.model.transformer.h
@@ -30,9 +30,6 @@ class Bloom(BaseModel):
             self.model.lm_head,
             self.model.transformer.ln_f,
         ]
-
-    def skip_layer_name(self):
-        return ['lm_head']
 
     def has_bias(self):
         return True

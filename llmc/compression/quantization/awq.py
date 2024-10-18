@@ -1,8 +1,6 @@
 import gc
-import os
 
 import torch
-import torch.distributed as dist
 import torch.nn as nn
 from loguru import logger
 
@@ -17,8 +15,8 @@ from .utils import check_do_quant, check_w_only, get_aquantizer, get_wquantizer
 
 @ALGO_REGISTRY
 class Awq(BaseBlockwiseQuantization):
-    def __init__(self, model, quant_config, input, padding_mask, config):
-        super().__init__(model, quant_config, input, padding_mask, config)
+    def __init__(self, model, quant_config, input, config):
+        super().__init__(model, quant_config, input, config)
         special_config = self.quant_config.get('special', {})
         self.trans = special_config.get('trans', True)
         self.trans_version = special_config.get('trans_version', 'v2')
@@ -40,10 +38,7 @@ class Awq(BaseBlockwiseQuantization):
         )
         weights = wquantizer.reshape_tensor(weights)
         scale = weights.abs() / weights.abs().amax(dim=1, keepdim=True)
-        try:
-            scale = scale.view(org_shape)
-        except RuntimeError:
-            scale = wquantizer.restore_tensor(scale, org_shape)
+        scale = scale.view(org_shape)
         scale = scale.mean(0)
         del weights
         gc.collect()
@@ -126,14 +121,11 @@ class Awq(BaseBlockwiseQuantization):
                         self.quantizer_mix_bits,
                         self.aquantizer,
                     ).fake_quant_act_dynamic(x_tmp)
+
                 out = inspect_module(x_tmp, **kwargs)
 
                 if isinstance(out, tuple):
                     out = out[0]
-
-                if self.padding_mask:
-                    org_out = org_out * self.padding_mask[i].unsqueeze(dim=-1).to(org_out.device) # noqa
-                    out = out * self.padding_mask[i].unsqueeze(dim=-1).to(out.device)
 
                 loss = (org_out - out).float().pow(2).mean().item()
                 loss_mean += x.shape[0] * 1.0 / self.n_samples * loss
@@ -144,8 +136,6 @@ class Awq(BaseBlockwiseQuantization):
                 best_error = loss_mean
                 best_scales = scales_mean
         best_scales = best_scales.view(-1)
-        dist.all_reduce(best_scales, op=dist.ReduceOp.SUM)
-        best_scales /= int(os.environ['WORLD_SIZE'])
         del org_out_dict
         gc.collect()
         torch.cuda.empty_cache()
@@ -166,11 +156,7 @@ class Awq(BaseBlockwiseQuantization):
         if self.weight_clip:
             logger.info('auto_clip start')
             logger.info(f'clip version: {self.clip_version}')
-            self.auto_clip(
-                block,
-                input_feat,
-                n_sample_token=self.config.calib.get('seq_len', None)
-            )
+            self.auto_clip(block, input_feat, n_sample_token=self.config.calib.seq_len)
             logger.info('auto_clip finished')
         else:
             logger.info('disable weight clip')
