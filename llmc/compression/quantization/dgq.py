@@ -8,13 +8,13 @@ from llmc.utils.registry_factory import ALGO_REGISTRY
 
 from .base_blockwise_quantization import BaseBlockwiseQuantization
 from .module_utils import _LLMC_LN_TYPES_, _TRANSFORMERS_LN_TYPES_
-from .quant import IntegerQuantizer
+from .quant import Quantizer
 
 
 @ALGO_REGISTRY
 class DGQ(BaseBlockwiseQuantization):
-    def __init__(self, model, quant_config, input, padding_mask, config):
-        super().__init__(model, quant_config, input, padding_mask, config)
+    def __init__(self, model, quant_config, input, config):
+        super().__init__(model, quant_config, input, config)
         self.model_dtype = next(self.model.model.parameters()).dtype
 
     def w_qdq(self, module, wquantizer):
@@ -28,8 +28,8 @@ class DGQ(BaseBlockwiseQuantization):
         args = {}
         args['scales'] = s.reshape(-1, 1)
         args['zeros'] = zeros.reshape(-1, 1)
-        args['qmax'] = upper
-        args['qmin'] = lower
+        args['max_int'] = upper
+        args['min_int'] = lower
         # logger.info(f"s.shape : {s.shape}")
         # logger.info(f"scales.shape : {scales.shape}")
         # logger.info(f"zeros.shape : {zeros.shape}")
@@ -43,22 +43,21 @@ class DGQ(BaseBlockwiseQuantization):
             self.quant_out = True
         else:
             self.quant_out = False
-        self.quant_type = self.quant_config.get('quant_type', 'int_quant')
-        assert self.quant_type != 'float_quant', 'DGQ do not support Float quant now.'
+
         # set weight quant config
-        self.wquantizer_w4 = IntegerQuantizer(**self.quant_config['weight']['w_1'])
+        self.wquantizer_w4 = Quantizer(**self.quant_config['weight']['w_1'])
         perchannel_setting = {
             'bit': self.quant_config['weight']['w_1']['bit'],
             'symmetric': self.quant_config['weight']['w_1']['symmetric'],
             'granularity': 'per_channel',
         }
-        self.wquantizer_w4_perchannel = IntegerQuantizer(**perchannel_setting)
-        self.wquantizer_w8 = IntegerQuantizer(**self.quant_config['weight']['w_2'])
+        self.wquantizer_w4_perchannel = Quantizer(**perchannel_setting)
+        self.wquantizer_w8 = Quantizer(**self.quant_config['weight']['w_2'])
 
         # set act quant config
         if 'act' in self.quant_config and self.quant_config['act'] is not None:
             self.w_only = False
-            self.aquantizer = IntegerQuantizer(**self.quant_config['act'])
+            self.aquantizer = Quantizer(**self.quant_config['act'])
         else:
             self.w_only = True
 
@@ -191,12 +190,12 @@ class DGQ(BaseBlockwiseQuantization):
                     _,
                     scales,
                     zeros,
-                    qmax,
-                    qmin,
+                    max_int,
+                    min_int,
                 ) = self.wquantizer_w4_perchannel.get_tensor_qparams(weight_OxG)
                 # Perchannel do not need reshape and restore tensor.
                 weight_OxG_fq = self.wquantizer_w4_perchannel.quant_dequant(
-                    weight_OxG, scales, zeros, qmax, qmin
+                    weight_OxG, scales, zeros, max_int, min_int
                 )
                 if not self.w_only:
                     inp_LxG_fq = self.a_qdq(inp_LxG)
@@ -225,8 +224,8 @@ class DGQ(BaseBlockwiseQuantization):
                 _,
                 qscales_8,
                 zeros,
-                qmax,
-                qmin,
+                max_int,
+                min_int,
             ) = self.wquantizer_w8.get_tensor_qparams(
                 weight_tmp.clamp(-w_max * ratio, w_max * ratio)
             )

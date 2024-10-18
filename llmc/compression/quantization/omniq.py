@@ -2,6 +2,7 @@ import copy
 import functools
 import gc
 import math
+import pdb
 import random
 from contextlib import nullcontext
 from math import inf
@@ -24,8 +25,8 @@ from .train_utils import (LossFunction, NativeScalerWithGradNormCount,
 
 @ALGO_REGISTRY
 class OmniQuant(BaseBlockwiseQuantization):
-    def __init__(self, model, quant_config, input, padding_mask, config):
-        super().__init__(model, quant_config, input, padding_mask, config)
+    def __init__(self, model, quant_config, input, config):
+        super().__init__(model, quant_config, input, config)
         self.add_quant_config()
 
         model_type = self.config['model']['type']
@@ -213,6 +214,7 @@ class OmniQuant(BaseBlockwiseQuantization):
 
                 if not math.isfinite(loss.item()):
                     logger.info('Loss is NAN, stopping training')
+                    pdb.set_trace()
 
                 loss_list.append(loss.data)
                 optimizer.zero_grad()
@@ -305,7 +307,7 @@ class OmniQuant(BaseBlockwiseQuantization):
                             torch.ones(
                                 (dim, 1),
                                 device=self.dev,
-                                dtype=self.dtype,
+                                # dtype=self.dtype,
                             )
                             * init_value
                         )
@@ -313,7 +315,7 @@ class OmniQuant(BaseBlockwiseQuantization):
                         torch.ones(
                             (dim, 1),
                             device=self.dev,
-                            dtype=self.dtype,
+                            # dtype=self.dtype,
                         )
                         * init_value
                     )
@@ -383,13 +385,12 @@ class OmniQuant(BaseBlockwiseQuantization):
                 inputs = input_feat[n]
 
             max_val, min_val = self.auto_clip_layer(
-                n,
                 m.weight.data,
                 inputs,
-                n_sample_token=self.config.calib.get('seq_len', None),
+                n_sample_token=self.config.calib.seq_len,
             )
 
-            up_factor, low_factor = self.get_clip_factor(m, min_val, max_val, n)
+            up_factor, low_factor = self.get_clip_factor(m, min_val, max_val)
 
         up_param = nn.Parameter(up_factor)
         low_param = nn.Parameter(low_factor)

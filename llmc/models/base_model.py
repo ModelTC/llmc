@@ -17,19 +17,14 @@ from llmc.compression.quantization.utils import (check_do_quant, check_w_only,
 
 
 class BaseModel(metaclass=ABCMeta):
-    def __init__(self, model_path, torch_dtype, device_map=None, use_cache=False):
+    def __init__(self, model_path, torch_dtype):
         self.model_path = model_path
         self.torch_dtype = torch_dtype if torch_dtype == 'auto' else eval(torch_dtype)
-        self.device_map = device_map
-        self.use_cache = use_cache
-        self.vlm_model = None
-        self.processor = None
         self.build_model()
         self.model.eval()
         self.find_blocks()
         self.find_embed_layers()
         self.find_block_name()
-        self.add_layernorms_class()
 
     @abstractmethod
     def find_blocks(self):
@@ -61,15 +56,8 @@ class BaseModel(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def skip_layer_name(self):
-        pass
-
-    @abstractmethod
     def has_bias(self):
         pass
-
-    def get_attention_rotary_layers(self):
-        return []
 
     def __str__(self):
         return f'\nConfig: \n{str(self.model_config)} \nModel: \n{str(self.model)}'
@@ -78,34 +66,19 @@ class BaseModel(metaclass=ABCMeta):
         self.model_config = AutoConfig.from_pretrained(
             self.model_path, trust_remote_code=True
         )
-        if not self.use_cache:
-            if hasattr(self.model_config, 'use_cache'):
-                self.model_config.use_cache = False
+        if hasattr(self.model_config, 'use_cache'):
+            self.model_config.use_cache = False
         logger.info(f'self.model_config : {self.model_config}')
         self.model = AutoModelForCausalLM.from_pretrained(
             self.model_path,
             config=self.model_config,
-            device_map=self.device_map,
             trust_remote_code=True,
             torch_dtype=self.torch_dtype,
             low_cpu_mem_usage=True,
         )
 
-    def add_layernorms_class(self):
-        ln_class_list = []
-        single_block = self.get_blocks()[0]
-        ln_dict = self.get_layernorms_in_block(single_block)
-        for ln_name in ln_dict:
-            ln_class = ln_dict[ln_name].__class__
-            if ln_class not in ln_class_list:
-                ln_class_list.append(ln_class)
-        for ln_class in ln_class_list:
-            if ln_class not in _TRANSFORMERS_LN_TYPES_:
-                _TRANSFORMERS_LN_TYPES_.append(ln_class)
-        logger.info(f'_TRANSFORMERS_LN_TYPES_ : {_TRANSFORMERS_LN_TYPES_}')
-
     @torch.no_grad()
-    def collect_first_block_input(self, calib_data, data_type='txt'):
+    def collect_first_block_input(self, calib_data):
         first_block_input = defaultdict(list)
 
         class Catcher(nn.Module):
@@ -122,38 +95,15 @@ class BaseModel(metaclass=ABCMeta):
                 raise ValueError
 
         self.move_embed_to_device('cuda')
-        if data_type == 'img_txt':
-            self.vision_tower = self.vision_tower.to('cuda')
-            self.multi_modal_projector = self.multi_modal_projector.to('cuda')
         self.blocks[0] = self.blocks[0].cuda()
         self.blocks[0] = Catcher(self.blocks[0])
 
         for data in calib_data:
             try:
-                if data_type == 'txt':
-                    data = {
-                        k: v.to(next(self.model.parameters()).device)
-                        for k, v in data.items()
-                    }
-                    self.model(**data)
-                elif data_type == 'img':
-                    data = {
-                        k: v.to(next(self.model.parameters()).device)
-                        for k, v in data.items()
-                    }
-                    self.model(**data)
-                elif data_type == 'img_txt':
-                    data = {
-                        k: v.to(next(self.model.parameters()).device)
-                        for k, v in data.items()
-                    }
-                    self.vlm_model.generate(**data, max_new_tokens=200, do_sample=False)
+                self.model(data.to(next(self.model.parameters()).device))
             except ValueError:
                 pass
         self.first_block_input = first_block_input
-        if data_type == 'img_txt':
-            self.vision_tower = self.vision_tower.cpu()
-            self.multi_modal_projector = self.multi_modal_projector.cpu()
         self.blocks[0] = self.blocks[0].module
         self.blocks[0] = self.blocks[0].cpu()
         self.move_embed_to_device('cpu')
@@ -166,9 +116,7 @@ class BaseModel(metaclass=ABCMeta):
 
     def move_embed_to_device(self, device):
         for embed_layer in self.get_embed_layers():
-            embed_layer.to(device)
-        for attention_rotary_layer in self.get_attention_rotary_layers():
-            attention_rotary_layer.to(device)
+            embed_layer = embed_layer.to(device)
 
     def get_block_linears(self, block):
         return {
@@ -176,9 +124,6 @@ class BaseModel(metaclass=ABCMeta):
             for name, m in block.named_modules()
             if isinstance(m, tuple(_LLMC_LINEAR_TYPES_ + _TRANSFORMERS_LINEAR_TYPES_))
         }
-
-    def get_extra_modules(self, block):
-        return {}
 
     def set_mix_bits_params_dict(self, block_idx, name, params_dict):
 
@@ -241,16 +186,13 @@ class BaseModel(metaclass=ABCMeta):
             params_mix_dict['a_qdq'] = None
         return params_mix_dict
 
-    def replace_module_all(self, module, params_dict, keep_device=False):
+    def replace_module_all(self, module, params_dict):
         for block_idx in range(len(self.blocks)):
             logger.info(f'Replace block index: {block_idx}/{len(self.blocks)}')
             block = self.blocks[block_idx]
-            if keep_device:
-                self.replace_module_block(module, block, block_idx, params_dict)
-            else:
-                block = block.cuda()
-                self.replace_module_block(module, block, block_idx, params_dict)
-                block = block.cpu()
+            block = block.cuda()
+            self.replace_module_block(module, block, block_idx, params_dict)
+            block = block.cpu()
 
         gc.collect()
         torch.cuda.empty_cache()

@@ -5,25 +5,21 @@ from .base_model import BaseModel
 
 @MODEL_REGISTRY
 class Llama(BaseModel):
-    def __init__(self, model_path, torch_dtype, device_map=None, use_cache=False):
-        super().__init__(model_path, torch_dtype, device_map, use_cache)
+    def __init__(self, model_path, torch_dtype):
+        super().__init__(model_path, torch_dtype)
 
     def find_blocks(self):
         self.blocks = self.model.model.layers
 
     def find_embed_layers(self):
         self.embed_tokens = self.model.model.embed_tokens
-        self.rotary_emb = self.model.model.rotary_emb
 
     def find_block_name(self):
         self.block_name_prefix = 'model.layers'
         self.pairs = {'q_proj': 'qkv', 'o_proj': 'out', 'up_proj': 'fc1'}
 
     def get_embed_layers(self):
-        return [self.embed_tokens]
-
-    def get_attention_rotary_layers(self):
-        return [self.rotary_emb]
+        return [self.model.model.embed_tokens]
 
     def get_head_layers(self):
         return [self.model.lm_head]
@@ -32,10 +28,7 @@ class Llama(BaseModel):
         return [self.model.model.norm]
 
     def get_layers_except_blocks(self):
-        return [self.embed_tokens, self.rotary_emb, self.model.model.norm, self.model.lm_head] # noqa
-
-    def skip_layer_name(self):
-        return ['lm_head']
+        return [self.embed_tokens, self.model.model.norm, self.model.lm_head]
 
     def has_bias(self):
         return False

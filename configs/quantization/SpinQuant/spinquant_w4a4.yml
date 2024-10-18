@@ -1,0 +1,63 @@
+base:
+    seed: &seed 0
+model:
+    type: Llama
+    path: model path
+    torch_dtype: auto
+eval:
+    eval_pos: [transformed, fake_quant]
+    name: wikitext2
+    download: False
+    path: eval data path
+    bs: 1
+    inference_per_block: False
+    seq_len: 2048
+quant:
+    method: SpinQuant
+    weight:
+        bit: 4
+        symmetric: False
+        granularity: per_channel
+        group_size: -1
+        qmax_to_tensor: True
+        calib_algo: mse
+        ste: True
+    act:
+        bit: 4
+        symmetric: False
+        granularity: per_token
+        qmax_to_tensor: True
+        ste: True
+    special:
+        rotate_mode: hadamard
+        fp32_had: True
+        online_rotate: True
+train:
+    data:
+        name: wikitext2
+        download: False
+        path: calib data path
+        n_samples: 800
+        bs: 1
+        seq_len: 2048
+        preproc: wikitext2_gptq
+        seed: *seed
+        cache_dir: None
+    train_args:
+        fp16: False
+        bf16: True
+        log_on_each_node: False
+        per_device_train_batch_size: 1
+        logging_steps: 1
+        learning_rate: 1.5
+        weight_decay: 0.
+        lr_scheduler_type: "cosine"
+        gradient_checkpointing: True
+        max_steps: 1
+        output_dir: output_path
+        logging_dir: your_log_path
+        logging_first_step: True
+save:
+    save_trans: False
+    save_fake: False
+    save_path: ./save

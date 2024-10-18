@@ -1,6 +1,7 @@
 import functools
 import gc
 import math
+import pdb
 from contextlib import nullcontext
 from math import inf
 
@@ -19,8 +20,8 @@ from .train_utils import LossFunction, NativeScalerWithGradNormCount
 
 @ALGO_REGISTRY
 class NormTweaking(BaseBlockwiseQuantization):
-    def __init__(self, model, quant_config, input, padding_mask, config):
-        super().__init__(model, quant_config, input, padding_mask, config)
+    def __init__(self, model, quant_config, input, config):
+        super().__init__(model, quant_config, input, config)
         self.add_quant_config()
 
         model_type = self.config['model']['type']
@@ -139,6 +140,7 @@ class NormTweaking(BaseBlockwiseQuantization):
 
                 if not math.isfinite(loss.item()):
                     logger.info('Loss is NAN, stopping training')
+                    pdb.set_trace()
 
                 loss_list.append(loss.data)
                 optimizer.zero_grad()

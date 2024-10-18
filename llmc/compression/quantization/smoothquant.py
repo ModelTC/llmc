@@ -11,10 +11,8 @@ from .module_utils import _LLMC_LN_TYPES_, _TRANSFORMERS_LN_TYPES_
 
 @ALGO_REGISTRY
 class SmoothQuant(BaseBlockwiseQuantization):
-    def __init__(self, model, quant_config, input, padding_mask, config):
-        super().__init__(model, quant_config, input, padding_mask, config)
-        special_config = self.quant_config.get('special', {})
-        self.alpha = special_config.get('alpha', 0.5)
+    def __init__(self, model, quant_config, input, config):
+        super().__init__(model, quant_config, input, config)
 
     @torch.no_grad()
     def filter_subset(self, subset):
@@ -55,7 +53,7 @@ class SmoothQuant(BaseBlockwiseQuantization):
         w_max = self.get_weight_scale(layers)
         x_max = self.get_act_scale(tensors)
         x_max = x_max.to(dtype=w_max.dtype, device=w_max.device)
-        scale = (x_max.pow(self.alpha) / w_max.pow(self.alpha)).clamp(min=1e-5)
+        scale = (x_max.pow(0.5) / w_max.pow(0.5)).clamp(min=1e-5)
         return scale
 
     @torch.no_grad()

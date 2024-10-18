@@ -5,15 +5,14 @@ from .base_model import BaseModel
 
 @MODEL_REGISTRY
 class Falcon(BaseModel):
-    def __init__(self, model_path, torch_dtype, device_map=None, use_cache=False):
-        super().__init__(model_path, torch_dtype, device_map, use_cache)
+    def __init__(self, model_path, torch_dtype):
+        super().__init__(model_path, torch_dtype)
 
     def find_blocks(self):
         self.blocks = self.model.transformer.h
 
     def find_embed_layers(self):
         self.word_embeddings = self.model.transformer.word_embeddings
-        self.rotary_emb = self.model.model.rotary_emb
 
     def find_block_name(self):
         self.block_name_prefix = 'model.transformer.h'
@@ -21,11 +20,8 @@ class Falcon(BaseModel):
     def get_embed_layers(self):
         return [self.word_embeddings]
 
-    def get_attention_rotary_layers(self):
-        return [self.rotary_emb]
-
     def get_layers_except_blocks(self):
-        return [self.word_embeddings, self.rotary_emb, self.model.transformer.ln_f]
+        return [self.word_embeddings, self.model.transformer.ln_f]
 
     def has_bias(self):
         return False

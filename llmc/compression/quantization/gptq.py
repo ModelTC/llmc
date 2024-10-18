@@ -17,8 +17,8 @@ from .module_utils import FakeQuantLinear, RotateLinear
 
 @ALGO_REGISTRY
 class GPTQ(BaseBlockwiseQuantization):
-    def __init__(self, model, quant_config, input, padding_mask, config):
-        super().__init__(model, quant_config, input, padding_mask, config)
+    def __init__(self, model, quant_config, input, config):
+        super().__init__(model, quant_config, input, config)
         self.dev = torch.device('cuda')
         self.model_dtype = next(self.model.model.parameters()).dtype
         self.add_quant_config()
@@ -64,7 +64,7 @@ class GPTQ(BaseBlockwiseQuantization):
 
         if self.actorder:
             perm = torch.cat(
-                [descending_ids[self.n_out:], descending_ids[:self.self.n_out]]
+                [descending_ids[self.n_out:], descending_ids[: self.self.n_out]]
             )
         else:
             perm = torch.cat(
@@ -98,20 +98,19 @@ class GPTQ(BaseBlockwiseQuantization):
             torch.cuda.empty_cache()
 
             self.subset_transform(subset['layers'])
-            if self.quant_out:
-                self.model.replace_module_subset(
-                    FakeQuantLinear,
-                    block,
-                    subset,
-                    self.block_idx,
-                    self.get_replacement_params('fake_quant', w_only=True),
-                )
+            self.model.replace_module_subset(
+                FakeQuantLinear,
+                block,
+                subset,
+                self.block_idx,
+                self.get_replacement_params('fake_quant', w_only=True),
+            )
 
     @torch.no_grad()
     def block_transform(self, block, input_feat, block_kwargs):
         logger.info(f'Start transform the {self.block_idx+1}-th block')
         if self.online_rotate:
-            self.replace_rotate_linears(block)
+            self.replace_rotate_fcs(block)
         if self.owq and not hasattr(self, 'n_out_dict'):
             named_linears = self.model.get_block_linears(block)
             self.n_out_dict = {}
@@ -149,7 +148,7 @@ class GPTQ(BaseBlockwiseQuantization):
         self.qparams = {}
         self.columns = self.layers_cache[name]['columns']
         self.n_out = self.n_out_dict[name] if self.owq else 0
-        self.n_nonout = self.columns - self.n_out
+        self.n_nonout = layer.weight.data.shape[1] - self.n_out
 
         if self.actorder or self.owq:
             self.hessian_sorting(name)
@@ -238,18 +237,14 @@ class GPTQ(BaseBlockwiseQuantization):
 
             for i in range(count):
                 w, d = W1[:, i], Hinv1[i, i]
+                idx = i1 + i
+
                 if self.wquantizer.granularity == 'per_group':
-                    idx = i1 + i
-                    if not self.static_groups:
-                        if (i1 + i) % self.wquantizer.group_size == 0:
-                            column_tensors = W[
-                                :,
-                                (i1 + i):min(
-                                    (i1 + i + self.wquantizer.group_size),
-                                    (self.columns - self.n_out),
-                                ),
-                            ]
-                            self.search_column_qparams(column_tensors, idx)
+                    if not self.static_groups and idx % self.wquantizer.group_size == 0:
+                        col_end = min(
+                            idx + self.wquantizer.group_size, self.columns - self.n_out
+                        )
+                        self.search_column_qparams(W[:, idx:col_end], idx)
                     else:
                         if self.actorder:
                             idx = self.perm[idx]
@@ -259,8 +254,8 @@ class GPTQ(BaseBlockwiseQuantization):
                     w.unsqueeze(1),
                     self.qparams['scale'],
                     self.qparams['zero'],
-                    self.qparams['qmax'],
-                    self.qparams['qmin'],
+                    self.qparams['max_int'],
+                    self.qparams['min_int'],
                 ).squeeze(1)
 
                 tmp1[:, i] = w
@@ -286,7 +281,7 @@ class GPTQ(BaseBlockwiseQuantization):
         ):
             if isinstance(layer, RotateLinear):
                 # online rotate
-                inp = layer.rotater.rotate(inp)
+                inp = layer.a_rotater.rotate(inp)
             if len(inp.shape) == 3:
                 inp = inp.reshape((-1, inp.shape[-1]))
             inp = inp.t()
@@ -346,21 +341,21 @@ class GPTQ(BaseBlockwiseQuantization):
                     tensor,
                     scales,
                     zeros,
-                    qmax,
-                    qmin,
+                    max_int,
+                    min_int,
                 ) = self.wquantizer.get_tensor_qparams(m.weight.data)
                 m = m.to(self.model_dtype)
                 m.cpu()
                 m.register_buffer('buf_scales', scales)
                 m.register_buffer('buf_zeros', zeros)
-                m.register_buffer('buf_qmax', torch.tensor(qmax))
-                m.register_buffer('buf_qmin', torch.tensor(qmin))
+                m.register_buffer('buf_max_int', torch.tensor(max_int))
+                m.register_buffer('buf_min_int', torch.tensor(min_int))
 
     @torch.no_grad()
     def split_qparams(self, qparams):
         group_qparams = []
-        group_num = math.ceil(self.columns / self.wquantizer.group_size)
-        qparams = qparams.reshape(math.ceil(qparams.shape[0] / group_num), -1)
+        group_num = self.columns // self.wquantizer.group_size
+        qparams = qparams.reshape(qparams.shape[0] // group_num, -1)
         qparams = qparams.t()
         group_qparams = list(torch.split(qparams, 1, dim=0))
         for i in range(len(group_qparams)):
@@ -384,11 +379,11 @@ class GPTQ(BaseBlockwiseQuantization):
 
     @torch.no_grad()
     def search_column_qparams(self, c_tensor, idx):
-        _, scale, zero, qmax, qmin = self.wquantizer.get_tensor_qparams(c_tensor)
+        _, scale, zero, max_int, min_int = self.wquantizer.get_tensor_qparams(c_tensor)
         self.qparams['scale'] = scale
         self.qparams['zero'] = zero
-        self.qparams['qmax'] = qmax
-        self.qparams['qmin'] = qmin
+        self.qparams['max_int'] = max_int
+        self.qparams['min_int'] = min_int
         qparams = copy.deepcopy(self.qparams)
         self.groups[idx // self.wquantizer.group_size] = qparams
 
@@ -397,28 +392,27 @@ class GPTQ(BaseBlockwiseQuantization):
         scales = layer.buf_scales
         zeros = layer.buf_zeros
         scales = self.merge_qparams(scales)
-        if not self.wquantizer.sym:
-            zeros = self.merge_qparams(zeros)
+        zeros = self.merge_qparams(zeros)
         self.qparams['scale'], self.qparams['zero'] = scales, zeros
-        self.qparams['qmax'] = layer.buf_qmax
-        self.qparams['qmin'] = layer.buf_qmin
+        self.qparams['max_int'] = layer.buf_max_int
+        self.qparams['min_int'] = layer.buf_min_int
 
     @torch.no_grad()
     def search_group_qparams(self, layer):
         scales = layer.buf_scales
         zeros = layer.buf_zeros
         self.group_scales = self.split_qparams(scales)
-        if not self.wquantizer.sym:
+        if zeros is not None:
             self.group_zeros = self.split_qparams(zeros)
         for i in range(len(self.group_scales)):
             qparams = {}
             qparams['scale'] = self.group_scales[i]
-            if not self.wquantizer.sym:
+            if zeros is not None:
                 qparams['zero'] = self.group_zeros[i]
             else:
-                qparams['zero'] = torch.tensor(0.0)
-            qparams['qmax'] = layer.buf_qmax
-            qparams['qmin'] = layer.buf_qmin
+                qparams['zero'] = None
+            qparams['max_int'] = layer.buf_max_int
+            qparams['min_int'] = layer.buf_min_int
             self.groups.append(qparams)
 
     @torch.no_grad()
@@ -429,11 +423,9 @@ class GPTQ(BaseBlockwiseQuantization):
             _scales.append(g['scale'])
             _zeros.append(g['zero'])
         scales = self.merge_qparams(_scales)
+        zeros = self.merge_qparams(_zeros)
         layer.buf_scales = copy.deepcopy(scales)
-
-        if not self.wquantizer.sym:
-            zeros = self.merge_qparams(_zeros)
-            layer.buf_zeros = copy.deepcopy(zeros)
+        layer.buf_zeros = copy.deepcopy(zeros)
 
     @torch.no_grad()
     def w_q(self, module, wquantizer):
@@ -441,8 +433,8 @@ class GPTQ(BaseBlockwiseQuantization):
         args = {}
         args['scales'] = module.buf_scales
         args['zeros'] = module.buf_zeros
-        args['qmax'] = module.buf_qmax
-        args['qmin'] = module.buf_qmin
+        args['max_int'] = module.buf_max_int
+        args['min_int'] = module.buf_min_int
         args['scales'] = args['scales'].to(self.model_dtype)
 
         weight, scales, zeros = wquantizer.real_quant_weight_static(weight, args)
@@ -461,8 +453,8 @@ class GPTQ(BaseBlockwiseQuantization):
             args['zeros'] = module.buf_zeros
         else:
             args['zeros'] = None
-        args['qmax'] = module.buf_qmax
-        args['qmin'] = module.buf_qmin
+        args['max_int'] = module.buf_max_int
+        args['min_int'] = module.buf_min_int
 
         if self.owq:
             fp_weight = weight[:, module.buf_n_nonout:]
@@ -480,7 +472,7 @@ class GPTQ(BaseBlockwiseQuantization):
 
     @torch.no_grad()
     def deploy(self, quant_format):
-        if quant_format not in ['fake_quant', 'origin_float']:
+        if quant_format == 'real_quant':
             assert not self.need_perm
         super().deploy(quant_format)
         self.model.convert_dtype(self.model_dtype)

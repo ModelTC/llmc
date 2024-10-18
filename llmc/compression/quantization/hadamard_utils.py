@@ -11,9 +11,21 @@ except Exception:
         'If you need it, please install it firstly.'
     )
 
-# from .module_utils import RotateLinear
 # Adapted from
 # https://github.com/Cornell-RelaxML/quip-sharp/blob/main/lib/utils/matmul_had.py
+
+
+class HadamardTransform(torch.autograd.Function):
+    """The unnormalized Hadamard transform (i.e. without dividing by
+    sqrt(2))"""
+
+    @staticmethod
+    def forward(ctx, u):
+        return fast_hadamard_transform.hadamard_transform(u)
+
+    @staticmethod
+    def backward(ctx, grad):
+        return fast_hadamard_transform.hadamard_transform(grad)
 
 
 def get_hadK(n, transpose=False):
@@ -109,25 +121,68 @@ def random_hadamard_matrix(size, device):
 def matmul_hadU_cuda(X, hadK, K):
     n = X.shape[-1]
     if K == 1:
-        return fast_hadamard_transform.hadamard_transform(
-            X.contiguous(), 1.0 / torch.tensor(n).sqrt()
-        )
+        return HadamardTransform.apply(X.contiguous()) / torch.tensor(n).sqrt()
     # if transpose:
     #     hadK = hadK.T.contiguous()
     input = X.view(-1, K, n // K)
-    input = fast_hadamard_transform.hadamard_transform(
-        input.contiguous(), 1.0 / torch.tensor(n).sqrt()
-    )
+    input = HadamardTransform.apply(input.contiguous()) / torch.tensor(n).sqrt()
     input = hadK.to(input.device).to(input.dtype) @ input
     return input.reshape(X.shape)
-
 
 def matmul_hadUt_cuda(X, hadK, K):
     return matmul_hadU_cuda(X, hadK, K, transpose=True)
 
 
-def apply_exact_had_to_linear(module, had_dim=-1, output=False):
-    # assert isinstance(module, (torch.nn.Linear, RotateLinear))
+# def apply_exact_had_to_linear(module, had_dim=-1, output=False, R2=None):
+#     # assert isinstance(module, (torch.nn.Linear, RotateLinear))
+#     in_features, out_features = module.in_features, module.out_features
+
+#     if had_dim != -1:
+#         assert is_pow2(had_dim), 'Hadamard dimension must be a power of 2!'
+
+#     W_ = module.weight.data
+#     dtype = W_.dtype
+#     dev = W_.device
+#     # init_shape = W_.shape
+#     W_ = W_.float().cuda()
+
+#     if had_dim == -1:
+#         if output:
+#             had_K, K = get_hadK(out_features)
+#             W_ = matmul_hadU_cuda(W_.t(), had_K, K).t()
+#         if not output:
+#             had_K, K = get_hadK(in_features)
+#             W_ = matmul_hadU_cuda(W_, had_K, K)
+#     else:
+#         # Apply Hadamard to the last had_dim chunks of the weights
+#         if output:
+#             W_ = W_.t()
+#             transposed_shape = W_.shape
+#             W_ = (
+#                 fast_hadamard_transform.hadamard_transform(
+#                     W_.reshape(-1, transposed_shape[-1] // had_dim, had_dim),
+#                     scale=1 / math.sqrt(had_dim),
+#                 )
+#                 .reshape(transposed_shape)
+#                 .t()
+#             )
+#         else:
+#             raise NotImplementedError('Not implemented (or tested) yet!')
+#             # n = W_.shape[1]
+#             # W_ = hadamard_transform(
+#             #     W_.reshape(-1, n // had_dim, had_dim), scale=1 / math.sqrt(had_dim)
+#             # ).reshape(init_shape)
+#     module.weight.data = W_.to(device=dev, dtype=dtype)
+
+
+def hadamard_matrix(size, device):
+    # See https://cornell-relaxml.github.io/quip-sharp/ , Section "Randomized Hadamard Transformation"
+    Q = torch.eye(size)
+    return matmul_hadU(Q).to(device)
+
+
+def apply_exact_had_to_linear(module, had_dim=-1, output=False, R2=None):
+    # assert isinstance(module, torch.nn.Linear)
     in_features, out_features = module.in_features, module.out_features
 
     if had_dim != -1:
@@ -136,7 +191,7 @@ def apply_exact_had_to_linear(module, had_dim=-1, output=False):
     W_ = module.weight.data
     dtype = W_.dtype
     dev = W_.device
-    # init_shape = W_.shape
+    init_shape = W_.shape
     W_ = W_.float().cuda()
 
     if had_dim == -1:
@@ -147,26 +202,21 @@ def apply_exact_had_to_linear(module, had_dim=-1, output=False):
             had_K, K = get_hadK(in_features)
             W_ = matmul_hadU_cuda(W_, had_K, K)
     else:
-        # Apply Hadamard to the last had_dim chunks of the weights
+        hadK = hadamard_matrix(had_dim, 'cuda').to(torch.float64)
+        if R2 is not None:
+            hadK = R2.to(torch.float64)
         if output:
             W_ = W_.t()
             transposed_shape = W_.shape
-            W_ = (
-                fast_hadamard_transform.hadamard_transform(
-                    W_.reshape(-1, transposed_shape[-1] // had_dim, had_dim),
-                    scale=1 / math.sqrt(had_dim),
-                )
-                .reshape(transposed_shape)
-                .t()
-            )
+            temp = W_.reshape(-1, transposed_shape[-1] // had_dim, had_dim)
+            temp = temp.to(torch.float64) @ hadK
+            W_ = temp.reshape(transposed_shape).t()
         else:
-            raise NotImplementedError('Not implemented (or tested) yet!')
-            # n = W_.shape[1]
-            # W_ = hadamard_transform(
-            #     W_.reshape(-1, n // had_dim, had_dim), scale=1 / math.sqrt(had_dim)
-            # ).reshape(init_shape)
+            init_shape = W_.shape
+            temp = W_.reshape(-1, init_shape[-1] // had_dim, had_dim)
+            temp = temp.to(torch.float64) @ hadK
+            W_ = temp.reshape(init_shape)
     module.weight.data = W_.to(device=dev, dtype=dtype)
-
 
 def is_pow2(n):
     return (n & (n - 1) == 0) and (n > 0)

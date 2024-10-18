@@ -1,0 +1,39 @@
+base:
+    seed: &seed 0
+model:
+    type: Llama
+    path: model path
+    torch_dtype: auto
+calib:
+    name: c4
+    download: False
+    n_samples: 128
+    path: calib data path
+    bs: 1
+    seq_len: 2048
+    preproc: c4_gptq
+    seed: *seed
+eval:
+    eval_pos: [pretrain, fake_quant]
+    name: wikitext2
+    download: False
+    path: eval data path
+    bs: 1
+    seq_len: 2048
+quant:
+    method: GPTQ
+    weight:
+        bit: 4
+        symmetric: False
+        granularity: per_group
+        group_size: 128
+    special:
+        actorder: True
+        static_groups: False
+        percdamp: 0.01
+        blocksize: 128
+        true_sequential: True
+    quant_out: True
+save:
+    save_trans: False
+    save_path: ./save
