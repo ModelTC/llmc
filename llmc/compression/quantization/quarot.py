@@ -1,6 +1,4 @@
 import gc
-import json
-import os
 
 import torch
 import torch.nn as nn
@@ -16,22 +14,15 @@ from .module_utils import (_LLMC_LN_TYPES_, _TRANSFORMERS_LN_TYPES_,
 
 @ALGO_REGISTRY
 class Quarot(BaseBlockwiseQuantization):
-    def __init__(self, model, quant_config, input, padding_mask, config):
-        super().__init__(model, quant_config, input, padding_mask, config)
+    def __init__(self, model, quant_config, input, config):
+        super().__init__(model, quant_config, input, config)
         self.dev = torch.device('cuda')
         self.add_quant_config()
         self.preprocess()
 
     def preprocess(self):
-        if torch.equal(
-            self.model.get_head_layers()[0].weight,
-            self.model.get_embed_layers()[0].weight,
-        ):
-            logger.info('Tie weight! Copy embed_layer for head_layer!')
-            del self.model.get_head_layers()[0].weight
-            w = self.model.get_embed_layers()[0].weight.clone()
-            self.model.get_head_layers()[0].weight = nn.Parameter(w)
-
+        assert self.config['model']['type'] in ['Opt', 'Llama']
+        # if self.config["model"]["type"] in ["Opt"]:
         self.remove_mean_from_embed()
 
         self.Q = self.get_orthogonal_matrix()
@@ -49,8 +40,12 @@ class Quarot(BaseBlockwiseQuantization):
         )
 
         self.rotate_head(self.Q)
+
         gc.collect()
         torch.cuda.empty_cache()
+
+    def a_rot(self, act, module, a_rotater):
+        return a_rotater.rotate(act)
 
     @torch.no_grad()
     def add_quant_config(self):
@@ -58,22 +53,17 @@ class Quarot(BaseBlockwiseQuantization):
 
     def get_orthogonal_matrix(self):
         if self.rotate_mode == 'random':
-            try:
-                return random_orthogonal_matrix(self.hidden_size, self.dev)
-            except NameError:
-                raise RuntimeError(
-                    'Function random_orthogonal_matrix is not defined.'
-                )
+            return random_orthogonal_matrix(self.hidden_size, self.dev)
         elif self.rotate_mode == 'hadamard':
             return random_hadamard_matrix(self.hidden_size, self.dev)
         else:
             raise ValueError(f'Unsupported mode {self.mode}')
 
-    def block_transform(self, block):
+    def block_transform(self, block, ):
         logger.info(f'Start transform the {self.block_idx+1}-th block')
 
         if self.online_rotate:
-            self.replace_rotate_linears(block)
+            self.replace_rotate_fcs(block)
         subsets = self.model.get_subsets_in_block(block)
         for index, subset in enumerate(subsets):
             self.subset_transform(block, subset)
@@ -97,31 +87,18 @@ class Quarot(BaseBlockwiseQuantization):
             self.fuse_ln_fcs(prev_op[0], layers)
             self.rotate_pre_layers(layers, self.Q)
         else:
-            if self.config['model']['type'] in ['Opt', 'StableLm']:
-                self.bake_mean_into_fc(layers[0])
+            if self.config['model']['type'] in ['Opt']:
+                self.bake_mean_into_linear(layers[0])
 
             if 'is_mlp' in subset and subset['is_mlp']:
                 self.rotate_post_layers(
                     layers, self.Q, exact_had=True if self.online_rotate else False
                 )
             else:
-                for n, m in layers_dict.items():
-                    logger.info(f'layer: {n} {m.weight.shape}')
-                logger.info(f'{self.Q.shape}')
                 self.rotate_post_layers(layers, self.Q, exact_had=False)
                 if self.online_rotate:
+                    R2 = None
                     apply_exact_had_to_linear(
-                        prev_op[0], had_dim=self.head_dim, output=True
+                        prev_op[0], had_dim=self.head_dim, output=True, R2=R2
                     )
-                    apply_exact_had_to_linear(layers[0], had_dim=-1, output=False)
-
-    @torch.no_grad()
-    def save_model(self, path):
-        super().save_model(path)
-        path = os.path.join(path, 'config.json')
-        with open(path, 'r') as f:
-            config = json.load(f)
-        if 'tie_word_embeddings' in config:
-            config['tie_word_embeddings'] = False
-        with open(path, 'w') as f:
-            json.dump(config, f, indent=4)
+                    apply_exact_had_to_linear(layers[0], had_dim=-1, output=False, R2=R2)

@@ -5,8 +5,8 @@ from .base_model import BaseModel
 
 @MODEL_REGISTRY
 class Mixtral(BaseModel):
-    def __init__(self, model_path, torch_dtype, device_map=None, use_cache=False):
-        super().__init__(model_path, torch_dtype, device_map, use_cache)
+    def __init__(self, model_path, torch_dtype):
+        super().__init__(model_path, torch_dtype)
 
     def find_blocks(self):
         self.blocks = self.model.model.layers
@@ -23,9 +23,6 @@ class Mixtral(BaseModel):
     def get_layers_except_blocks(self):
         return [self.embed_tokens, self.model.model.norm, self.model.lm_head]
 
-    def skip_layer_name(self):
-        return ['lm_head']
-
     def has_bias(self):
         return False
 
@@ -33,11 +30,6 @@ class Mixtral(BaseModel):
         return {
             'input_layernorm': block.input_layernorm,
             'post_attention_layernorm': block.post_attention_layernorm,
-        }
-
-    def get_extra_modules(self, block):
-        return {
-            'block_sparse_moe': block.block_sparse_moe
         }
 
     def get_subsets_in_block(self, block):
@@ -61,25 +53,11 @@ class Mixtral(BaseModel):
                 'has_kwargs': False,
             },
             {
-                'layers': {
-                    **{f'block_sparse_moe.experts.{i}.w1': block.block_sparse_moe.experts[i].w1 for i in range(len(block.block_sparse_moe.experts))}, # noqa
-                    **{f'block_sparse_moe.experts.{i}.w3': block.block_sparse_moe.experts[i].w3 for i in range(len(block.block_sparse_moe.experts))}, # noqa
-                },
+                'layers': {'block_sparse_moe.gate': block.block_sparse_moe.gate},
                 'prev_op': [block.post_attention_layernorm],
-                'input': ['block_sparse_moe'],
-                'inspect': block.block_sparse_moe,
+                'input': ['block_sparse_moe.gate'],
+                'inspect': block.block_sparse_moe.gate,
                 'has_kwargs': False,
-                'is_mlp': True,
             },
-            *[
-                {
-                    'layers': {f'block_sparse_moe.experts.{i}.w2': block.block_sparse_moe.experts[i].w2}, # noqa
-                    'prev_op': [block.block_sparse_moe.experts[i].w3],
-                    'input': [f'block_sparse_moe.experts.{i}.w2'],
-                    'inspect': block.block_sparse_moe.experts[i].w2,
-                    'has_kwargs': False,
-                    'is_mlp': True,
-                }
-                for i in range(len(block.block_sparse_moe.experts))
-            ],
+            # Moe layers can not transform.
         ]

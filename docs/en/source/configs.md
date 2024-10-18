@@ -8,46 +8,39 @@ Here's a brief config example
 base:
     seed: &seed 42 # Set random seed
 model:
-    type: model_type # Type of the model
-    path: model path # Path to the model
-    tokenizer_mode: fast # Type of the model's tokenizer
-    torch_dtype: auto # Data type of the model
+    type: Llama # Type of model
+    path: model path # Model path
+    tokenizer_mode: fast # The tokenizer type of the model
+    torch_dtype: auto # Model dtype
 calib:
-    name: pileval # Name of the calibration dataset
-    download: False # Whether to download the calibration dataset online
-    path: calib data path # Path to the calibration dataset
-    n_samples: 512 # Number of samples in the calibration dataset
-    bs: 1 # Batch size for the calibration dataset
-    seq_len: 512 # Sequence length for the calibration dataset
-    preproc: pileval_smooth # Preprocessing method for the calibration dataset
-    seed: *seed # Random seed for the calibration dataset
+    name: pileval # Calibration data set name
+    download: False # Whether the calibration dataset can be downloaded online
+    path: calib data path # Calibration dataset path
+    n_samples: 512 # Number of calibration samples
+    bs: 1 # Batch size of calibration dataset
+    seq_len: 512 # Sequence length of calibration dataset
+    preproc: pileval_smooth # Pre-procession of the calibration dataset
+    seed: *seed # Random seed for calibration dataset
 eval:
-    eval_pos: [pretrain, transformed, fake_quant] # Evaluation points
-    name: wikitext2 # Name of the evaluation dataset
-    download: False # Whether to download the evaluation dataset online
-    path: eval data path # Path to the evaluation dataset
-    bs: 1 # Batch size for the evaluation dataset
-    seq_len: 2048 # Sequence length for the evaluation dataset
-    eval_token_consist: False # Whether to evaluate the consistency of tokens between the quantized and original models
+    eval_pos: [pretrain, transformed, fake_quant] # eval positon
+    name: wikitext2 # The name of the evaluation dataset
+    download: False # Whether the evaluation dataset can be downloaded online
+    path: eval data path # Path to evaluation dataset
+    bs: 1 # The batch size of the evaluation dataset
+    seq_len: 2048 # Sequence length of the evaluation dataset
 quant:
     method: SmoothQuant # Compression method
     weight:
-        bit: 8 # Number of quantization bits for weights
-        symmetric: True # Whether weight quantization is symmetric
-        granularity: per_channel # Granularity of weight quantization
+        bit: 8 # The number of quantified bits of the weight
+        symmetric: True # Is weight quantization a symmetric quantization
+        granularity: per_channel # The granularity of weight quantification
     act:
-        bit: 8 # Number of quantization bits for activations
-        symmetric: True # Whether activation quantization is symmetric
-        granularity: per_token # Granularity of activation quantization
-    speical: # Special parameters required for the quantization algorithm. Refer to the comments in the configuration file and the original paper for usage.
+        bit: 8 # Number of activated quantization bits
+        symmetric: True # Whether activation quantization is symmetric quantization
+        granularity: per_token # The granularity of activation quantification
 save:
-    save_vllm: False # Whether to save the real quantized model for VLLM inference
-    save_sgl: False # Whether to save the real quantized model for Sglang inference
-    save_autoawq: False # Whether to save the real quantized model for AutoAWQ inference
-    save_mlcllm: False # Whether to save the real quantized model for MLC-LLM inference
-    save_trans: False # Whether to save the model after weight transformation
-    save_fake: False # Whether to save the fake quantized weights
-    save_path: /path/to/save # Save path
+    save_trans: False # Whether to save the adjusted model
+    save_path: ./save # Save path
 ```
 
 # Configs' detailed description
@@ -362,45 +355,12 @@ quant:
 
 ## save
 
-<font color=792ee5> save.save_vllm</font>
+<font color=792ee5> save.save_trans </font>
 
-Whether to save as a [VLLM](https://github.com/vllm-project/vllm) inference backend-supported real quantized model.
+Whether to save the adjusted model weights
 
-When this option is enabled, the saved model weights will significantly shrink (real quantization), and it can be directly loaded for inference using the VLLM backend. This improves inference speed and reduces memory usage. For more details on the [VLLM](https://github.com/vllm-project/vllm) inference backend, refer to [this section](https://llmc-en.readthedocs.io/en/latest/backend/vllm.html#).
+The saved weight is the weight that is more suitable for quantization after adjustment, and it is still saved in the form of FP16, and when it is deployed in the inference engine, you need to enable NAIVE quantization to achieve quantitative inference
 
-<font color=792ee5> save.save_sgl</font>
+<font color=792ee5> save.save_path </font>
 
-Whether to save as a [Sglang](https://github.com/sgl-project/sglang) inference backend-supported real quantized model.
-
-When this option is enabled, the saved model weights will significantly shrink (real quantization), and it can be directly loaded for inference using the [Sglang](https://github.com/sgl-project/sglang) backend. This improves inference speed and reduces memory usage. For more details on the [Sglang](https://github.com/sgl-project/sglang) inference backend, refer to [this section](https://llmc-en.readthedocs.io/en/latest/backend/sglang.html).
-
-<font color=792ee5> save.save_autoawq</font>
-
-Whether to save as an [AutoAWQ](https://github.com/casper-hansen/AutoAWQ) inference backend-supported real quantized model.
-
-When this option is enabled, the saved model weights will significantly shrink (real quantization), and it can be directly loaded for inference using the [AutoAWQ](https://github.com/casper-hansen/AutoAWQ) backend. This improves inference speed and reduces memory usage. For more details on the [AutoAWQ](https://github.com/casper-hansen/AutoAWQ) inference backend, refer to [this section](https://llmc-en.readthedocs.io/en/latest/backend/autoawq.html).
-
-<font color=792ee5> save.save_mlcllm</font>
-
-Whether to save as an [MLC-LLM](https://github.com/mlc-ai/mlc-llm) inference backend-supported real quantized model.
-
-When this option is enabled, the saved model weights will significantly shrink (real quantization), and it can be directly loaded for inference using the [MLC-LLM](https://github.com/mlc-ai/mlc-llm) backend. This improves inference speed and reduces memory usage. For more details on the [MLC-LLM](https://github.com/mlc-ai/mlc-llm) inference backend, refer to [this section](https://llmc-en.readthedocs.io/en/latest/backend/mlcllm.html).
-
-<font color=792ee5> save.save_trans</font>
-
-Whether to save the adjusted model weights.
-
-The saved weights are adjusted to be more suitable for quantization, possibly containing fewer outliers. They are still saved in fp16/bf16 format (with the same file size as the original model). When deploying the model in the inference engine, the engine's built-in `naive quantization` needs to be used to achieve quantized inference.
-
-Unlike `save_vllm` and similar options, this option requires the inference engine to perform real quantization, while `llmc` provides a floating-point model weight that is more suitable for quantization.
-
-For example, the `save_trans` models exported by algorithms such as `SmoothQuant, Os+, AWQ, and Quarot` have `fewer outliers` and are more suitable for quantization.
-
-
-<font color=792ee5> save.save_fake</font>
-
-Whether to save the fake quantized model.
-
-<font color=792ee5> save.save_path</font>
-
-The path where the model is saved. This path must be a new, non-existent directory, otherwise, LLMC will terminate the run and issue an appropriate error message.
+Save the path of the model, which needs to be a new directory path that does not exist, otherwise the llmc will terminate the operation with a corresponding error message

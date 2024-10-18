@@ -40,15 +40,7 @@ def main():
                 "modifications": [
                     (
                         "torch.cuda.empty_cache()",
-                        "if use_cuda: torch.cuda.empty_cache()"
-                    ),
-                    (
-                        "init_process_group(backend='nccl')",
-                        "init_process_group(backend='gloo')"
-                    ),
-                    (
-                        "torch.cuda.set_device(int(os.environ['LOCAL_RANK']))",
-                        "# torch.cuda.set_device(int(os.environ['LOCAL_RANK']))"
+                        "if use_cuda: torch.cuda.empty_cache()",
                     )
                 ],
             }
@@ -89,20 +81,6 @@ def main():
                     ),
                 ],
             }
-        elif file_path == "../llmc/eval/eval_base.py":
-            modifications = {
-                "header": [
-                    'device_zbl = "cpu"\n',
-                    'use_cuda = (device_zbl != "cpu")\n',
-                ],
-                "modifications": [
-                    (".cuda()", ".to(device_zbl)"),
-                    (
-                        "torch.cuda.empty_cache()",
-                        "if use_cuda: torch.cuda.empty_cache()",
-                    ),
-                ],
-            }
         elif file_path == "../llmc/eval/eval_ppl.py":
             modifications = {
                 "header": [
@@ -117,22 +95,6 @@ def main():
                         "if use_cuda: torch.cuda.empty_cache()",
                     ),
                     ("nlls = []", "nlls = []; nsamples = nsamples_zbl"),
-                ],
-            }
-        elif file_path == "../llmc/eval/eval_token_consist.py":
-            modifications = {
-                "header": [
-                    'device_zbl = "cpu"\n',
-                    'use_cuda = (device_zbl != "cpu")\n',
-                    "nsamples_zbl = 1\n",
-                ],
-                "modifications": [
-                    (".cuda()", ".to(device_zbl)"),
-                    (
-                        "torch.cuda.empty_cache()",
-                        "if use_cuda: torch.cuda.empty_cache()",
-                    ),
-                    ("for i in range(0, nsamples, bs):", "for i in range(0, 1, 1):"),
                 ],
             }
         else:

@@ -17,9 +17,9 @@ from .module_utils import (_LLMC_LINEAR_TYPES_, _LLMC_LN_TYPES_,
 
 @ALGO_REGISTRY
 class OsPlus(BaseBlockwiseQuantization):
-    def __init__(self, model, quant_config, input, padding_mask, config):
+    def __init__(self, model, quant_config, input, config):
         torch.set_grad_enabled(False)
-        super().__init__(model, quant_config, input, padding_mask, config)
+        super().__init__(model, quant_config, input, config)
 
         special_config = self.quant_config.get('special', {})
         self.weight_clip = special_config.get('weight_clip', False)
@@ -106,7 +106,7 @@ class OsPlus(BaseBlockwiseQuantization):
             self.auto_clip(
                 block,
                 clip_input_feat,
-                n_sample_token=self.config.calib.get('seq_len', None),
+                n_sample_token=self.config.calib.seq_len,
                 eps=3e-1,
             )
 

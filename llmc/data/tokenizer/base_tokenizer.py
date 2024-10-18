@@ -1,4 +1,3 @@
-import warnings
 from abc import ABCMeta
 
 from transformers import AutoTokenizer
@@ -18,13 +17,9 @@ class BaseTokenizer(metaclass=ABCMeta):
         return str(self.tokenizer)
 
     def build_tokenizer(self):
-        try:
-            self.tokenizer = AutoTokenizer.from_pretrained(
-                self.tokenizer_path, use_fast=self.use_fast, trust_remote_code=True
-            )
-        except Exception as e:
-            self.tokenizer = None
-            warnings.warn(f'Failed to load tokenizer. Error: {str(e)}')
+        self.tokenizer = AutoTokenizer.from_pretrained(
+            self.tokenizer_path, use_fast=self.use_fast, trust_remote_code=True
+        )
 
     def get_tokenizer(self):
         return self.tokenizer

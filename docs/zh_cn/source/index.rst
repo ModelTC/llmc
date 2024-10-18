@@ -30,25 +30,8 @@ arxiv链接: https://arxiv.org/abs/2405.06001
    :maxdepth: 2
    :caption: 进阶用法
 
-   advanced/model_test_v1.md
-   advanced/model_test_v2.md
+   advanced/model_test.md
    advanced/custom_dataset.md
    advanced/mix_bits.md
    advanced/sparsification.md
 
-.. toctree::
-   :maxdepth: 2
-   :caption: 量化最佳实践
-
-   practice/awq.md
-   practice/awq_omni.md
-   practice/quarot_gptq.md
-
-.. toctree::
-   :maxdepth: 2
-   :caption: 量化推理后端
-
-   backend/vllm.md
-   backend/sglang.md
-   backend/autoawq.md
-   backend/mlcllm.md

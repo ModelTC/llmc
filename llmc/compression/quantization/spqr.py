@@ -13,13 +13,13 @@ from llmc.utils.registry_factory import ALGO_REGISTRY
 
 from .base_blockwise_quantization import BaseBlockwiseQuantization
 from .module_utils import FakeQuantLinear
-from .quant import IntegerQuantizer
+from .quant import Quantizer
 
 
 @ALGO_REGISTRY
 class SpQR(BaseBlockwiseQuantization):
-    def __init__(self, model, quant_config, input, padding_mask, config):
-        super().__init__(model, quant_config, input, padding_mask, config)
+    def __init__(self, model, quant_config, input, config):
+        super().__init__(model, quant_config, input, config)
         assert (
             self.wquantizer.granularity == 'per_group'
         ), 'SpQR only supports per_group quantization'
@@ -50,11 +50,9 @@ class SpQR(BaseBlockwiseQuantization):
         scale_config = special_config['scale']
         zero_config = special_config['zero']
 
-        self.quant_type = self.quant_config.get('quant_type', 'int_quant')
-        assert self.quant_type != 'float_quant', 'SPQR do not support Float quant now.'
-        self.scale_quantizer = IntegerQuantizer(**scale_config)
-        self.zero_quantizer = IntegerQuantizer(**zero_config)
-        self.Q = IntegerQuantizer(
+        self.scale_quantizer = Quantizer(**scale_config)
+        self.zero_quantizer = Quantizer(**zero_config)
+        self.Q = Quantizer(
             self.wquantizer.bit, self.wquantizer.sym, 'per_channel', round_zp=False
         )
 
@@ -232,8 +230,8 @@ class SpQR(BaseBlockwiseQuantization):
                     W[:, i].unsqueeze(1),
                     self.qparams['scales'],
                     self.qparams['zeros'],
-                    self.qparams['qmax'],
-                    self.qparams['qmin'],
+                    self.qparams['max_int'],
+                    self.qparams['min_int'],
                 ).squeeze(1)
 
                 err = (W[:, i] - q) / Hinv[i, i]
@@ -323,24 +321,24 @@ class SpQR(BaseBlockwiseQuantization):
     def get_group_qparams(self, c_tensor, idx):
         """get qparams for a group, idx is the index of a column within a
         group, c_tensor is a group."""
-        _, s, z, qmax, qmin = self.wquantizer.get_tensor_qparams(c_tensor)
+        _, s, z, max_int, min_int = self.wquantizer.get_tensor_qparams(c_tensor)
         _, ss, zs, Ps, Ns = self.scale_quantizer.get_tensor_qparams(s)
         args = {}
         args['scales'] = ss
         args['zeros'] = zs
-        args['qmin'] = Ns
-        args['qmax'] = Ps
+        args['min_int'] = Ns
+        args['max_int'] = Ps
         scales = self.scale_quantizer.fake_quant_weight_static(s.data, args)
         _, sz, zz, Pz, Nz = self.zero_quantizer.get_tensor_qparams(z)
         args['scales'] = sz
         args['zeros'] = zz
-        args['qmin'] = Nz
-        args['qmax'] = Pz
+        args['min_int'] = Nz
+        args['max_int'] = Pz
         zeros = self.zero_quantizer.fake_quant_weight_static(z.data, args)
         self.qparams['scales'] = scales
         self.qparams['zeros'] = zeros
-        self.qparams['qmax'] = qmax
-        self.qparams['qmin'] = qmin
+        self.qparams['max_int'] = max_int
+        self.qparams['min_int'] = min_int
         qparams = copy.deepcopy(self.qparams)
         self.groups[idx // self.wquantizer.group_size] = qparams
 
@@ -351,8 +349,8 @@ class SpQR(BaseBlockwiseQuantization):
         d['zeros'] = self.merge_qparams([g['zeros'] for g in self.groups])
         for k, v in d.items():
             layer.register_buffer('buf_' + k, copy.deepcopy(v))
-        layer.register_buffer('buf_qmax', torch.tensor(self.groups[0]['qmax']))
-        layer.register_buffer('buf_qmin', torch.tensor(self.groups[0]['qmin']))
+        layer.register_buffer('buf_max_int', torch.tensor(self.groups[0]['max_int']))
+        layer.register_buffer('buf_min_int', torch.tensor(self.groups[0]['min_int']))
 
     @torch.no_grad()
     def free(self, name):
@@ -375,8 +373,8 @@ class SpQR(BaseBlockwiseQuantization):
         args = {}
         args['scales'] = module.buf_scales
         args['zeros'] = module.buf_zeros
-        args['qmax'] = module.buf_qmax
-        args['qmin'] = module.buf_qmin
+        args['max_int'] = module.buf_max_int
+        args['min_int'] = module.buf_min_int
 
         weight = wquantizer.fake_quant_weight_static(weight, args).to(self.model_dtype)
 

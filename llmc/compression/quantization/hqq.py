@@ -11,8 +11,8 @@ from .base_blockwise_quantization import BaseBlockwiseQuantization
 
 @ALGO_REGISTRY
 class HQQ(BaseBlockwiseQuantization):
-    def __init__(self, model, quant_config, input, padding_mask, config):
-        super().__init__(model, quant_config, input, padding_mask, config)
+    def __init__(self, model, quant_config, input, config):
+        super().__init__(model, quant_config, input, config)
         self.add_quant_config()
 
     @torch.no_grad()
@@ -34,13 +34,13 @@ class HQQ(BaseBlockwiseQuantization):
             )
 
     @torch.no_grad()
-    def optimize_weights_proximal(self, W_f, scales, zeros, qmax, qmin):
+    def optimize_weights_proximal(self, W_f, scales, zeros, max_int, min_int):
         best_error = 1e4
         current_beta = self.beta
         current_kappa = self.kappa
         scales = 1 / scales
         for i in range(self.iters):
-            W_q = torch.round(W_f * scales + zeros).clamp(qmin, qmax)
+            W_q = torch.round(W_f * scales + zeros).clamp(min_int, max_int)
             W_r = (W_q - zeros) / scales
             W_e = self.shrink_op(W_f - W_r, current_beta)
 
@@ -77,17 +77,17 @@ class HQQ(BaseBlockwiseQuantization):
                 tensor,
                 org_scales,
                 org_zeros,
-                qmax,
-                qmin,
+                max_int,
+                min_int,
             ) = self.wquantizer.get_tensor_qparams(tensor)
 
             best_scales, best_zeros = self.optimize_weights_proximal(
-                tensor, org_scales, org_zeros, qmax, qmin
+                tensor, org_scales, org_zeros, max_int, min_int
             )
             layer.register_buffer('buf_scales', best_scales)
             layer.register_buffer('buf_zeros', best_zeros)
-            layer.register_buffer('buf_qmax', torch.tensor(qmax))
-            layer.register_buffer('buf_qmin', torch.tensor(qmin))
+            layer.register_buffer('buf_max_int', torch.tensor(max_int))
+            layer.register_buffer('buf_min_int', torch.tensor(min_int))
 
         block = block.cpu()
         gc.collect()
@@ -99,7 +99,7 @@ class HQQ(BaseBlockwiseQuantization):
             args['dim'] = 'ic'
         args['scales'] = module.buf_scales
         args['zeros'] = module.buf_zeros
-        args['qmax'] = module.buf_qmax
-        args['qmin'] = module.buf_qmin
+        args['max_int'] = module.buf_max_int
+        args['min_int'] = module.buf_min_int
 
         return wquantizer.fake_quant_weight_static(module.weight, args)

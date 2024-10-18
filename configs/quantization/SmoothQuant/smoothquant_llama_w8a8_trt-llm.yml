@@ -1,0 +1,35 @@
+base:
+    seed: &seed 42
+model:
+    type: Llama
+    path: model path
+    torch_dtype: auto
+calib:
+    name: pileval
+    download: False
+    path: calib data path
+    n_samples: 512
+    bs: 1
+    seq_len: 512
+    preproc: pileval_smooth
+    seed: *seed
+eval:
+    eval_pos: []
+    name: wikitext2
+    download: False
+    path: eval data path
+    bs: 1
+    seq_len: 2048
+quant:
+    method: SmoothQuant
+    weight:
+        bit: 8
+        symmetric: True
+        granularity: per_channel
+    act:
+        bit: 8
+        symmetric: True
+        granularity: per_token
+save:
+    save_trans: True
+    save_path: ./save
