@@ -6,7 +6,7 @@ from loguru import logger
 try:
     import fast_hadamard_transform
 except Exception:
-    logger.info(
+    logger.warning(
         'fast_hadamard_transform not installed.'
         'If you need it, please install it firstly.'
     )

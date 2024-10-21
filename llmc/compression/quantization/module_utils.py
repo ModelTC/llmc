@@ -12,7 +12,7 @@ try:
 
     from .hadamard_utils import matmul_hadU_cuda
 except Exception:
-    logger.info(
+    logger.warning(
         'fast_hadamard_transform not installed. '
         'If you need it, please install it firstly.'
     )

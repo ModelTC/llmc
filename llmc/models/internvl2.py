@@ -12,7 +12,7 @@ from .internlm2 import InternLM2
 try:
     from .conversation import get_conv_template
 except Exception:
-    logger.info(
+    logger.warning(
         'InternLM2 conversation.py not be found. '
         'If you need it, please copy it from model path to llmc/models.'
     )

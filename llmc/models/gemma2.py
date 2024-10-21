@@ -1,14 +1,10 @@
-from loguru import logger
-
-from llmc.utils.registry_factory import MODEL_REGISTRY
-
-try:
-    from transformers.models.gemma2.modeling_gemma2 import Gemma2RMSNorm
-except Exception:
-    logger.warning('Gemma2 not found')
 from types import MethodType
 
 import torch.nn as nn
+from loguru import logger
+from transformers.models.gemma2.modeling_gemma2 import Gemma2RMSNorm
+
+from llmc.utils.registry_factory import MODEL_REGISTRY
 
 from .base_model import BaseModel
 
