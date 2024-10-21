@@ -1,3 +1,5 @@
+import json
+import os
 import random
 
 import torch
@@ -156,6 +158,35 @@ def vlm_clip_min(calib_dataset, processor, n_samples):
         prompt = prompt.replace('USER:', 'USER: <image>')
         samples['prompts'].append(prompt)
         samples['raw_images'].append(samples_native['raw_images'][i])
+    return samples
+
+
+@PREPROC_REGISTRY
+def vlm_general(calib_dataset, tokenizer, preprocess, n_samples):
+    img_qa_json = os.path.join(calib_dataset, 'img_qa.json')
+    fp = open(img_qa_json)
+    img_qas = json.load(fp)
+    for idx in range(len(img_qas)):
+        img_qas[idx]['img'] = os.path.join(calib_dataset, img_qas[idx]['img'])
+    random.shuffle(img_qas)
+    if len(img_qas) > n_samples:
+        img_qas = img_qas[:n_samples]
+    vlm_data = preprocess(img_qas)
+    samples = []
+    for data in vlm_data:
+        if 'input_ids' in data:
+            samples.append(data)
+        elif 'text' in data:
+            trainenc = tokenizer(data['text'], return_tensors='pt')
+            inp = trainenc.input_ids
+            samples.append(
+                {
+                    'pixel_values': data['pixel_values'],
+                    'input_ids': inp
+                }
+            )
+        else:
+            raise Exception(f'Both input_ids and text are not in data. data is: {data}')
     return samples
 
 

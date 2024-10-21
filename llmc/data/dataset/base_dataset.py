@@ -12,11 +12,11 @@ from .specified_preproc import PREPROC_REGISTRY
 
 
 class BaseDataset(metaclass=ABCMeta):
-    def __init__(self, tokenizer, calib_cfg, processor=None):
+    def __init__(self, tokenizer, calib_cfg, preprocess=None):
         # calib_cfg
         logger.info(f'calib_cfg : {calib_cfg}')
         self.tokenizer = tokenizer
-        self.processor = processor
+        self.preprocess = preprocess
         self.calib_dataset_name = calib_cfg['name']
         self.calib_dataset_type = calib_cfg.get('type', 'txt')
         self.padding = calib_cfg.get('padding', False)
@@ -80,31 +80,8 @@ class BaseDataset(metaclass=ABCMeta):
                     for line in lines:
                         self.calib_dataset.append(line.strip())
         elif self.calib_dataset_type == 'img_txt':
-            self.calib_dataset = []
             logger.info(f'calib_dataset_path: {self.calib_dataset_path}')
-            for root, _, files in os.walk(self.calib_dataset_path):
-                for name in files:
-                    if name.endswith('.jpg') or name.endswith('.png'):
-                        img_path = os.path.join(root, name)
-                        qa_path = os.path.join(root, name.split('.')[0] + '.json')
-                        try:
-                            with open(qa_path, 'r') as json_file:
-                                data = json.load(json_file)
-                            for qa in data:
-                                question = qa['question']
-                                gt_answer = qa['answer']
-                                prompt = (
-                                    f'USER: <image>\n{question}\nASSISTANT: {gt_answer}'
-                                )
-                                raw_image = Image.open(img_path)
-                                self.calib_dataset.append((prompt, raw_image))
-                        except FileNotFoundError:
-                            logger.warning(f'QA file not found for image: {img_path}')
-                        except Exception as e:
-                            logger.error(
-                                f'Error processing image {img_path} and'
-                                f'QA file {qa_path}: {e}'
-                            )
+            self.calib_dataset = self.calib_dataset_path
         elif self.calib_dataset_type == 'img':
             self.calib_dataset = []
             logger.info(f'calib_dataset_path: {self.calib_dataset_path}')
@@ -126,7 +103,12 @@ class BaseDataset(metaclass=ABCMeta):
             )
         elif self.preproc.startswith(('vlm_', 'img_')):
             preproc = PREPROC_REGISTRY[self.preproc]
-            samples = preproc(self.calib_dataset, self.processor, self.n_samples)
+            samples = preproc(
+                self.calib_dataset,
+                self.tokenizer,
+                self.preprocess,
+                self.n_samples
+            )
         else:
             preproc = PREPROC_REGISTRY[self.preproc]
             samples = preproc(
@@ -222,7 +204,7 @@ class BaseDataset(metaclass=ABCMeta):
     def img_txt_group_samples_wo_mask(self, samples):  # without mask
         calib_samples = []
         if self.calib_bs < 0:
-            batch = self.processor(
+            batch = self.preprocess(
                 text=samples['prompts'],
                 images=samples['raw_images'],
                 return_tensors='pt',
@@ -231,7 +213,7 @@ class BaseDataset(metaclass=ABCMeta):
             calib_samples.append(batch)
         elif self.calib_bs == 1:
             for prompt, raw_image in zip(samples['prompts'], samples['raw_images']):
-                batch = self.processor(
+                batch = self.preprocess(
                     text=prompt,
                     images=raw_image,
                     return_tensors='pt'
@@ -241,7 +223,63 @@ class BaseDataset(metaclass=ABCMeta):
             for i in range(0, len(samples['prompts']), self.calib_bs):
                 start = i
                 end = min(i + self.calib_bs, len(samples['prompts']))
-                batch = self.processor(
+                batch = self.preprocess(
+                    text=samples['prompts'][start:end],
+                    images=samples['raw_images'][start:end],
+                    return_tensors='pt',
+                    padding=True
+                )
+                calib_samples.append(batch)
+        return calib_samples
+
+    def img_txt_group_samples_with_mask(self, samples):
+        calib_samples = []
+        pad_token_id = self.tokenizer.convert_tokens_to_ids(self.tokenizer.pad_token)
+        if self.calib_bs < 0:
+            samples_len = [sample['input_ids'].shape[-1] for sample in samples]
+            max_len = max(samples_len)
+            samples_tmp = []
+            attention_mask_tmp = []
+            pixel_values_tmp = []
+            for sample in samples:
+                samples_tmp.append(
+                    F.pad(
+                        sample['input_ids'],
+                        [max_len - sample['input_ids'].shape[-1], 0],
+                        value=pad_token_id
+                    )
+                )
+                attention_mask_tmp.append(
+                    F.pad(
+                        torch.ones(1, sample['input_ids'].shape[-1], dtype=torch.int64),
+                        [max_len - sample['input_ids'].shape[-1], 0],
+                        value=0
+                    )
+                )
+                pixel_values_tmp.append(sample['pixel_values'])
+            batch_input_ids = torch.cat(samples_tmp, dim=0)
+            batch_attention_mask = torch.cat(attention_mask_tmp, dim=0)
+            pixel_values = torch.cat(pixel_values_tmp, dim=0)
+            calib_samples.append(
+                {
+                    'pixel_values': pixel_values,
+                    'input_ids': batch_input_ids,
+                    'attention_mask': batch_attention_mask
+                }
+            )
+        elif self.calib_bs == 1:
+            for prompt, raw_image in zip(samples['prompts'], samples['raw_images']):
+                batch = self.preprocess(
+                    text=prompt,
+                    images=raw_image,
+                    return_tensors='pt'
+                )
+                calib_samples.append(batch)
+        elif self.calib_bs > 1:
+            for i in range(0, len(samples['prompts']), self.calib_bs):
+                start = i
+                end = min(i + self.calib_bs, len(samples['prompts']))
+                batch = self.preprocess(
                     text=samples['prompts'][start:end],
                     images=samples['raw_images'][start:end],
                     return_tensors='pt',
@@ -270,22 +308,11 @@ class BaseDataset(metaclass=ABCMeta):
 
     def get_calib_dataset(self):
         samples = self.get_calib_samples()
-        if self.calib_dataset_type in ['txt', 'img']:
+        if self.calib_dataset_type in ['txt', 'img', 'img_txt']:
             logger.info(f'len(samples) all : {len(samples)}')
             assert len(samples) % int(os.environ['WORLD_SIZE']) == 0
             samples = samples[int(os.environ['RANK'])::int(os.environ['WORLD_SIZE'])]
             logger.info(f'len(samples) rank : {len(samples)}')
-        elif self.calib_dataset_type == 'img_txt':
-            samples_len = len(samples['prompts'])
-            logger.info(f'len(samples) all : {samples_len}')
-            assert samples_len % int(os.environ['WORLD_SIZE']) == 0
-            rank = int(os.environ['RANK'])
-            world_size = int(os.environ['WORLD_SIZE'])
-            samples = {
-                'prompts': samples['prompts'][rank::world_size],
-                'raw_images': samples['raw_images'][rank::world_size]
-            }
-            logger.info(f'len(samples) rank : {samples_len}')
         calib_samples = []
         if self.calib_dataset_type == 'txt':
             if self.padding:
@@ -295,7 +322,7 @@ class BaseDataset(metaclass=ABCMeta):
         elif self.calib_dataset_type == 'img':
             calib_samples = self.img_group_samples_wo_mask(samples)
         elif self.calib_dataset_type == 'img_txt':
-            calib_samples = self.img_txt_group_samples_wo_mask(samples)
+            calib_samples = self.img_txt_group_samples_with_mask(samples)
         logger.info(f'len(calib_samples) : {len(calib_samples)}')
         if self.padding:
             padding_mask = [calib_sample['attention_mask'] for calib_sample in calib_samples] # noqa
