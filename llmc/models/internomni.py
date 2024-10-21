@@ -4,7 +4,7 @@ try:
     from internvl.model.internvl_chat import (InternVLChatAudioConfig,
                                               InternVLChatAudioModel)
 except Exception:
-    logger.info(
+    logger.warning(
         'InternOmni-internvl not installed. '
         'If you need it, please install it.'
     )
