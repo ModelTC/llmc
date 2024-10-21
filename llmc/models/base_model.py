@@ -24,7 +24,6 @@ class BaseModel(metaclass=ABCMeta):
         self.device_map = device_map
         self.use_cache = use_cache
         self.vlm_model = None
-        self.preprocess = None
         self.build_model()
         self.model.eval()
         self.find_blocks()
@@ -71,6 +70,9 @@ class BaseModel(metaclass=ABCMeta):
 
     def get_attention_rotary_layers(self):
         return []
+
+    def preprocess(self):
+        raise Exception('preprocess should not be called here.')
 
     def __str__(self):
         return f'\nConfig: \n{str(self.model_config)} \nModel: \n{str(self.model)}'
