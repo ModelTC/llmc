@@ -1,3 +1,5 @@
+import json
+import os
 import random
 
 import torch
@@ -156,6 +158,30 @@ def vlm_clip_min(calib_dataset, processor, n_samples):
         prompt = prompt.replace('USER:', 'USER: <image>')
         samples['prompts'].append(prompt)
         samples['raw_images'].append(samples_native['raw_images'][i])
+    return samples
+
+
+@PREPROC_REGISTRY
+def vlm_general(calib_dataset, tokenizer, preprocess, n_samples):
+    img_qa_json = os.path.join(calib_dataset, 'img_qa.json')
+    fp = open(img_qa_json)
+    img_qas = json.load(fp)
+    for idx in range(len(img_qas)):
+        img_qas[idx]['img'] = os.path.join(calib_dataset, img_qas[idx]['img'])
+    random.shuffle(img_qas)
+    if len(img_qas) > n_samples:
+        img_qas = img_qas[:n_samples]
+    vlm_data = preprocess(img_qas)
+    samples = []
+    for data in vlm_data:
+        trainenc = tokenizer(data['text'], return_tensors='pt')
+        inp = trainenc.input_ids
+        samples.append(
+            {
+                'image': data['image'],
+                'input_ids': inp
+            }
+        )
     return samples
 
 
