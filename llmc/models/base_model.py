@@ -24,7 +24,7 @@ class BaseModel(metaclass=ABCMeta):
         self.device_map = device_map
         self.use_cache = use_cache
         self.vlm_model = None
-        self.processor = None
+        self.preprocess = None
         self.build_model()
         self.model.eval()
         self.find_blocks()
@@ -152,14 +152,15 @@ class BaseModel(metaclass=ABCMeta):
             except ValueError:
                 pass
         self.first_block_input = first_block_input
-        for idx in range(len(self.first_block_input['data'])):
-            token_num = self.first_block_input['data'][idx].shape[1]
-            if token_num != padding_mask[idx].shape[1]:
-                padding_mask[idx] = F.pad(
-                    padding_mask[idx],
-                    [0, token_num - padding_mask[idx].shape[1]],
-                    value=1
-                )
+        if padding_mask:
+            for idx in range(len(self.first_block_input['data'])):
+                token_num = self.first_block_input['data'][idx].shape[1]
+                if token_num != padding_mask[idx].shape[1]:
+                    padding_mask[idx] = F.pad(
+                        padding_mask[idx],
+                        [0, token_num - padding_mask[idx].shape[1]],
+                        value=1
+                    )
         self.padding_mask = padding_mask
         if data_type == 'img_txt':
             self.vision_model = self.vision_model.cpu()

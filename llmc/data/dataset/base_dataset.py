@@ -12,11 +12,11 @@ from .specified_preproc import PREPROC_REGISTRY
 
 
 class BaseDataset(metaclass=ABCMeta):
-    def __init__(self, tokenizer, calib_cfg, processor=None):
+    def __init__(self, tokenizer, calib_cfg, preprocess=None):
         # calib_cfg
         logger.info(f'calib_cfg : {calib_cfg}')
         self.tokenizer = tokenizer
-        self.processor = processor
+        self.preprocess = preprocess
         self.calib_dataset_name = calib_cfg['name']
         self.calib_dataset_type = calib_cfg.get('type', 'txt')
         self.padding = calib_cfg.get('padding', False)
@@ -106,7 +106,7 @@ class BaseDataset(metaclass=ABCMeta):
             samples = preproc(
                 self.calib_dataset,
                 self.tokenizer,
-                self.processor,
+                self.preprocess,
                 self.n_samples
             )
         else:
@@ -204,7 +204,7 @@ class BaseDataset(metaclass=ABCMeta):
     def img_txt_group_samples_wo_mask(self, samples):  # without mask
         calib_samples = []
         if self.calib_bs < 0:
-            batch = self.processor(
+            batch = self.preprocess(
                 text=samples['prompts'],
                 images=samples['raw_images'],
                 return_tensors='pt',
@@ -213,7 +213,7 @@ class BaseDataset(metaclass=ABCMeta):
             calib_samples.append(batch)
         elif self.calib_bs == 1:
             for prompt, raw_image in zip(samples['prompts'], samples['raw_images']):
-                batch = self.processor(
+                batch = self.preprocess(
                     text=prompt,
                     images=raw_image,
                     return_tensors='pt'
@@ -223,7 +223,7 @@ class BaseDataset(metaclass=ABCMeta):
             for i in range(0, len(samples['prompts']), self.calib_bs):
                 start = i
                 end = min(i + self.calib_bs, len(samples['prompts']))
-                batch = self.processor(
+                batch = self.preprocess(
                     text=samples['prompts'][start:end],
                     images=samples['raw_images'][start:end],
                     return_tensors='pt',
@@ -269,7 +269,7 @@ class BaseDataset(metaclass=ABCMeta):
             )
         elif self.calib_bs == 1:
             for prompt, raw_image in zip(samples['prompts'], samples['raw_images']):
-                batch = self.processor(
+                batch = self.preprocess(
                     text=prompt,
                     images=raw_image,
                     return_tensors='pt'
@@ -279,7 +279,7 @@ class BaseDataset(metaclass=ABCMeta):
             for i in range(0, len(samples['prompts']), self.calib_bs):
                 start = i
                 end = min(i + self.calib_bs, len(samples['prompts']))
-                batch = self.processor(
+                batch = self.preprocess(
                     text=samples['prompts'][start:end],
                     images=samples['raw_images'][start:end],
                     return_tensors='pt',
