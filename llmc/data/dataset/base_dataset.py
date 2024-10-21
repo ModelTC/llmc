@@ -240,7 +240,7 @@ class BaseDataset(metaclass=ABCMeta):
             max_len = max(samples_len)
             samples_tmp = []
             attention_mask_tmp = []
-            images_tmp = []
+            pixel_values_tmp = []
             for sample in samples:
                 samples_tmp.append(
                     F.pad(
@@ -256,10 +256,10 @@ class BaseDataset(metaclass=ABCMeta):
                         value=0
                     )
                 )
-                images_tmp.append(sample['image'])
+                pixel_values_tmp.append(sample['pixel_values'])
             batch_input_ids = torch.cat(samples_tmp, dim=0)
             batch_attention_mask = torch.cat(attention_mask_tmp, dim=0)
-            pixel_values = torch.cat(images_tmp, dim=0)
+            pixel_values = torch.cat(pixel_values_tmp, dim=0)
             calib_samples.append(
                 {
                     'pixel_values': pixel_values,

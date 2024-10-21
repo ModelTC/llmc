@@ -1,4 +1,5 @@
 from loguru import logger
+from PIL import Image
 from transformers import AutoConfig
 
 from llmc.utils.registry_factory import MODEL_REGISTRY
@@ -32,8 +33,20 @@ class Llava(Llama):
             torch_dtype=self.torch_dtype,
             low_cpu_mem_usage=True,
         )
-        self.vision_tower = self.vlm_model.vision_tower
-        self.multi_modal_projector = self.vlm_model.multi_modal_projector
-        self.processor = AutoProcessor.from_pretrained(self.model_path)
+        self.vision_model = self.vlm_model.vision_tower
+        self.projector = self.vlm_model.multi_modal_projector
         self.model = self.vlm_model.language_model
         self.model_config = self.vlm_model_config.text_config
+        self.need_update_mask = True
+
+    def preprocess(self, img_qas):
+        processor = AutoProcessor.from_pretrained(self.model_path)
+        samples = []
+        for idx in range(len(img_qas)):
+            img_path = img_qas[idx]['img']
+            txt = img_qas[idx]['question']
+            txt = 'USER: <image>\n' + txt
+            raw_image = Image.open(img_path)
+            sample = processor(txt, raw_image, return_tensors='pt').to(next(self.vlm_model.parameters()).dtype) # noqa
+            samples.append(sample)
+        return samples

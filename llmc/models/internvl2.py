@@ -7,8 +7,15 @@ from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
 
 from llmc.utils.registry_factory import MODEL_REGISTRY
 
-from .conversation import get_conv_template
 from .internlm2 import InternLM2
+
+try:
+    from .conversation import get_conv_template
+except Exception:
+    logger.info(
+        'InternLM2 conversation.py not be found. '
+        'If you need it, please copy it from model path to llmc/models.'
+    )
 
 
 def build_transform(input_size):
@@ -150,7 +157,7 @@ class InternVL2(InternLM2):
             query = query.replace('<image>', image_tokens, 1)
             vlm_data.append(
                 {
-                    'image': pixel_values_list[idx],
+                    'pixel_values': pixel_values_list[idx],
                     'text': query
                 }
             )

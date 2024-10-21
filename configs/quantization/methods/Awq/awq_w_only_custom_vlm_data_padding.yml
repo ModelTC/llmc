@@ -14,6 +14,7 @@ calib:
     bs: -1
     seq_len: 512
     preproc: vlm_general
+    padding: True
     seed: *seed
 eval:
     eval_pos: [pretrain, transformed, fake_quant]

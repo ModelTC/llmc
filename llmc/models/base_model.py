@@ -6,6 +6,7 @@ from functools import partial
 import torch
 import torch.nn as nn
 from loguru import logger
+from torch.nn import functional as F
 from transformers import AutoConfig, AutoModelForCausalLM
 
 from llmc.compression.quantization.module_utils import (
@@ -105,7 +106,7 @@ class BaseModel(metaclass=ABCMeta):
         logger.info(f'_TRANSFORMERS_LN_TYPES_ : {_TRANSFORMERS_LN_TYPES_}')
 
     @torch.no_grad()
-    def collect_first_block_input(self, calib_data, data_type='txt'):
+    def collect_first_block_input(self, calib_data, padding_mask, data_type='txt'):
         first_block_input = defaultdict(list)
 
         class Catcher(nn.Module):
@@ -151,6 +152,15 @@ class BaseModel(metaclass=ABCMeta):
             except ValueError:
                 pass
         self.first_block_input = first_block_input
+        for idx in range(len(self.first_block_input['data'])):
+            token_num = self.first_block_input['data'][idx].shape[1]
+            if token_num != padding_mask[idx].shape[1]:
+                padding_mask[idx] = F.pad(
+                    padding_mask[idx],
+                    [0, token_num - padding_mask[idx].shape[1]],
+                    value=1
+                )
+        self.padding_mask = padding_mask
         if data_type == 'img_txt':
             self.vision_model = self.vision_model.cpu()
             self.projector = self.projector.cpu()
@@ -160,6 +170,9 @@ class BaseModel(metaclass=ABCMeta):
 
     def get_first_block_input(self):
         return self.first_block_input
+
+    def get_padding_mask(self):
+        return self.padding_mask
 
     def get_model_config(self):
         return self.model_config

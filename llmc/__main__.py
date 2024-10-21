@@ -71,7 +71,7 @@ def main(config):
     else:
         dataset = BaseDataset(tokenizer.get_tokenizer(), config.calib, model.preprocess)
         calib_data, padding_mask = dataset.get_calib_dataset()
-        model.collect_first_block_input(calib_data, config.calib.type)
+        model.collect_first_block_input(calib_data, padding_mask, config.calib.type)
         del calib_data
         gc.collect()
         torch.cuda.empty_cache()
@@ -80,7 +80,7 @@ def main(config):
                 model,
                 config.quant,
                 model.get_first_block_input(),
-                padding_mask,
+                model.get_padding_mask(),
                 config
             )
         else:
@@ -88,7 +88,7 @@ def main(config):
                 model,
                 config.sparse,
                 model.get_first_block_input(),
-                padding_mask,
+                model.get_padding_mask(),
                 config
             )
         blockwise_opt.run_block_loop()

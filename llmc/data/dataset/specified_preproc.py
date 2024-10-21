@@ -174,14 +174,19 @@ def vlm_general(calib_dataset, tokenizer, preprocess, n_samples):
     vlm_data = preprocess(img_qas)
     samples = []
     for data in vlm_data:
-        trainenc = tokenizer(data['text'], return_tensors='pt')
-        inp = trainenc.input_ids
-        samples.append(
-            {
-                'image': data['image'],
-                'input_ids': inp
-            }
-        )
+        if 'input_ids' in data:
+            samples.append(data)
+        elif 'text' in data:
+            trainenc = tokenizer(data['text'], return_tensors='pt')
+            inp = trainenc.input_ids
+            samples.append(
+                {
+                    'pixel_values': data['pixel_values'],
+                    'input_ids': inp
+                }
+            )
+        else:
+            raise Exception(f'Both input_ids and text are not in data. data is: {data}')
     return samples
 
 
