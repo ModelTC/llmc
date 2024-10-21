@@ -268,24 +268,51 @@ class BaseDataset(metaclass=ABCMeta):
                 }
             )
         elif self.calib_bs == 1:
-            for prompt, raw_image in zip(samples['prompts'], samples['raw_images']):
-                batch = self.preprocess(
-                    text=prompt,
-                    images=raw_image,
-                    return_tensors='pt'
+            attention_mask = [torch.ones(1, sample['input_ids'].shape[-1], dtype=torch.int64) for sample in samples] # noqa
+            for i in range(len(samples)):
+                calib_samples.append(
+                    {
+                        'pixel_values': samples[i]['pixel_values'],
+                        'input_ids': samples[i]['input_ids'],
+                        'attention_mask': attention_mask[i]
+                    }
                 )
-                calib_samples.append(batch)
         elif self.calib_bs > 1:
-            for i in range(0, len(samples['prompts']), self.calib_bs):
+            for i in range(0, len(samples), self.calib_bs):
                 start = i
-                end = min(i + self.calib_bs, len(samples['prompts']))
-                batch = self.preprocess(
-                    text=samples['prompts'][start:end],
-                    images=samples['raw_images'][start:end],
-                    return_tensors='pt',
-                    padding=True
+                end = min(i + self.calib_bs, len(samples))
+                batch_samples = samples[start:end]
+                batch_samples_len = [sample['input_ids'].shape[-1] for sample in batch_samples] # noqa
+                batch_max_len = max(batch_samples_len)
+                samples_tmp = []
+                attention_mask_tmp = []
+                pixel_values_tmp = []
+                for sample in batch_samples:
+                    samples_tmp.append(
+                        F.pad(
+                            sample['input_ids'],
+                            [batch_max_len - sample['input_ids'].shape[-1], 0],
+                            value=pad_token_id
+                        )
+                    )
+                    attention_mask_tmp.append(
+                        F.pad(
+                            torch.ones(1, sample['input_ids'].shape[-1], dtype=torch.int64), # noqa
+                            [batch_max_len - sample['input_ids'].shape[-1], 0],
+                            value=0
+                        )
+                    )
+                    pixel_values_tmp.append(sample['pixel_values'])
+                batch_input_ids = torch.cat(samples_tmp, dim=0)
+                batch_attention_mask = torch.cat(attention_mask_tmp, dim=0)
+                pixel_values = torch.cat(pixel_values_tmp, dim=0)
+                calib_samples.append(
+                    {
+                        'pixel_values': pixel_values,
+                        'input_ids': batch_input_ids,
+                        'attention_mask': batch_attention_mask
+                    }
                 )
-                calib_samples.append(batch)
         return calib_samples
 
     def img_group_samples_wo_mask(self, samples):  # without mask
