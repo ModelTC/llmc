@@ -20,5 +20,5 @@
 .env
 save*
 .log
-*pid*
+.pid
 *.ipynb*
