@@ -147,7 +147,13 @@ class InternVL2(InternLM2):
             question = questions[idx]
             if pixel_values is not None and '<image>' not in question:
                 question = '<image>\n' + question
-            template = get_conv_template(self.vlm_model.template)
+            try:
+                template = get_conv_template(self.vlm_model.template)
+            except Exception:
+                raise Exception(
+                    'InternLM2 conversation.py not be found. '
+                    'Please copy it from model path to llmc/models.'
+                )
             template.system_message = self.vlm_model.system_message
             template.append_message(template.roles[0], question)
             template.append_message(template.roles[1], None)
