@@ -71,7 +71,8 @@ def main(config):
     else:
         dataset = BaseDataset(tokenizer.get_tokenizer(), config.calib, model.preprocess)
         calib_data, padding_mask = dataset.get_calib_dataset()
-        model.collect_first_block_input(calib_data, padding_mask, config.calib.type)
+        padding_side = tokenizer.get_tokenizer().padding_side
+        model.collect_first_block_input(calib_data, padding_mask, padding_side, config.calib.type)
         del calib_data
         gc.collect()
         torch.cuda.empty_cache()
