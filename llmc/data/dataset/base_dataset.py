@@ -117,11 +117,19 @@ class BaseDataset(metaclass=ABCMeta):
             )
         return samples
 
+    def get_pad_setting(self, length):
+        if self.tokenizer.padding_side == 'left':
+            return [length, 0]
+        elif self.tokenizer.padding_side == 'right':
+            return [0, length]
+        else:
+            raise Exception(f'Not support padding_side: {self.tokenizer.padding_side}.')
+
     def txt_group_samples_with_mask(self, samples):
         calib_samples = []
         input_ids = []
         attention_mask = []
-        pad_token_id = self.tokenizer.convert_tokens_to_ids(self.tokenizer.eos_token)
+        pad_token_id = self.tokenizer.convert_tokens_to_ids(self.tokenizer.pad_token)
         if self.calib_bs < 0:
             samples_len = [sample.shape[-1] for sample in samples]
             max_len = max(samples_len)
@@ -129,12 +137,16 @@ class BaseDataset(metaclass=ABCMeta):
             attention_mask_tmp = []
             for sample in samples:
                 samples_tmp.append(
-                    F.pad(sample, [0, max_len - sample.shape[-1]], value=pad_token_id)
+                    F.pad(
+                        sample,
+                        self.get_pad_setting(max_len - sample.shape[-1]),
+                        value=pad_token_id
+                    )
                 )
                 attention_mask_tmp.append(
                     F.pad(
                         torch.ones(1, sample.shape[-1], dtype=torch.int64),
-                        [0, max_len - sample.shape[-1]],
+                        self.get_pad_setting(max_len - sample.shape[-1]),
                         value=0
                     )
                 )
@@ -163,14 +175,14 @@ class BaseDataset(metaclass=ABCMeta):
                     samples_tmp.append(
                         F.pad(
                             sample,
-                            [0, batch_max_len - sample.shape[-1]],
+                            self.get_pad_setting(batch_max_len - sample.shape[-1]),
                             value=pad_token_id
                         )
                     )
                     attention_mask_tmp.append(
                         F.pad(
                             torch.ones(1, sample.shape[-1], dtype=torch.int64),
-                            [0, batch_max_len - sample.shape[-1]],
+                            self.get_pad_setting(batch_max_len - sample.shape[-1]),
                             value=0
                         )
                     )
@@ -245,14 +257,14 @@ class BaseDataset(metaclass=ABCMeta):
                 samples_tmp.append(
                     F.pad(
                         sample['input_ids'],
-                        [max_len - sample['input_ids'].shape[-1], 0],
+                        self.get_pad_setting(max_len - sample['input_ids'].shape[-1]),
                         value=pad_token_id
                     )
                 )
                 attention_mask_tmp.append(
                     F.pad(
                         torch.ones(1, sample['input_ids'].shape[-1], dtype=torch.int64),
-                        [max_len - sample['input_ids'].shape[-1], 0],
+                        self.get_pad_setting(max_len - sample['input_ids'].shape[-1]),
                         value=0
                     )
                 )
@@ -291,14 +303,14 @@ class BaseDataset(metaclass=ABCMeta):
                     samples_tmp.append(
                         F.pad(
                             sample['input_ids'],
-                            [batch_max_len - sample['input_ids'].shape[-1], 0],
+                            self.get_pad_setting(batch_max_len - sample['input_ids'].shape[-1]),
                             value=pad_token_id
                         )
                     )
                     attention_mask_tmp.append(
                         F.pad(
                             torch.ones(1, sample['input_ids'].shape[-1], dtype=torch.int64), # noqa
-                            [batch_max_len - sample['input_ids'].shape[-1], 0],
+                            self.get_pad_setting(batch_max_len - sample['input_ids'].shape[-1]),
                             value=0
                         )
                     )
