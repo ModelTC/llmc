@@ -1,7 +1,6 @@
-import warnings
 from abc import ABCMeta
 
-from transformers import AutoTokenizer
+from transformers import AutoConfig, AutoTokenizer
 
 
 class BaseTokenizer(metaclass=ABCMeta):
@@ -13,18 +12,24 @@ class BaseTokenizer(metaclass=ABCMeta):
         else:
             self.use_fast = False
         self.build_tokenizer()
+        self.patch()
 
     def __str__(self):
         return str(self.tokenizer)
 
     def build_tokenizer(self):
-        try:
-            self.tokenizer = AutoTokenizer.from_pretrained(
-                self.tokenizer_path, use_fast=self.use_fast, trust_remote_code=True
-            )
-        except Exception as e:
-            self.tokenizer = None
-            warnings.warn(f'Failed to load tokenizer. Error: {str(e)}')
+        self.tokenizer = AutoTokenizer.from_pretrained(
+            self.tokenizer_path, use_fast=self.use_fast, trust_remote_code=True
+        )
 
     def get_tokenizer(self):
         return self.tokenizer
+
+    def patch(self):
+        model_config = AutoConfig.from_pretrained(
+            self.tokenizer_path, trust_remote_code=True
+        )
+        if 'Intern' in model_config.architectures[0]:
+            self.tokenizer.padding_side = 'left'
+        if self.tokenizer.pad_token is None:
+            self.tokenizer.pad_token = self.tokenizer.eos_token

@@ -101,7 +101,7 @@ class Vit(BaseModel):
         ]
 
     @torch.no_grad()
-    def collect_first_block_input(self, calib_data, data_type='txt'):
+    def collect_first_block_input(self, calib_data, padding_mask=None, padding_side=None, data_type='txt'):  # noqa
         first_block_input = defaultdict(list)
 
         class Catcher(nn.Module):

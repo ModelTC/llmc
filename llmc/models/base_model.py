@@ -108,7 +108,7 @@ class BaseModel(metaclass=ABCMeta):
         logger.info(f'_TRANSFORMERS_LN_TYPES_ : {_TRANSFORMERS_LN_TYPES_}')
 
     @torch.no_grad()
-    def collect_first_block_input(self, calib_data, padding_mask, data_type='txt'):
+    def collect_first_block_input(self, calib_data, padding_mask=None, padding_side=None, data_type='txt'):  # noqa
         first_block_input = defaultdict(list)
 
         class Catcher(nn.Module):
@@ -160,7 +160,10 @@ class BaseModel(metaclass=ABCMeta):
                 if token_num != padding_mask[idx].shape[1]:
                     padding_mask[idx] = F.pad(
                         padding_mask[idx],
-                        [0, token_num - padding_mask[idx].shape[1]],
+                        self.get_one_pad_setting(
+                            padding_side,
+                            token_num - padding_mask[idx].shape[1]
+                        ),
                         value=1
                     )
         self.padding_mask = padding_mask
@@ -170,6 +173,14 @@ class BaseModel(metaclass=ABCMeta):
         self.blocks[0] = self.blocks[0].module
         self.blocks[0] = self.blocks[0].cpu()
         self.move_embed_to_device('cpu')
+
+    def get_one_pad_setting(self, padding_side, length):
+        if padding_side == 'left':
+            return [0, length]
+        elif padding_side == 'right':
+            return [length, 0]
+        else:
+            raise Exception(f'Not support padding_side: {padding_side}.')
 
     def get_first_block_input(self):
         return self.first_block_input
