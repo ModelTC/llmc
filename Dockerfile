@@ -8,7 +8,7 @@ RUN sed -i 's|http://archive.ubuntu.com/ubuntu/|https://mirrors.tuna.tsinghua.ed
     sed -i 's|http://security.ubuntu.com/ubuntu/|https://mirrors.tuna.tsinghua.edu.cn/ubuntu/|g' /etc/apt/sources.list
 
 RUN apt-get update && \
-    apt-get install -y vim wget git cmake build-essential software-properties-common curl libibverbs-dev ca-certificates && \
+    apt-get install -y vim wget git cmake build-essential software-properties-common curl libibverbs-dev ca-certificates iproute2 && \
     add-apt-repository ppa:deadsnakes/ppa && \
     apt-get update && \
     apt-get install -y python3.11 python3.11-venv python3.11-dev python3-pip && \
