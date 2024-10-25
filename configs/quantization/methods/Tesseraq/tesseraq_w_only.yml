@@ -1,0 +1,52 @@
+base:
+    seed: &seed 42
+model:
+    type: model_type
+    path: model path
+    torch_dtype: auto
+calib:
+    name: c4
+    download: False
+    n_samples: 256
+    path: calib data path
+    bs: 1
+    seq_len: 2048
+    preproc: c4_gptq
+    seed: *seed
+eval:
+    eval_pos: [fake_quant] #
+    name: [wikitext2, c4]
+    download: False
+    path: eval data path
+    bs: 1
+    seq_len: 2048
+    inference_per_block: False
+quant:
+    method: TesseraQ
+    weight:
+        bit: 4
+        symmetric: False
+        granularity: per_group
+        group_size: 128
+        calib_algo: learnable
+        ste: True
+    special:
+        lr: 0.0005
+        iterations: 250
+        wd: 0.0
+        batch_size: 2
+        deactive_amp: False
+        aug_loss: False
+        optimize_scale: True
+        scale_lr: 0.0005
+        thresholds: [0.75, 0.5, 0.375, 0.25, 0.125, 0.09, 0.06, 0.04, 0.02, 0.005]
+        weight_clip: True
+        load_transform: False
+        reduce_memory: True
+        clip_version: v1
+        scale_path: /path/to/scale
+        clip_path: /path/to/clip
+    quant_out: True
+save:
+    save_fake: False
+    save_path: /path/to/save/

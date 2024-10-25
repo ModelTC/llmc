@@ -46,9 +46,9 @@ quant:
         clip_version: v2
         # Save scale and clip factors for OmniQuant's LWC and LET.
         save_scale: True
-        scale_path: /path/to/scale/awq_w6a6.pth
+        scale_path: /path/to/scale
         save_clip: True
-        clip_path: /path/to/clip/awq_w6a6.pth
+        clip_path: /path/to/clip
 save:
     save_trans: False
     save_fake: False

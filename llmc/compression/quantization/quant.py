@@ -23,6 +23,11 @@ class BaseQuantizer(object):
             self.round_func = lambda x: (x.round() - x).detach() + x
         else:
             self.round_func = torch.round
+        if 'ste_all' in self.kwargs and self.kwargs['ste_all']:
+            self.round_func = torch.round
+            self.ste_all = True
+        else:
+            self.ste_all = False
 
         self.round_zp = self.kwargs.get('round_zp', True)
         self.sigmoid = torch.nn.Sigmoid()
@@ -292,7 +297,8 @@ class IntegerQuantizer(BaseQuantizer):
             mix_act[:, :, args['int_indices']] = q_act
             mix_act[:, :, args['fp_indices']] = fp_act
             return mix_act
-
+        if self.ste_all:
+            return (q_act - act).detach() + act
         return q_act
 
     def fake_quant_weight_static(self, weight, args):
@@ -306,6 +312,10 @@ class IntegerQuantizer(BaseQuantizer):
             q_weight = weight.T
         else:
             q_weight = weight
+
+        if 'rounding' in args:
+            org_round_func = self.round_func
+            self.round_func = lambda x: torch.floor(x) + args['rounding']
 
         org_w_shape = q_weight.shape
         org_w_dtype = q_weight.dtype
@@ -327,6 +337,9 @@ class IntegerQuantizer(BaseQuantizer):
 
         elif 'dim' in args and 'ic' in args['dim']:
             q_weight = q_weight.T
+
+        if 'rounding' in args:
+            self.round_func = org_round_func
 
         return q_weight
 
@@ -372,6 +385,11 @@ class IntegerQuantizer(BaseQuantizer):
 
     def real_quant_weight_static(self, weight, args):
         org_w_shape = weight.shape
+        if 'output_scale_factor' in args:
+            output_scale_factor = args['output_scale_factor']
+            del args['output_scale_factor']
+        else:
+            output_scale_factor = 1
         scales, zeros, qmax, qmin = (
             args['scales'],
             args['zeros'],
@@ -381,6 +399,8 @@ class IntegerQuantizer(BaseQuantizer):
         weight = self.reshape_tensor(weight)
         weight = self.quant(weight, scales, zeros, qmax, qmin)
         weight = self.restore_tensor(weight, org_w_shape)
+
+        scales = scales * output_scale_factor
 
         if self.bit == 8:
             if self.qmin != 0:
@@ -403,9 +423,16 @@ class IntegerQuantizer(BaseQuantizer):
 
     def real_quant_weight_dynamic(self, weight, args={}):
         org_w_shape = weight.shape
+        if 'output_scale_factor' in args:
+            output_scale_factor = args['output_scale_factor']
+            del args['output_scale_factor']
+        else:
+            output_scale_factor = 1
         weight, scales, zeros, qmax, qmin = self.get_tensor_qparams(weight, args)
         weight = self.quant(weight, scales, zeros, qmax, qmin)
         weight = self.restore_tensor(weight, org_w_shape)
+
+        scales = scales * output_scale_factor
 
         if self.bit == 8:
             if self.qmin != 0:
@@ -572,6 +599,10 @@ class FloatQuantizer(BaseQuantizer):
         else:
             q_weight = weight
 
+        if 'rounding' in args:
+            org_round_func = self.round_func
+            self.round_func = lambda x: torch.floor(x) + args['rounding']
+
         org_w_shape = q_weight.shape
         org_w_dtype = q_weight.dtype
         scales, zeros, qmax, qmin = (
@@ -586,6 +617,9 @@ class FloatQuantizer(BaseQuantizer):
 
         if 'dim' in args and 'ic' in args['dim']:
             q_weight = q_weight.T
+
+        if 'rounding' in args:
+            self.round_func = org_round_func
 
         return q_weight
 
@@ -615,6 +649,11 @@ class FloatQuantizer(BaseQuantizer):
         dtype = torch.float8_e4m3fn if self.e_bits == 4 else torch.float8_e5m2
 
         org_w_shape = weight.shape
+        if 'output_scale_factor' in args:
+            output_scale_factor = args['output_scale_factor']
+            del args['output_scale_factor']
+        else:
+            output_scale_factor = 1
         scales, zeros, qmax, qmin = (
             args['scales'],
             args['zeros'],
@@ -624,6 +663,8 @@ class FloatQuantizer(BaseQuantizer):
         weight = self.reshape_tensor(weight)
         weight = self.quant(weight, scales, zeros, qmax, qmin)
         weight = self.restore_tensor(weight, org_w_shape)
+
+        scales = scales * output_scale_factor
 
         weight = weight.to(dtype)
         zeros = None
@@ -635,9 +676,16 @@ class FloatQuantizer(BaseQuantizer):
         dtype = torch.float8_e4m3fn if self.e_bits == 4 else torch.float8_e5m2
 
         org_w_shape = weight.shape
+        if 'output_scale_factor' in args:
+            output_scale_factor = args['output_scale_factor']
+            del args['output_scale_factor']
+        else:
+            output_scale_factor = 1
         weight, scales, zeros, qmax, qmin = self.get_tensor_qparams(weight, args)
         weight = self.quant(weight, scales, zeros, qmax, qmin)
         weight = self.restore_tensor(weight, org_w_shape)
+
+        scales = scales * output_scale_factor
 
         weight = weight.to(dtype)
         zeros = None

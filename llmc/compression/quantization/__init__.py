@@ -15,3 +15,4 @@ from .quik import QUIK
 from .rtn import RTN
 from .smoothquant import SmoothQuant
 from .spqr import SpQR
+from .tesseraq import TesseraQ

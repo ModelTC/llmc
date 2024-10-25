@@ -1,0 +1,58 @@
+base:
+    seed: &seed 42
+model:
+    type: Llama
+    path: meta-llama/Meta-Llama-3.1-70B
+    torch_dtype: auto
+calib:
+    name: c4
+    download: False
+    n_samples: 256
+    path: ../cache/data/calib/c4
+    bs: 1
+    seq_len: 2048
+    preproc: c4_gptq
+    seed: *seed
+eval:
+    eval_pos: [nahh] #
+    name: [wikitext2, c4]
+    download: False
+    path: ../cache/data/eval
+    bs: 10
+    seq_len: 2048
+    inference_per_block: True
+    tasks: piqa,arc_easy,arc_challenge,hellaswag,winogrande
+quant:
+    method: GPTBRECQ
+    weight:
+        bit: 4
+        symmetric: True
+        granularity: per_channel
+        group_size: -1
+        int_range: [-8, 7]
+        pack_mode: vllm_pack
+        calib_algo: learnable
+    special:
+        lr: 0.0005
+        iterations: 250
+        wd: 0.0
+        batch_size: 2
+        deactive_amp: False
+        aug_loss: False
+        optimize_scale: True
+        scale_lr: 0.0005
+        thresholds: [0.75, 0.5, 0.375, 0.25, 0.125, 0.09, 0.06, 0.04, 0.02, 0.005]
+        weight_clip: True
+        load_transform: True
+        reduce_memory: True
+        clip_version: v2
+        scale_path: ../cache/activations/L31_70b/awq_w4
+        clip_path: ../cache/activations/L31_70b/awq_w4
+    quant_out: True
+save:
+    save_fp: False
+    save_trans: False
+    save_lightllm: False
+    save_autogptq: False
+    save_vllm: True
+    save_path: ../cache/ckpt/gptbrecq_w4_L31_70b/

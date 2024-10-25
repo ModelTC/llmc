@@ -52,11 +52,11 @@ quant:
         # Then refine them through learning (LWC).
         search_clip_init: True
         load_clip: True
-        clip_path: /path/to/scale/awq_w6a6.pth
+        clip_path: /path/to/scale
         # Use AWQ's search scale factors to initialize OmniQuant's scale factors,
         # Then refine them through learning (LET).
         search_scale_init: True
-        scale_path: /path/to/clip/awq_w6a6.pth
+        scale_path: /path/to/clip
     quant_out: True
 save:
     save_trans: False

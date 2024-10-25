@@ -8,6 +8,24 @@ import torch.nn as nn
 from loguru import logger
 
 
+class AvgMeter:
+    def __init__(self):
+        self.num = 0
+        self.s = 0
+        self.m = 0
+
+    def update(self, value):
+        self.num += 1
+        prev = value - self.m
+        self.m = self.m + (value - self.m) / self.num
+        now = value - self.m
+        self.s = self.s + prev * now
+
+    def get(self):
+        # assert self.num > 1
+        return round(self.m, 4), round(self.s / (self.num - 1), 5)
+
+
 class TruncateFunction(torch.autograd.Function):
     @staticmethod
     def forward(ctx, input, threshold):
@@ -29,9 +47,16 @@ class LossFunction:
         self.reduction = reduction
         self.dim = dim
 
+    def l2_loss(self, x, y):
+        return (x - y).pow(2).sum(-1).mean()
+
     def __call__(self, f_out, q_out):
+        # L2 Loss
+        if self.method == 'l2':
+            return self.l2_loss(f_out, q_out)
+
         # MSE Loss
-        if self.method == 'mse':
+        elif self.method == 'mse':
             mse_loss = nn.MSELoss(reduction=self.reduction)
             return mse_loss(f_out, q_out)
 
