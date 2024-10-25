@@ -263,6 +263,8 @@
 
 ✅ [QuaRot](https://arxiv.org/abs/2404.00456)
 
+✅ [SpinQuant](https://arxiv.org/abs/2405.16406)
+
 ### 剪枝
 
 ✅ Naive(Magnitude)
