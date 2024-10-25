@@ -283,6 +283,8 @@ You can add your own model type referring to files under `llmc/models/*.py`.
 
 ✅ [QuaRot](https://arxiv.org/abs/2404.00456)
 
+✅ [SpinQuant](https://arxiv.org/abs/2405.16406)
+
 ### Pruning
 
 ✅ Naive(Magnitude)
