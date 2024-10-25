@@ -233,6 +233,27 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
                     ),
                 )
 
+    @torch.no_grad()
+    def collect_block_qparams(self, block):
+        named_linears = self.model.get_block_linears(block)
+        for n, m in named_linears.items():
+            args = {}
+            if hasattr(m, 'buf_lowbound_factor'):
+                args['lowbound_factor'] = m.buf_lowbound_factor
+            if hasattr(m, 'buf_upbound_factor'):
+                args['upbound_factor'] = m.buf_upbound_factor
+            (
+                tensor,
+                scales,
+                zeros,
+                max_int,
+                min_int,
+            ) = self.wquantizer.get_tensor_qparams(m.weight.data, args=args)
+            m.register_buffer('buf_scales', scales)
+            m.register_buffer('buf_zeros', zeros)
+            m.register_buffer('buf_qmax', torch.tensor(max_int).to(self.dev))
+            m.register_buffer('buf_qmin', torch.tensor(min_int).to(self.dev))
+
     def block_forward(self, block, input_data=None):
         output = []
 
@@ -540,13 +561,20 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
             layer.register_buffer('buf_upbound_factor', up_factor)
             layer.register_buffer('buf_lowbound_factor', low_factor)
             if self.save_clip:
-                layer_name = (
-                    f'{self.model.block_name_prefix}.{self.block_idx}.{layer_name}'
-                )
-                self.weight_clips[layer_name] = {'up_factor': None, 'low_factor': None}
-                self.weight_clips[layer_name]['up_factor'] = up_factor.cpu()
+                if self.block_idx not in self.weight_clips:
+                    self.weight_clips[self.block_idx] = dict()
+                n = f'{layer_name}.weight_quantizer.'
+                self.weight_clips[self.block_idx][
+                    n + 'upbound_factor'
+                ] = up_factor.cpu()
                 if low_factor is not None:
-                    self.weight_clips[layer_name]['low_factor'] = low_factor.cpu()
+                    self.weight_clips[self.block_idx][
+                        n + 'lowbound_factor'
+                    ] = low_factor.cpu()
+                else:
+                    self.weight_clips[self.block_idx][
+                        n + 'lowbound_factor'
+                    ] = None
         else:
             raise Exception('Not support other clip version')
 

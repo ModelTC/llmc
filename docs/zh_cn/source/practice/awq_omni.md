@@ -94,9 +94,9 @@ quant:
 ```yaml
 save:
     save_scale: True
-    scale_path: /path/to/scale/awq_w8a8.pth
+    scale_path: /path/to/scale
     save_clip: True
-    clip_path: /path/to/clip/awq_w8a8.pth
+    clip_path: /path/to/clip
 ```
 
 运行脚本：
@@ -121,11 +121,11 @@ quant:
         # Then refine them through learning (LWC). 
         search_clip_init: True
         load_clip: True
-        clip_path: /path/to/scale/awq_w8a8.pth
+        clip_path: /path/to/scale
         # Use AWQ's search scale factors to initialize OmniQuant's scale factors, 
         # Then refine them through learning (LET).
         search_scale_init: True
-        scale_path: /path/to/clip/awq_w8a8.pth
+        scale_path: /path/to/clip
 ```
 
 请注意，在此步骤中需要将 `search_scale_init` 和 `search_clip_init` 参数设置为 `True`，以使用 AWQ 网格搜索得到的 `截断参数` 和 `变换参数` 初始化 `LWC` 和 `LET`。

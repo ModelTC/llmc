@@ -2,6 +2,7 @@ import copy
 import functools
 import gc
 import math
+import os
 import random
 from contextlib import nullcontext
 from math import inf
@@ -83,8 +84,9 @@ class OmniQuant(BaseBlockwiseQuantization):
             self.load_clip = config.get('load_clip', False)
             if self.load_clip:
                 self.clip_path = config['clip_path']
-                self.weight_clips = torch.load(self.clip_path)
-
+                self.weight_clips = torch.load(
+                    os.path.join(self.clip_path, 'clips.pth')
+                )
         if self.lwc:
             self.lwc_lr = config['lwc_lr']
 
@@ -104,7 +106,9 @@ class OmniQuant(BaseBlockwiseQuantization):
                 self.scale_path = config['scale_path']
                 self.act_scales = {
                     k: v.to(torch.float32)
-                    for k, v in torch.load(self.scale_path).items()
+                    for k, v in torch.load(
+                        os.path.join(self.scale_path, 'scales.pth')
+                    ).items()
                 }
             else:
                 self.act_scales = self.get_act_scale_shift(stat='scales')
@@ -570,7 +574,7 @@ class OmniQuant(BaseBlockwiseQuantization):
                 subsets[3]['prev_op'][0],
                 subsets[3]['inspect'],
                 block.down_smooth_scale,
-                block.down_smooth_shift,
+                None,
             )
 
         self.smooth_q_k_tmp(qkv_layers[0], qkv_layers[1], block.qkt_smooth_scale)
