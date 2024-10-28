@@ -202,7 +202,7 @@ docker pull registry.cn-hangzhou.aliyuncs.com/yongyang/llmcompression:pure-lates
 
 ✅ [QuaRot](https://arxiv.org/abs/2404.00456)
 
-✅ [SpinQuant](https://arxiv.org/abs/2405.16406) **(このブランチを参照してください\](https://github.com/ModelTC/llmc/tree/dev_spinquant))**
+✅ [SpinQuant](https://arxiv.org/abs/2405.16406) **([このブランチを参照してください](https://github.com/ModelTC/llmc/tree/dev_spinquant))**
 
 ✅ [TesseraQ](https://arxiv.org/abs/2410.19103)
 
