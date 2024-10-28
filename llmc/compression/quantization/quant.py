@@ -230,7 +230,7 @@ class IntegerQuantizer(BaseQuantizer):
 
     def quant_dequant(self, tensor, scales, zeros, qmax, qmin, output_scale_factor=1):
         tensor = self.quant(tensor, scales, zeros, qmax, qmin)
-        tensor = self.dequant(tensor, scales*output_scale_factor, zeros)
+        tensor = self.dequant(tensor, scales * output_scale_factor, zeros)
         return tensor
 
     def fake_quant_act_static(self, act, args={}):
@@ -325,7 +325,7 @@ class IntegerQuantizer(BaseQuantizer):
             args['qmax'],
             args['qmin'],
         )
-        output_scale_factor = args["output_scale_factor"] if "output_scale_factor" in args else 1
+        output_scale_factor = args['output_scale_factor'] if 'output_scale_factor' in args else 1
 
         q_weight = self.reshape_tensor(q_weight)
         q_weight = self.quant_dequant(q_weight, scales, zeros, qmax, qmin, output_scale_factor)
