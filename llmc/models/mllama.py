@@ -40,18 +40,18 @@ class Mllama(Llama):
             image = [Image.open(img_path)]
             message = [
                 {
-                    "role": "user", 
-                    "content": [
-                        {"index": 0, "type": "image", "text": None},
-                        {"index": None,  "type": "text", "text": img_qas[idx]['question']}
+                    'role': 'user',
+                    'content': [
+                        {'index': 0, 'type': 'image', 'text': None},
+                        {'index': None, 'type': 'text', 'text': img_qas[idx]['question']}
                     ]
                 }
             ]
             text = processor.apply_chat_template(message, tokenize=False)
-            sample = processor(text=text, images=image, return_tensors="pt").to(next(self.vlm_model.parameters()).dtype) # noqa
+            sample = processor(text=text, images=image, return_tensors='pt').to(next(self.vlm_model.parameters()).dtype) # noqa
             samples.append(sample)
         return samples
-    
+
     def get_layernorms_in_block(self, block):
         return {
             'input_layernorm': block.input_layernorm,
@@ -80,7 +80,7 @@ class Mllama(Llama):
                         'cross_attn.k_proj': block.cross_attn.k_proj,
                         'cross_attn.v_proj': block.cross_attn.v_proj,
                     },
-                    'prev_op': [], 
+                    'prev_op': [],
                     'input': ['cross_attn.k_proj'],
                     'inspect': block.cross_attn,
                     'has_kwargs': True,
