@@ -1,3 +1,4 @@
+import os
 from abc import ABCMeta, abstractmethod
 
 import torch
@@ -37,9 +38,14 @@ class BlockwiseOpt(metaclass=ABCMeta):
             self.block_opt(self.blocks[self.block_idx])
 
         if hasattr(self, 'save_scale') and self.save_scale:
-            torch.save(self.act_scales, self.scale_path)
+            os.makedirs(self.scale_path, exist_ok=True)
+            torch.save(self.act_scales, os.path.join(self.scale_path, 'scales.pth'))
+            if hasattr(self, 'act_shifts') and self.act_shifts:
+                torch.save(self.act_shifts, os.path.join(self.scale_path, 'shifts.pth'))
+
         if hasattr(self, 'save_clip') and self.save_clip:
-            torch.save(self.weight_clips, self.clip_path)
+            os.makedirs(self.clip_path, exist_ok=True)
+            torch.save(self.weight_clips, os.path.join(self.clip_path, 'clips.pth'))
 
     @abstractmethod
     def block_opt(self, block):

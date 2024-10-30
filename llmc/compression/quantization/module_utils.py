@@ -20,6 +20,22 @@ except Exception:
 from .utils import calculate_zeros_width
 
 
+class RectifiedSigmoid(nn.Module):
+    def __init__(self, gamma, zeta):
+        super(RectifiedSigmoid, self).__init__()
+        self.gamma = gamma
+        self.zeta = zeta
+
+    def forward(self, x):
+        return torch.clamp(
+            torch.sigmoid(x) * (self.zeta - self.gamma) + self.gamma, 0, 1
+        )
+
+    def inverse(self, y):
+        """return x that satisfies y = RectifiedSigmoid(x)"""
+        return -torch.log((self.zeta - self.gamma) / (y - self.gamma) - 1)
+
+
 class LlmcLayerNorm(nn.Module):
     def __init__(self, weight, bias, eps, normalized_shape, elementwise_affine):
         super().__init__()

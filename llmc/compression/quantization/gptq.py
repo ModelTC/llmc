@@ -338,23 +338,8 @@ class GPTQ(BaseBlockwiseQuantization):
     @torch.no_grad()
     def collect_model_qparams(self):
         for i in range(len(self.blocks)):
-            named_linears = self.model.get_block_linears(self.blocks[i])
-            for n, m in named_linears.items():
-                m.cuda()
-                m = m.float()
-                (
-                    tensor,
-                    scales,
-                    zeros,
-                    qmax,
-                    qmin,
-                ) = self.wquantizer.get_tensor_qparams(m.weight.data)
-                m = m.to(self.model_dtype)
-                m.cpu()
-                m.register_buffer('buf_scales', scales)
-                m.register_buffer('buf_zeros', zeros)
-                m.register_buffer('buf_qmax', torch.tensor(qmax))
-                m.register_buffer('buf_qmin', torch.tensor(qmin))
+            block = self.blocks[i]
+            self.collect_block_qparams(block)
 
     @torch.no_grad()
     def split_qparams(self, qparams):
