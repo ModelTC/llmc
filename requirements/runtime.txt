@@ -3,7 +3,7 @@ torchvision
 timm
 pillow
 loguru
-transformers==4.45.2
+transformers>=4.45.2
 huggingface-hub
 sentencepiece
 protobuf
