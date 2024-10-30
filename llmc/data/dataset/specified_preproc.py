@@ -131,16 +131,11 @@ def vlm_general(calib_dataset, tokenizer, preprocess, n_samples):
 
 
 @PREPROC_REGISTRY
-def img_sampler(calib_dataset, processor, n_samples):
+def img_general(calib_dataset, tokenizer, preprocess, n_samples):
     random.shuffle(calib_dataset)
-    samples = []
-    n_run = 0
-    for image in calib_dataset:
-        inp = processor(images=image, return_tensors='pt')
-        samples.append(inp)
-        n_run += 1
-        if n_run == n_samples:
-            break
+    if len(calib_dataset) > n_samples:
+        calib_dataset = calib_dataset[:n_samples]
+    samples = preprocess(calib_dataset)
     return samples
 
 

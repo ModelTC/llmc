@@ -23,7 +23,7 @@ from llmc.utils.registry_factory import ALGO_REGISTRY, MODEL_REGISTRY
 
 
 def main(config):
-    tokenizer = BaseTokenizer(config.model.path, config.model.tokenizer_mode)
+    tokenizer = BaseTokenizer(config.model.path, config.model.tokenizer_mode, config.model.type)
     model = MODEL_REGISTRY[config.model.type](
         config.model.path, config.model.torch_dtype
     )
@@ -71,7 +71,7 @@ def main(config):
     else:
         dataset = BaseDataset(tokenizer.get_tokenizer(), config.calib, model.preprocess)
         calib_data, padding_mask = dataset.get_calib_dataset()
-        padding_side = tokenizer.get_tokenizer().padding_side
+        padding_side = getattr(tokenizer.get_tokenizer(), 'padding_side', None)
         model.collect_first_block_input(calib_data, padding_mask, padding_side, config.calib.type)
         del calib_data
         gc.collect()

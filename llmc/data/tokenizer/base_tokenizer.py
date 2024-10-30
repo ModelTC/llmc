@@ -4,15 +4,18 @@ from transformers import AutoConfig, AutoTokenizer
 
 
 class BaseTokenizer(metaclass=ABCMeta):
-    def __init__(self, tokenizer_path, tokenizer_mode):
+    def __init__(self, tokenizer_path, tokenizer_mode, model_type):
         self.tokenizer_path = tokenizer_path
         self.tokenizer_mode = tokenizer_mode
         if self.tokenizer_mode == 'fast':
             self.use_fast = True
         else:
             self.use_fast = False
-        self.build_tokenizer()
-        self.patch()
+        if model_type == 'Vit':
+            self.tokenizer = None
+        else:
+            self.build_tokenizer()
+            self.patch()
 
     def __str__(self):
         return str(self.tokenizer)

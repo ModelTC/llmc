@@ -10,6 +10,7 @@ from .llava import Llava
 from .minicpm import MiniCPM
 from .mistral import Mistral
 from .mixtral import Mixtral
+from .mllama import Mllama
 from .opt import Opt
 from .phi import Phi
 from .qwen import Qwen
