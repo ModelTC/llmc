@@ -201,9 +201,11 @@ class Awq(BaseBlockwiseQuantization):
                 return
 
         assert (
-            len(prev_op) == 1
+            len(prev_op) in (0, 1)
         ), 'Only support single prev_op. If multi prev_ops, code need to be updated.'
-
+        if len(prev_op) == 0:
+            logger.info('Cannot apply scale. Do not transform this subset.')
+            return
         if isinstance(
             prev_op[0],
             tuple(

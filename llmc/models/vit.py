@@ -1,10 +1,7 @@
 import inspect
-from collections import defaultdict
 
-import torch
 import torch.nn as nn
-from loguru import logger
-from transformers import (AutoConfig, ViTForImageClassification,
+from transformers import (AutoConfig, AutoProcessor, ViTForImageClassification,
                           ViTImageProcessor)
 
 from llmc.utils.registry_factory import MODEL_REGISTRY
@@ -30,10 +27,6 @@ class Vit(BaseModel):
 
     def find_embed_layers(self):
         self.embed_tokens = self.model.vit.embeddings
-
-    def find_block_name(self):
-        self.block_name_prefix = 'encoder.layer'
-        self.pairs = {'q_proj': 'qkv', 'o_proj': 'out', 'up_proj': 'fc1'}
 
     def get_embed_layers(self):
         return [self.embed_tokens]
@@ -61,6 +54,36 @@ class Vit(BaseModel):
 
     def __str__(self):
         return f'\nModel: \n{str(self.model)}'
+
+    def preprocess(self, imgs):
+        processor = AutoProcessor.from_pretrained(self.model_path)
+        samples = []
+        for img in imgs:
+            sample = processor(images=img, return_tensors='pt')
+            samples.append(sample)
+        return samples
+
+    def get_catcher(self, first_block_input):
+
+        class Catcher(nn.Module):
+            def __init__(self, module):
+                super().__init__()
+                self.module = module
+                self.signature = inspect.signature(module.forward)
+
+            def forward(self, *args, **kwargs):
+                params = list(self.signature.parameters.keys())
+                for i, arg in enumerate(args):
+                    if i > 0:
+                        kwargs[params[i]] = arg
+                first_block_input['data'].append(args[0])
+                if 'output_router_logits' in kwargs:
+                    assert kwargs['output_router_logits'] is False
+                    kwargs.pop('output_router_logits')
+                first_block_input['kwargs'].append(kwargs)
+                raise ValueError
+
+        return Catcher
 
     def get_subsets_in_block(self, block):
         return [
@@ -99,58 +122,3 @@ class Vit(BaseModel):
                 'is_mlp': True,
             },
         ]
-
-    @torch.no_grad()
-    def collect_first_block_input(self, calib_data, padding_mask=None, padding_side=None, data_type='txt'):  # noqa
-        first_block_input = defaultdict(list)
-
-        class Catcher(nn.Module):
-            def __init__(self, module):
-                super().__init__()
-                self.module = module
-                self.signature = inspect.signature(module.forward)
-
-            def forward(self, *args, **kwargs):
-                params = list(self.signature.parameters.keys())
-                for i, arg in enumerate(args):
-                    if i > 0:
-                        kwargs[params[i]] = arg
-                first_block_input['data'].append(args[0])
-                if 'output_router_logits' in kwargs:
-                    assert kwargs['output_router_logits'] is False
-                    kwargs.pop('output_router_logits')
-                first_block_input['kwargs'].append(kwargs)
-                raise ValueError
-
-        self.move_embed_to_device('cuda')
-        if data_type == 'img_txt':
-            self.vision_tower = self.vision_tower.to('cuda')
-            self.multi_modal_projector = self.multi_modal_projector.to('cuda')
-        self.blocks[0] = self.blocks[0].cuda()
-        self.blocks[0] = Catcher(self.blocks[0])
-
-        for data in calib_data:
-            try:
-                if data_type == 'txt':
-                    self.model(data.to(next(self.model.parameters()).device))
-                elif data_type == 'img':
-                    data = {
-                        k: v.to(next(self.model.parameters()).device)
-                        for k, v in data.items()
-                    }
-                    self.model(**data)
-                elif data_type == 'img_txt':
-                    data = {
-                        k: v.to(next(self.model.parameters()).device)
-                        for k, v in data.items()
-                    }
-                    self.vlm_model.generate(**data, max_new_tokens=200, do_sample=False)
-            except ValueError:
-                pass
-        self.first_block_input = first_block_input
-        if data_type == 'img_txt':
-            self.vision_tower = self.vision_tower.cpu()
-            self.multi_modal_projector = self.multi_modal_projector.cpu()
-        self.blocks[0] = self.blocks[0].module
-        self.blocks[0] = self.blocks[0].cpu()
-        self.move_embed_to_device('cpu')

@@ -74,6 +74,23 @@ class BaseModel(metaclass=ABCMeta):
     def preprocess(self):
         raise Exception('preprocess should not be called here.')
 
+    def get_catcher(self, first_block_input):
+
+        class Catcher(nn.Module):
+            def __init__(self, module):
+                super().__init__()
+                self.module = module
+
+            def forward(self, inp, **kwargs):
+                first_block_input['data'].append(inp)
+                if 'output_router_logits' in kwargs:
+                    assert kwargs['output_router_logits'] is False
+                    kwargs.pop('output_router_logits')
+                first_block_input['kwargs'].append(kwargs)
+                raise ValueError
+
+        return Catcher
+
     def __str__(self):
         return f'\nConfig: \n{str(self.model_config)} \nModel: \n{str(self.model)}'
 
@@ -111,18 +128,7 @@ class BaseModel(metaclass=ABCMeta):
     def collect_first_block_input(self, calib_data, padding_mask=None, padding_side=None, data_type='txt'):  # noqa
         first_block_input = defaultdict(list)
 
-        class Catcher(nn.Module):
-            def __init__(self, module):
-                super().__init__()
-                self.module = module
-
-            def forward(self, inp, **kwargs):
-                first_block_input['data'].append(inp)
-                if 'output_router_logits' in kwargs:
-                    assert kwargs['output_router_logits'] is False
-                    kwargs.pop('output_router_logits')
-                first_block_input['kwargs'].append(kwargs)
-                raise ValueError
+        Catcher = self.get_catcher(first_block_input)
 
         self.move_embed_to_device('cuda')
         if data_type == 'img_txt':
@@ -132,25 +138,15 @@ class BaseModel(metaclass=ABCMeta):
         self.blocks[0] = Catcher(self.blocks[0])
 
         for data in calib_data:
+            data = {
+                k: v.to(next(self.model.parameters()).device)
+                for k, v in data.items()
+            }
             try:
-                if data_type == 'txt':
-                    data = {
-                        k: v.to(next(self.model.parameters()).device)
-                        for k, v in data.items()
-                    }
-                    self.model(**data)
-                elif data_type == 'img':
-                    data = {
-                        k: v.to(next(self.model.parameters()).device)
-                        for k, v in data.items()
-                    }
+                if data_type in ['txt', 'img']:
                     self.model(**data)
                 elif data_type == 'img_txt':
-                    data = {
-                        k: v.to(next(self.model.parameters()).device)
-                        for k, v in data.items()
-                    }
-                    self.vlm_model.generate(**data, max_new_tokens=200, do_sample=False)
+                    self.vlm_model.generate(**data, max_new_tokens=200)
             except ValueError:
                 pass
         self.first_block_input = first_block_input

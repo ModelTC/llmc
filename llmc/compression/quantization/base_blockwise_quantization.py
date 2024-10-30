@@ -262,13 +262,14 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
 
         for i in range(len(input_data)):
             input_data[i] = input_data[i].to(device=next(block.parameters()).device)
-            if (
-                'attention_mask' in self.input['kwargs'][i]
-                and self.input['kwargs'][i]['attention_mask'] is not None
-            ):
-                self.input['kwargs'][i]['attention_mask'] = self.input['kwargs'][i][
-                    'attention_mask'
-                ].cuda()
+            keys_to_device = ['attention_mask', 'cross_attention_mask', 'cross_attention_states']
+            for key in keys_to_device:
+                if (
+                    key in self.input['kwargs'][i]
+                    and self.input['kwargs'][i][key] is not None
+                ):
+                    self.input['kwargs'][i][key] = \
+                        self.input['kwargs'][i][key].to(device=next(block.parameters()).device)
             with torch.no_grad():
                 out = block(input_data[i], **self.input['kwargs'][i])[0]
                 output.append(out)
@@ -337,7 +338,13 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
             input_name = subset['input'][0]
             inspect_module = subset['inspect']
             inspect_has_kwargs = subset['has_kwargs']
-            subset_kwargs = block_kwargs if inspect_has_kwargs else {}
+            if inspect_has_kwargs:
+                if 'sub_keys' in subset:
+                    subset_kwargs = [{k: block_kwargs[0][v] for k, v in subset['sub_keys'].items()}]
+                else:
+                    subset_kwargs = block_kwargs
+            else:
+                subset_kwargs = {}
             self.subset_transform(
                 layers_dict,
                 input_feat,
@@ -676,7 +683,7 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
                     input[i] = input[i].to(w.device)
                     x = input[i]
                     x = x.view(-1, x.shape[-1])
-                    if self.padding_mask:
+                    if self.padding_mask and self.padding_mask[i].numel() == x.shape[0]:
                         mask_tmp = self.padding_mask[i].flatten()
                         x = x[mask_tmp.bool()]
                     try:

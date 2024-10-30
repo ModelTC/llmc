@@ -91,8 +91,6 @@ class BaseDataset(metaclass=ABCMeta):
                         img_path = os.path.join(root, name)
                         raw_image = Image.open(img_path).convert('RGB')
                         self.calib_dataset.append(raw_image)
-                        if len(self.calib_dataset) == self.n_samples:
-                            return
         else:
             raise ValueError(f'Unsupported data type: {self.calib_dataset_type}')
 
@@ -250,11 +248,15 @@ class BaseDataset(metaclass=ABCMeta):
         if self.calib_bs < 0:
             samples_len = [sample['input_ids'].shape[-1] for sample in samples]
             max_len = max(samples_len)
-            samples_tmp = []
+            input_ids_tmp = []
             attention_mask_tmp = []
             pixel_values_tmp = []
+            if 'cross_attention_mask' in samples[0]:
+                aspect_ratio_ids_tmp = []
+                aspect_ratio_mask_tmp = []
+                cross_attention_mask_tmp = []
             for sample in samples:
-                samples_tmp.append(
+                input_ids_tmp.append(
                     F.pad(
                         sample['input_ids'],
                         self.get_pad_setting(max_len - sample['input_ids'].shape[-1]),
@@ -269,26 +271,65 @@ class BaseDataset(metaclass=ABCMeta):
                     )
                 )
                 pixel_values_tmp.append(sample['pixel_values'])
-            batch_input_ids = torch.cat(samples_tmp, dim=0)
+                if 'cross_attention_mask' in sample:
+                    aspect_ratio_ids_tmp.append(sample['aspect_ratio_ids'])
+                    aspect_ratio_mask_tmp.append(sample['aspect_ratio_mask'])
+                    cross_attention_mask_tmp.append(
+                        F.pad(
+                            sample['cross_attention_mask'],
+                            [0, 0, 0, 0] + self.get_pad_setting(
+                                max_len - sample['input_ids'].shape[-1]
+                            ),
+                            value=0
+                        )
+                    )
+            batch_input_ids = torch.cat(input_ids_tmp, dim=0)
             batch_attention_mask = torch.cat(attention_mask_tmp, dim=0)
             pixel_values = torch.cat(pixel_values_tmp, dim=0)
-            calib_samples.append(
-                {
-                    'pixel_values': pixel_values,
-                    'input_ids': batch_input_ids,
-                    'attention_mask': batch_attention_mask
-                }
-            )
+            if 'cross_attention_mask' in sample:
+                aspect_ratio_ids = torch.cat(aspect_ratio_ids_tmp, dim=0)
+                aspect_ratio_mask = torch.cat(aspect_ratio_mask_tmp, dim=0)
+                cross_attention_mask = torch.cat(cross_attention_mask_tmp, dim=0)
+                calib_samples.append(
+                    {
+                        'input_ids': batch_input_ids,
+                        'attention_mask': batch_attention_mask,
+                        'pixel_values': pixel_values,
+                        'aspect_ratio_ids': aspect_ratio_ids,
+                        'aspect_ratio_mask': aspect_ratio_mask,
+                        'cross_attention_mask': cross_attention_mask
+                    }
+                )
+            else:
+                calib_samples.append(
+                    {
+                        'pixel_values': pixel_values,
+                        'input_ids': batch_input_ids,
+                        'attention_mask': batch_attention_mask
+                    }
+                )
         elif self.calib_bs == 1:
             attention_mask = [torch.ones(1, sample['input_ids'].shape[-1], dtype=torch.int64) for sample in samples] # noqa
             for i in range(len(samples)):
-                calib_samples.append(
-                    {
-                        'pixel_values': samples[i]['pixel_values'],
-                        'input_ids': samples[i]['input_ids'],
-                        'attention_mask': attention_mask[i]
-                    }
-                )
+                if 'cross_attention_mask' in sample:
+                    calib_samples.append(
+                        {
+                            'input_ids': samples[i]['input_ids'],
+                            'attention_mask': attention_mask[i],
+                            'pixel_values': samples[i]['pixel_values'],
+                            'aspect_ratio_ids': samples[i]['aspect_ratio_ids'],
+                            'aspect_ratio_mask': samples[i]['aspect_ratio_mask'],
+                            'cross_attention_mask': samples[i]['cross_attention_mask']
+                        }
+                    )
+                else:
+                    calib_samples.append(
+                        {
+                            'pixel_values': samples[i]['pixel_values'],
+                            'input_ids': samples[i]['input_ids'],
+                            'attention_mask': attention_mask[i]
+                        }
+                    )
         elif self.calib_bs > 1:
             for i in range(0, len(samples), self.calib_bs):
                 start = i
@@ -296,11 +337,15 @@ class BaseDataset(metaclass=ABCMeta):
                 batch_samples = samples[start:end]
                 batch_samples_len = [sample['input_ids'].shape[-1] for sample in batch_samples] # noqa
                 batch_max_len = max(batch_samples_len)
-                samples_tmp = []
+                input_ids_tmp = []
                 attention_mask_tmp = []
                 pixel_values_tmp = []
+                if 'cross_attention_mask' in samples[0]:
+                    aspect_ratio_ids_tmp = []
+                    aspect_ratio_mask_tmp = []
+                    cross_attention_mask_tmp = []
                 for sample in batch_samples:
-                    samples_tmp.append(
+                    input_ids_tmp.append(
                         F.pad(
                             sample['input_ids'],
                             self.get_pad_setting(batch_max_len - sample['input_ids'].shape[-1]),
@@ -315,16 +360,43 @@ class BaseDataset(metaclass=ABCMeta):
                         )
                     )
                     pixel_values_tmp.append(sample['pixel_values'])
-                batch_input_ids = torch.cat(samples_tmp, dim=0)
+                    if 'cross_attention_mask' in sample:
+                        aspect_ratio_ids_tmp.append(sample['aspect_ratio_ids'])
+                        aspect_ratio_mask_tmp.append(sample['aspect_ratio_mask'])
+                        cross_attention_mask_tmp.append(
+                            F.pad(
+                                sample['cross_attention_mask'],
+                                [0, 0, 0, 0] + self.get_pad_setting(
+                                    max_len - sample['input_ids'].shape[-1]
+                                ),
+                                value=0
+                            )
+                        )
+                batch_input_ids = torch.cat(input_ids_tmp, dim=0)
                 batch_attention_mask = torch.cat(attention_mask_tmp, dim=0)
                 pixel_values = torch.cat(pixel_values_tmp, dim=0)
-                calib_samples.append(
-                    {
-                        'pixel_values': pixel_values,
-                        'input_ids': batch_input_ids,
-                        'attention_mask': batch_attention_mask
-                    }
-                )
+                if 'cross_attention_mask' in sample:
+                    aspect_ratio_ids = torch.cat(aspect_ratio_ids_tmp, dim=0)
+                    aspect_ratio_mask = torch.cat(aspect_ratio_mask_tmp, dim=0)
+                    cross_attention_mask = torch.cat(cross_attention_mask_tmp, dim=0)
+                    calib_samples.append(
+                        {
+                            'input_ids': batch_input_ids,
+                            'attention_mask': batch_attention_mask,
+                            'pixel_values': pixel_values,
+                            'aspect_ratio_ids': aspect_ratio_ids,
+                            'aspect_ratio_mask': aspect_ratio_mask,
+                            'cross_attention_mask': cross_attention_mask
+                        }
+                    )
+                else:
+                    calib_samples.append(
+                        {
+                            'pixel_values': pixel_values,
+                            'input_ids': batch_input_ids,
+                            'attention_mask': batch_attention_mask
+                        }
+                    )
         return calib_samples
 
     def img_group_samples_wo_mask(self, samples):  # without mask
