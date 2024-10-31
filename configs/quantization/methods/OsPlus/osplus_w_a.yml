@@ -35,6 +35,8 @@ quant:
         bit: 8
         symmetric: True
         granularity: per_token
+    special:
+        true_sequential: True
     quant_out: True
 save:
     save_trans: False

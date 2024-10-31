@@ -17,7 +17,8 @@ from .hadamard_utils import apply_exact_had_to_linear, get_hadK
 from .module_utils import (_LLMC_LINEAR_TYPES_, _LLMC_LN_TYPES_,
                            _REALQUANT_LINEAR_MAP_, _TRANSFORMERS_LINEAR_TYPES_,
                            _TRANSFORMERS_LN_TYPES_, EffcientFakeQuantLinear,
-                           FakeQuantLinear, OriginFloatLinear, RotateLinear)
+                           FakeQuantLinear, LlmcActFn, LlmcViTSelfAttention,
+                           OriginFloatLinear, RotateLinear)
 from .quant import FloatQuantizer, IntegerQuantizer
 from .utils import check_do_quant, check_w_only, get_aquantizer, get_wquantizer
 
@@ -39,8 +40,25 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
     def w_q(self, module, wquantizer):
         return wquantizer.real_quant_weight_dynamic(module.weight.data)
 
-    def a_qdq(self, act, module, aquantizer):
-        return aquantizer.fake_quant_act_dynamic(act)
+    def a_qdq(self, act, module, aquantizer, input_index=0):
+        if self.act_static:
+            args = {
+                'scales': (
+                    getattr(module, f'buf_act_scales_{input_index}', None)
+                ),
+                'zeros': (
+                    getattr(module, f'buf_act_zeros_{input_index}', None)
+                ),
+                'qmax': (
+                    getattr(module, f'buf_act_qmax_{input_index}', None)
+                ),
+                'qmin': (
+                    getattr(module, f'buf_act_qmin_{input_index}', None)
+                )
+            }
+            return aquantizer.fake_quant_act_static(act, args)
+        else:
+            return aquantizer.fake_quant_act_dynamic(act)
 
     def logit(self, x):
         return torch.log(x / (1 - x))
@@ -70,7 +88,6 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
             params_dict['quant_config'] = self.quant_config
 
         elif mode == 'online_rotate':
-
             had_K, K = get_hadK(
                 self.intermediate_size if 'down_proj' in name else self.num_heads
             )
@@ -85,10 +102,21 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
                 'fp32_had': self.fp32_had,
             }
 
+        elif mode == 'quant_attn':
+            params_dict = {
+                'matmul_a1_qdq': partial(self.a_qdq, aquantizer=self.aquantizer, input_index=0),
+                'matmul_a2_qdq': partial(self.a_qdq, aquantizer=self.aquantizer, input_index=1),
+                'softmax_a_qdq': partial(self.a_qdq, aquantizer=self.aquantizer)
+                if self.quant_softmax else None
+            }
+        elif mode == 'quant_act_fn':
+            params_dict = {
+                'a_qdq': partial(self.a_qdq, aquantizer=self.aquantizer)
+            }
+
         return params_dict
 
     def alloc_bits(self, mix_bits_settings):
-
         for i in range(len(mix_bits_settings)):
             mix_bits_setting = mix_bits_settings[f'setting_{i}']
             if mix_bits_setting['do_quant']:
@@ -164,13 +192,25 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
             self.w_only = False
             self.quant_config['act']['tp'] = self.tp
             self.aquantizer = self.quant_module(**self.quant_config['act'])
+            self.act_static = self.quant_config['act'].get('static', False)
+            if self.act_static:
+                assert self.quant_config['act']['granularity'] == 'per_tensor', \
+                    'Only support per_tensor static quant'
+            self.quant_attn = self.quant_config['act'].get('quant_attn', False)
+            if self.quant_attn:
+                assert self.config['model']['type'] in ['Vit']
+                self.quant_softmax = self.quant_config['act'].get('quant_softmax', False)
+            self.quant_act_fn = self.quant_config['act'].get('quant_act_fn', False)
         else:
             self.w_only = True
             self.aquantizer = None
+            self.act_static = False
+            self.quant_attn = False
+            self.quant_softmax = False
+            self.quant_act_fn = False
 
         # set mix-bits quant config
         if self.mix_bits:
-
             mix_bits_settings = self.quant_config['mix_bits']
             logger.info(f'mix_bits_settings number: {len(mix_bits_settings)}')
             logger.info(
@@ -186,6 +226,7 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
 
         # set special quant config
         special_config = self.quant_config.get('special', {})
+        self.true_sequential = special_config.get('true_sequential', True)
         self.weight_clip = special_config.get('weight_clip', True)
         self.save_scale = special_config.get('save_scale', False)
         self.save_clip = special_config.get('save_clip', False)
@@ -233,6 +274,38 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
                     ),
                 )
 
+    def replace_act_fn(self, block, extra_modules):
+        act_fn_dict = self.model.get_act_fn_in_block(block)
+        layers_dict = {'layers': act_fn_dict}
+        self.model.replace_module_subset(
+            LlmcActFn,
+            block,
+            layers_dict,
+            self.block_idx,
+            self.get_replacement_params(
+                mode='quant_act_fn', w_only=self.w_only, name=None
+            ),
+        )
+        extra_modules.update(act_fn_dict)
+
+    def replace_attention(self, block, extra_modules):
+        attn_layers_dict = self.model.get_attn_in_block(block)
+        layers_dict = {'layers': attn_layers_dict}
+        self.model.replace_module_subset(
+            LlmcViTSelfAttention,
+            block,
+            layers_dict,
+            self.block_idx,
+            self.get_replacement_params(
+                mode='quant_attn', w_only=self.w_only, name=None
+            ),
+        )
+
+        matmul_modules = self.model.get_matmul_in_block(block)
+        softmax_modules = self.model.get_softmax_in_block(block) if self.quant_softmax else {}
+        extra_modules.update(matmul_modules)
+        extra_modules.update(softmax_modules)
+
     @torch.no_grad()
     def collect_block_qparams(self, block):
         named_linears = self.model.get_block_linears(block)
@@ -279,14 +352,32 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
         block = block.cuda()
         named_linears = self.model.get_block_linears(block)
         extra_modules = self.model.get_extra_modules(block)
+        self.extra_module_name = list(extra_modules.keys())[0]
+
+        if self.quant_attn:
+            self.replace_attention(block, extra_modules)
+        if self.quant_act_fn:
+            self.replace_act_fn(block, extra_modules)
+
         input_feat_modules = {
             k: v for d in [named_linears, extra_modules] for k, v in d.items()
         }
-        logger.info(f'input_feat_modules: {input_feat_modules}')
+        logger.info(f': {input_feat_modules}')
         input_feat = defaultdict(list)
-        handles = []
+
+        handles = self.register_hooks(input_feat_modules, input_feat)
+
         self.block_init(block)
 
+        self.run(block, input_feat, handles)
+
+        block = block.cpu()
+        del input_feat
+        gc.collect()
+        torch.cuda.empty_cache()
+
+    def register_hooks(self, input_feat_modules, input_feat):
+        handles = []
         if not self.data_free:
             for name in input_feat_modules:
                 handles.append(
@@ -296,7 +387,10 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
                         )
                     )
                 )
+        return handles
 
+    def run(self, block, input_feat, handles):
+        if not self.data_free:
             if self.quant_out:
                 self.block_forward(block)
             else:
@@ -305,33 +399,34 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
             for h in handles:
                 h.remove()
             torch.cuda.empty_cache()
+
             self.block_transform(block, input_feat, self.input['kwargs'])
         else:
             self.block_transform(block)
 
-        if not self.data_free:
-            if self.quant_out:
-                self.model.replace_module_block(
-                    FakeQuantLinear,
-                    block,
-                    self.block_idx,
-                    self.get_replacement_params(
-                        mode='fake_quant', w_only=self.w_only, name=None
-                    ),
-                )
-                self.input['data'] = self.block_forward(block)
-
-        block = block.cpu()
-        del input_feat
-        gc.collect()
-        torch.cuda.empty_cache()
+        if not self.data_free and self.quant_out:
+            self.model.replace_module_block(
+                FakeQuantLinear,
+                block,
+                self.block_idx,
+                self.get_replacement_params(
+                    mode='fake_quant', w_only=self.w_only, name=None
+                ),
+            )
+            self.set_non_linear_mode('fake_quant', block, False)
+            self.input['data'] = self.block_forward(block)
 
     def block_transform(self, block, input_feat, block_kwargs):
         logger.info(f'Start transform the {self.block_idx}-th block')
         subsets = self.model.get_subsets_in_block(block)
+
+        if self.act_static:
+            self.register_non_linear_qparams(block, input_feat)
+            self.register_except_subsets_qparams(block, input_feat)
+
+        self.set_non_linear_mode('fake_quant', block, False)
+
         for index, subset in enumerate(subsets):
-            if not self.filter_subset(subset):
-                continue
             logger.info(f'subset: {subset}')
             prev_op = subset['prev_op']
             layers_dict = subset['layers']
@@ -353,20 +448,153 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
                 inspect_module,
                 subset_kwargs,
             )
+            if self.act_static:
+                self.register_act_qparams(layers_dict, input_feat[input_name])
+
+            if self.true_sequential and index != len(subsets) - 1:
+                next_subset = subsets[index + 1]
+                input_feat_subset = self.rehook_next_subset(block,
+                                                            subset,
+                                                            next_subset)
+                input_feat.update(input_feat_subset)
+
+        self.set_non_linear_mode('fake_quant', block, True)
         logger.info(f'End transform the {self.block_idx}-th block')
+
+    def rehook_next_subset(self, block, subset, next_subset):
+        self.subset_init(next_subset)
+
+        layers_except_subsets = self.model.get_linears_except_subsets(block)
+        if (
+            layers_except_subsets
+            and not isinstance(
+                layers_except_subsets[list(layers_except_subsets.keys())[0]],
+                FakeQuantLinear
+            )
+        ):
+            self.model.replace_module_subset(
+                FakeQuantLinear,
+                block,
+                {'layers': layers_except_subsets},
+                self.block_idx,
+                self.get_replacement_params(
+                    mode='fake_quant', w_only=self.w_only, name=None
+                ),
+            )
+
+        self.model.replace_module_subset(
+            FakeQuantLinear,
+            block,
+            subset,
+            self.block_idx,
+            self.get_replacement_params(
+                mode='fake_quant', w_only=self.w_only, name=None
+            ),
+        )
+
+        input_feat_subset = defaultdict(list)
+        input_feat_modules = next_subset['layers']
+        handles = self.register_hooks(input_feat_modules, input_feat_subset)
+
+        self.block_forward(block)
+        for h in handles:
+            h.remove()
+
+        return input_feat_subset
+
+    def layer_init(self, layer):
+        pass
+
+    def subset_init(self, subset):
+        pass
 
     def block_init(self, block):
         pass
-
-    @torch.no_grad()
-    def filter_subset(self, subset):
-        return True
 
     def collect_layers_weights(self, layers, tensor_parallelize_style=None):
         weights = []
         for _m in layers:
             weights.append(_m.weight)
         return weights
+
+    def moving_avg_range(self, act_tensors):
+        avg_min_vals, avg_max_vals = [], []
+        if isinstance(act_tensors[0], tuple):
+            def transform_multiple_inputs(pairs):
+                inputs_lists = zip(*pairs)
+                transformed = [list(zip(inputs, inputs)) for inputs in inputs_lists]
+                return [item for sublist in transformed for item in sublist]
+            act_tensors = transform_multiple_inputs(act_tensors)
+        else:
+            if len(act_tensors) == 1:
+                tensor_list = [act_tensors[0][i] for i in range(act_tensors[0].size(0))]
+                act_tensors[0] = tensor_list
+            else:
+                act_tensors = [act_tensors]
+
+        for tensors in act_tensors:
+            avg_min_val, avg_max_val = None, None
+            for tensor in tensors:
+                tensor = self.aquantizer.reshape_tensor(tensor)
+                tensor_range = self.aquantizer.get_tensor_range(tensor)
+                min_val, max_val = tensor_range[0], tensor_range[1]
+                if min_val is None:
+                    avg_min_val = None
+                else:
+                    if avg_min_val is None:
+                        avg_min_val = min_val / len(tensors)
+                    else:
+                        avg_min_val += min_val / len(tensors)
+                if max_val is None:
+                    avg_max_val = None
+                else:
+                    if avg_max_val is None:
+                        avg_max_val = max_val / len(tensors)
+                    else:
+                        avg_max_val += max_val / len(tensors)
+            avg_min_vals.append(avg_min_val)
+            avg_max_vals.append(avg_max_val)
+
+        return avg_min_vals, avg_max_vals
+
+    @torch.no_grad()
+    def register_except_subsets_qparams(self, block, input_feat):
+        layers_dict = self.model.get_linears_except_subsets(block)
+        for name, layer in layers_dict.items():
+            self.register_act_qparams({name: layer}, input_feat[name])
+
+    @torch.no_grad()
+    def register_non_linear_qparams(self, block, input_feat):
+        layer_types = [
+            ('quant_attn', self.model.get_matmul_in_block),
+            ('quant_softmax', self.model.get_softmax_in_block, 'quant_attn'),
+            ('quant_act_fn', self.model.get_act_fn_in_block)
+        ]
+
+        for mode, layer_func, *dependency in layer_types:
+            if getattr(self, mode, True) and all(getattr(self, dep, True) for dep in dependency):
+                layers_dict = layer_func(block)
+                for name, layer in layers_dict.items():
+                    self.register_act_qparams({name: layer}, input_feat[name])
+
+    @torch.no_grad()
+    def register_act_qparams(self, layers_dict, act_tensors):
+        avg_min_vals, avg_max_vals = self.moving_avg_range(act_tensors)
+        for i in range(len(avg_min_vals)):
+            avg_min_val, avg_max_val = avg_min_vals[i], avg_max_vals[i]
+            scales, zeros, qmax, qmin = self.aquantizer.get_qparams(
+                (avg_min_val, avg_max_val), avg_min_val.device
+            )
+            logger.info(f'avg_min_val:{avg_min_val}')
+            logger.info(f'avg_max_val:{avg_max_val}')
+            for name in layers_dict:
+                layers_dict[name].register_buffer(f'buf_act_scales_{i}', scales)
+                layers_dict[name].register_buffer(f'buf_act_zeros_{i}', zeros)
+                layers_dict[name].register_buffer(f'buf_act_qmin_{i}', qmin)
+                layers_dict[name].register_buffer(f'buf_act_qmax_{i}', qmax)
+                logger.info(f'name: {name}')
+                logger.info(f'buf_act_scales_{i} : {scales}')
+                logger.info(f'buf_act_zeros_{i} : {zeros}')
 
     @torch.no_grad()
     def apply_scale(self, scales, prev_op, layers):
@@ -844,6 +1072,23 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
             fc.bias.data = fc.bias.data.to(fc_dtype)
 
     @torch.no_grad()
+    def update_input_feat(self, scale, input_feat, layers_dict):
+        for layer_name in layers_dict:
+            for i in range(len(input_feat[layer_name])):
+                inp = input_feat[layer_name][i]
+                inp.div_(scale.view(1, -1).to(inp.device))
+
+    @torch.no_grad()
+    def set_non_linear_mode(self, quant_format, module, mode):
+        assert mode in [True, False]
+        if quant_format != 'fake_quant':
+            return
+        for name, m in module.named_modules():
+            if getattr(m, 'calib', None) is not None:
+                m.calib = mode
+                # logger.info(f'{m} has set calibration mode {mode}.')
+
+    @torch.no_grad()
     def deploy(self, quant_format, keep_device=False):
         logger.info(f'-- deploy_{quant_format}_model start --')
         logger.info(f'quant_config : {self.quant_config}')
@@ -865,6 +1110,7 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
             self.get_replacement_params(mode=quant_format, w_only=self.w_only),
             keep_device=keep_device
         )
+        self.set_non_linear_mode(quant_format, self.model.model, False)
 
         logger.info(f'-- deploy_{quant_format}_model done --')
 

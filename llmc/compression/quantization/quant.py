@@ -207,9 +207,8 @@ class IntegerQuantizer(BaseQuantizer):
                 self.qmin = 0.0
                 self.qmax = 2**self.bit - 1
 
-        if self.kwargs.get('qmax_to_tensor'):
-            self.qmin = torch.tensor(self.qmin).cuda()
-            self.qmax = torch.tensor(self.qmax).cuda()
+        self.qmin = torch.tensor(self.qmin).cuda()
+        self.qmax = torch.tensor(self.qmax).cuda()
 
     def quant(self, tensor, scales, zeros, qmax, qmin):
         if self.round_zp:
@@ -505,6 +504,9 @@ class FloatQuantizer(BaseQuantizer):
                 else:
                     raise NotImplementedError('Only 4, 6, 8, and \
                                                 12-bit quantization is supported.')
+                    self.qmin = torch.tensor(self.qmin).cuda()
+            self.qmax = torch.tensor(self.qmax).cuda()
+            self.qmin = torch.tensor(self.qmin).cuda()
 
     def get_float_qparams(self, tensor, tensor_range, device):
         min_val, max_val = tensor_range[0], tensor_range[1]
