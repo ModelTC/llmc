@@ -352,7 +352,8 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
         block = block.cuda()
         named_linears = self.model.get_block_linears(block)
         extra_modules = self.model.get_extra_modules(block)
-        self.extra_module_name = list(extra_modules.keys())[0]
+        if extra_modules:
+            self.extra_module_name = list(extra_modules.keys())[0]
 
         if self.quant_attn:
             self.replace_attention(block, extra_modules)
