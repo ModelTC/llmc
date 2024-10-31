@@ -21,101 +21,12 @@ class OsPlus(BaseBlockwiseQuantization):
         torch.set_grad_enabled(False)
         super().__init__(model, quant_config, input, padding_mask, config)
 
-        special_config = self.quant_config.get('special', {})
-        self.weight_clip = special_config.get('weight_clip', False)
-        self.save_scale = special_config.get('save_scale', False)
-
     @torch.no_grad()
-    def filter_subset(self, subset, idx, length):
-        if self.weight_clip and idx == length - 1:
-            return False
-        if self.weight_clip or isinstance(
-            subset['prev_op'][0], tuple(_LLMC_LN_TYPES_ + _TRANSFORMERS_LN_TYPES_)
-        ):
+    def filter_subset(self, prev_op):
+        if isinstance(prev_op[0], tuple(_LLMC_LN_TYPES_ + _TRANSFORMERS_LN_TYPES_)):
             return True
-        return False
-
-    def block_transform(self, block, input_feat, block_kwargs):
-        logger.info(f'Start transform the {self.block_idx}-th block')
-        subsets = self.model.get_subsets_in_block(block)
-        named_linears = self.model.get_block_linears(block)
-        name_list = list(named_linears.keys())
-
-        def register_hooks(feat_dict):
-            handles = [
-                block.get_submodule(name).register_forward_hook(
-                    functools.partial(
-                        self.cache_input_hook, name=name, feat_dict=feat_dict
-                    )
-                )
-                for name in name_list
-            ]
-            self.block_forward(block)
-            for h in handles:
-                h.remove()
-
-        for index, subset in enumerate(subsets):
-            input_feat_subset = defaultdict(list)
-            register_hooks(input_feat_subset)
-
-            prev_op = subset['prev_op']
-            layers_dict = subset['layers']
-            input_name = subset['input'][0]
-            inspect_module = subset['inspect']
-            inspect_has_kwargs = subset['has_kwargs']
-            subset_kwargs = block_kwargs if inspect_has_kwargs else {}
-
-            if self.filter_subset(subset, index, len(subsets)):
-                self.subset_transform(
-                    layers_dict,
-                    input_feat_subset,
-                    prev_op,
-                    input_name,
-                    inspect_module,
-                    subset_kwargs,
-                )
-
-            self.model.replace_module_subset(
-                FakeQuantLinear,
-                block,
-                subset,
-                self.block_idx,
-                self.get_replacement_params(
-                    mode='fake_quant', w_only=self.w_only, name=None
-                ),
-            )
-
-        if self.weight_clip:
-            self.model.replace_module_block(
-                OriginFloatLinear, block, self.block_idx, {}
-            )
-
-            clip_input_feat = defaultdict(list)
-            register_hooks(clip_input_feat)
-
-            logger.info('auto_clip start')
-
-            self.model.replace_module_block(
-                FakeQuantLinear,
-                block,
-                self.block_idx,
-                self.get_replacement_params(
-                    mode='fake_quant', w_only=self.w_only, name=None
-                ),
-            )
-            self.auto_clip(
-                block,
-                clip_input_feat,
-                n_sample_token=self.config.calib.get('seq_len', None),
-                eps=3e-1,
-            )
-
-            logger.info('auto_clip finished')
         else:
-            logger.info('disable weight clip')
-
-        torch.cuda.empty_cache()
-        logger.info(f'End transform the {self.block_idx}-th block')
+            return False
 
     @torch.no_grad()
     def get_original_out(self, x, inspect_module, subset_kwargs):
@@ -272,7 +183,6 @@ class OsPlus(BaseBlockwiseQuantization):
         ), 'Only support single prev_op. If multi prev_ops, code need to be updated.'
 
         layers = list(layers_dict.values())
-        logger.info(layers_dict)
         if (
             isinstance(
                 prev_op[0], tuple(_LLMC_LINEAR_TYPES_ + _TRANSFORMERS_LINEAR_TYPES_)
@@ -283,13 +193,14 @@ class OsPlus(BaseBlockwiseQuantization):
             logger.info('Cannot apply scale. Do not transform this subset.')
             return
 
+        if not self.filter_subset(prev_op):
+            logger.info('Do not transform this subset.')
+            return
+
         scale, shift = self.search_scale_shift_subset(
             layers, input_feat[input_name], inspect_module, subset_kwargs
         )
         self.apply_shift(shift, prev_op, layers)
         self.apply_scale(scale, prev_op, layers)
-
-        if self.save_scale:
-            for n in layers_dict:
-                layer_name = f'{self.model.block_name_prefix}.{self.block_idx}.{n}'
-                self.act_scales[layer_name] = scale
+        if self.act_static:
+            self.update_input_feat(scale, input_feat, layers_dict)

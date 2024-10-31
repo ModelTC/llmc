@@ -152,13 +152,6 @@ class Awq(BaseBlockwiseQuantization):
         return best_scales
 
     @torch.no_grad()
-    def update_input_feat(self, scale, input_feat, layers_dict):
-        for layer_name in layers_dict:
-            for i in range(len(input_feat[layer_name])):
-                inp = input_feat[layer_name][i]
-                inp.div_(scale.view(1, -1).to(inp.device))
-
-    @torch.no_grad()
     def block_transform(self, block, input_feat, block_kwargs):
         if self.trans:
             super().block_transform(block, input_feat, block_kwargs)
@@ -203,9 +196,11 @@ class Awq(BaseBlockwiseQuantization):
         assert (
             len(prev_op) in (0, 1)
         ), 'Only support single prev_op. If multi prev_ops, code need to be updated.'
+
         if len(prev_op) == 0:
             logger.info('Cannot apply scale. Do not transform this subset.')
             return
+
         if isinstance(
             prev_op[0],
             tuple(

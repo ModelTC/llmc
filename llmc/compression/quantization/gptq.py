@@ -23,6 +23,7 @@ class GPTQ(BaseBlockwiseQuantization):
         self.model_dtype = next(self.model.model.parameters()).dtype
         self.add_quant_config()
         self.layers_cache = {}
+        self.special_layers = {}
         self.collect_model_qparams()
 
     @torch.no_grad()
@@ -77,39 +78,7 @@ class GPTQ(BaseBlockwiseQuantization):
         self.perm = perm
 
     @torch.no_grad()
-    def block_transform_true_sequential(self, block, input_feat):
-
-        subsets = self.model.get_subsets_in_block(block)
-        for subset in subsets:
-            handles = []
-            self.subset_init(subset)
-
-            for name in subset['layers']:
-                handles.append(
-                    subset['layers'][name].register_forward_hook(
-                        functools.partial(
-                            self.cache_input_hook, name=name, feat_dict=input_feat
-                        )
-                    )
-                )
-            self.block_forward(block)
-            for h in handles:
-                h.remove()
-            torch.cuda.empty_cache()
-
-            self.subset_transform(subset['layers'])
-            if self.quant_out:
-                self.model.replace_module_subset(
-                    FakeQuantLinear,
-                    block,
-                    subset,
-                    self.block_idx,
-                    self.get_replacement_params('fake_quant', w_only=True),
-                )
-
-    @torch.no_grad()
     def block_transform(self, block, input_feat, block_kwargs):
-        logger.info(f'Start transform the {self.block_idx+1}-th block')
         if self.online_rotate:
             self.replace_rotate_linears(block)
         if self.owq and not hasattr(self, 'n_out_dict'):
@@ -117,23 +86,11 @@ class GPTQ(BaseBlockwiseQuantization):
             self.n_out_dict = {}
             for i, name in enumerate(named_linears.keys()):
                 self.n_out_dict[name] = self.n_outs[i]
-
-        if self.true_sequential:
-            self.block_transform_true_sequential(block, input_feat)
-        else:
-            layers_dict = self.model.get_block_linears(block)
-            self.subset_transform(layers_dict)
-            self.model.replace_module_block(
-                FakeQuantLinear,
-                block,
-                self.block_idx,
-                self.get_replacement_params(mode='fake_quant', w_only=True),
-            )
-
-        logger.info(f'End transform the {self.block_idx+1}-th block')
+        self.extra_module_name = list(self.model.get_extra_modules(block).keys())[0]
+        super().block_transform(block, input_feat, block_kwargs)
 
     @torch.no_grad()
-    def subset_transform(self, layers_dict):
+    def subset_transform(self, layers_dict, *args, **kwargs):
         for name in layers_dict:
             layer = layers_dict[name]
             self.layer_transform(layer, name)
@@ -273,8 +230,19 @@ class GPTQ(BaseBlockwiseQuantization):
             W[:, i2:] -= Err1.matmul(Hinv[i1:i2, i2:])
 
     @torch.no_grad()
+    def get_special_layers(self, subset):
+        if self.extra_module_name == subset['input'][0]:
+            self.special_layers = subset['layers']
+
+    @torch.no_grad()
     def cache_input_hook(self, m, inp, out, name, feat_dict):
-        self.add_batch(self.named_layers[name], name, inp[0].data, out.data)
+        if name == self.extra_module_name:
+            for _n, _m in self.special_layers.items():
+                self.add_batch(self.named_layers[_n], _n, inp[0].data, out.data)
+        else:
+            self.add_batch(self.named_layers[name], name, inp[0].data, out.data)
+        if self.act_static:
+            super().cache_input_hook(m, inp, out, name, feat_dict)
 
     @torch.no_grad()
     def add_batch(self, layer, name, inp, out):
@@ -323,6 +291,7 @@ class GPTQ(BaseBlockwiseQuantization):
 
     @torch.no_grad()
     def subset_init(self, subset):
+        self.get_special_layers(subset)
         self.named_layers = subset['layers']
         for name in self.named_layers:
             self.layers_cache[name] = {}
@@ -339,7 +308,9 @@ class GPTQ(BaseBlockwiseQuantization):
     def collect_model_qparams(self):
         for i in range(len(self.blocks)):
             block = self.blocks[i]
+            block = block.cuda()
             self.collect_block_qparams(block)
+            block = block.cpu()
 
     @torch.no_grad()
     def split_qparams(self, qparams):

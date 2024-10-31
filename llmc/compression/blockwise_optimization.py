@@ -52,6 +52,8 @@ class BlockwiseOpt(metaclass=ABCMeta):
         pass
 
     def cache_input_hook(self, m, x, y, name, feat_dict):
-        x = x[0]
-        x = x.detach().cpu()
-        feat_dict[name].append(x)
+        inputs = [i.detach().cpu() for i in x]
+        if len(inputs) == 1:
+            feat_dict[name].append(inputs[0])
+        else:
+            feat_dict[name].append(tuple(inputs))
