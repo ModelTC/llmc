@@ -22,7 +22,6 @@ class Awq(BaseBlockwiseQuantization):
         special_config = self.quant_config.get('special', {})
         self.trans = special_config.get('trans', True)
         self.trans_version = special_config.get('trans_version', 'v2')
-        self.weight_clip = special_config.get('weight_clip', True)
         self.save_scale = special_config.get('save_scale', False)
 
     @torch.no_grad()
