@@ -159,8 +159,9 @@ class Awq(BaseBlockwiseQuantization):
         if self.weight_clip:
             logger.info('auto_clip start')
             logger.info(f'clip version: {self.clip_version}')
-            self.auto_clip(
+            self.auto_clipper.run(
                 block,
+                self.block_idx,
                 input_feat,
                 n_sample_token=self.config.calib.get('seq_len', None)
             )
