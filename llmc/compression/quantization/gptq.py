@@ -86,7 +86,6 @@ class GPTQ(BaseBlockwiseQuantization):
             self.n_out_dict = {}
             for i, name in enumerate(named_linears.keys()):
                 self.n_out_dict[name] = self.n_outs[i]
-        self.extra_module_name = list(self.model.get_extra_modules(block).keys())[0]
         super().block_transform(block, input_feat, block_kwargs)
 
     @torch.no_grad()

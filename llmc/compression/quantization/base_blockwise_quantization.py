@@ -354,6 +354,8 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
         extra_modules = self.model.get_extra_modules(block)
         if extra_modules:
             self.extra_module_name = list(extra_modules.keys())[0]
+        else:
+            self.extra_module_name = None
 
         if self.quant_attn:
             self.replace_attention(block, extra_modules)
