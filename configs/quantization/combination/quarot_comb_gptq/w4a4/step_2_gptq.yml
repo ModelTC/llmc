@@ -31,13 +31,11 @@ quant:
         symmetric: False
         granularity: per_channel
         group_size: -1
-        qmax_to_tensor: True
         calib_algo: mse
     act:
         bit: 4
         symmetric: False
         granularity: per_token
-        qmax_to_tensor: True
         calib_algo: minmax
     special:
         actorder: True

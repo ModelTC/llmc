@@ -2,6 +2,7 @@ import gc
 
 import torch
 import torch.nn as nn
+from loguru import logger
 
 from llmc.utils.registry_factory import ALGO_REGISTRY
 
@@ -17,10 +18,12 @@ class SmoothQuant(BaseBlockwiseQuantization):
         self.alpha = special_config.get('alpha', 0.5)
 
     @torch.no_grad()
-    def filter_subset(self, subset):
-        prev_op = subset['prev_op']
+    def filter_subset(self, layers_dict, prev_op):
         if isinstance(prev_op[0], tuple(_LLMC_LN_TYPES_ + _TRANSFORMERS_LN_TYPES_)):
-            return True
+            if 'mlp.experts.0.gate_proj' in list(layers_dict.keys()):
+                return False
+            else:
+                return True
         else:
             return False
 
@@ -68,6 +71,11 @@ class SmoothQuant(BaseBlockwiseQuantization):
         inspect_module,
         subset_kwargs,
     ):
+        if not self.filter_subset(prev_op):
+            logger.info('Do not transform this subset.')
+            return
         layers = list(layers_dict.values())
         scale = self.search_scale_subset(layers, input_feat[input_name])
         self.apply_scale(scale, prev_op, layers)
+        if self.act_static:
+            self.update_input_feat(scale, input_feat, layers_dict)

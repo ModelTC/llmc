@@ -34,6 +34,11 @@ class DeepseekV2(BaseModel):
     def has_bias(self):
         return False
 
+    def get_linears_except_subsets(self, block):
+        return {
+            'self_attn.o_proj': block.self_attn.o_proj
+        }
+
     def get_layernorms_in_block(self, block):
         return {
             'input_layernorm': block.input_layernorm,

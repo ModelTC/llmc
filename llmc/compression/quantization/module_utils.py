@@ -20,6 +20,167 @@ except Exception:
 from .utils import calculate_zeros_width
 
 
+class LlmcMatmul(nn.Module):
+    def __init__(self, a1_qdq=None, a2_qdq=None):
+        super().__init__()
+        self.a1_qdq = a1_qdq
+        self.a2_qdq = a2_qdq
+        self.calib = True
+
+    def forward(self, x1, x2):
+        if self.a1_qdq is not None and not self.calib:
+            x1 = self.a1_qdq(x1, self)
+        if self.a2_qdq is not None and not self.calib:
+            x2 = self.a2_qdq(x2, self)
+        out = torch.matmul(x1, x2)
+        return out
+
+    def __repr__(self):
+        return f'LlmcMatmul(calib={self.calib})'
+
+
+class LlmcSoftmax(nn.Module):
+    def __init__(self, a_qdq=None):
+        super().__init__()
+        self.a_qdq = a_qdq
+        self.calib = True
+
+    def forward(self, x, dim=-1):
+        if self.a_qdq is not None and not self.calib:
+            x = self.a_qdq(x, self)
+        out = nn.functional.softmax(x, dim)
+        return out
+
+    def __repr__(self):
+        return f'LlmcSoftmax(calib={self.calib})'
+
+
+class LlmcViTSelfAttention(nn.Module):
+    def __init__(
+        self,
+        query,
+        key,
+        value,
+        num_attention_heads,
+        attention_head_size,
+        all_head_size,
+        dropout,
+        matmul_a1_qdq,
+        matmul_a2_qdq,
+        softmax_a_qdq,
+    ):
+        super().__init__()
+        self.num_attention_heads = num_attention_heads
+        self.attention_head_size = attention_head_size
+        self.all_head_size = all_head_size
+        self.query = query
+        self.key = key
+        self.value = value
+
+        self.dropout = dropout
+
+        self.matmul_1 = LlmcMatmul(matmul_a1_qdq, matmul_a2_qdq)
+        self.matmul_2 = LlmcMatmul(matmul_a1_qdq, matmul_a2_qdq)
+        self.softmax = LlmcSoftmax(softmax_a_qdq)
+
+    def transpose_for_scores(self, x):
+        new_x_shape = x.size()[:-1] + (
+            self.num_attention_heads,
+            self.attention_head_size,
+        )
+        x = x.view(new_x_shape)
+        return x.permute(0, 2, 1, 3)
+
+    def forward(self, hidden_states, head_mask=None, output_attentions=False):
+        mixed_query_layer = self.query(hidden_states)
+
+        key_layer = self.transpose_for_scores(self.key(hidden_states))
+        value_layer = self.transpose_for_scores(self.value(hidden_states))
+        query_layer = self.transpose_for_scores(mixed_query_layer)
+
+        attention_scores = self.matmul_1(query_layer, key_layer.transpose(-1, -2))
+        attention_scores = attention_scores / math.sqrt(self.attention_head_size)
+
+        attention_probs = self.softmax(attention_scores, dim=-1)
+        attention_probs = self.dropout(attention_probs)
+
+        if head_mask is not None:
+            attention_probs = attention_probs * head_mask
+
+        context_layer = self.matmul_2(attention_probs, value_layer)
+
+        context_layer = context_layer.permute(0, 2, 1, 3).contiguous()
+        new_context_layer_shape = context_layer.size()[:-2] + (self.all_head_size,)
+        context_layer = context_layer.view(new_context_layer_shape)
+
+        outputs = (
+            (context_layer, attention_probs) if output_attentions else (context_layer,)
+        )
+
+        return outputs
+
+    @classmethod
+    @torch.no_grad()
+    def new(cls, module, matmul_a1_qdq=None, matmul_a2_qdq=None, softmax_a_qdq=None):
+        query, key, value = module.query, module.key, module.value
+        num_attention_heads = module.num_attention_heads
+        attention_head_size = module.attention_head_size
+        all_head_size = module.all_head_size
+        dropout = module.dropout
+        new_module = cls(
+            query,
+            key,
+            value,
+            num_attention_heads,
+            attention_head_size,
+            all_head_size,
+            dropout,
+            matmul_a1_qdq,
+            matmul_a2_qdq,
+            softmax_a_qdq,
+        )
+        return new_module
+
+    def __repr__(self):
+        return (
+            f'LlmcViTSelfAttention(\n'
+            f'  (query): {self.query}\n'
+            f'  (key): {self.key}\n'
+            f'  (value): {self.value}\n'
+            f'  (dropout): {self.dropout}\n'
+            f'  (matmul_1): {self.matmul_1}\n'
+            f'  (matmul_2): {self.matmul_2}\n'
+            f'  (softmax): {self.softmax}\n'
+            f')'
+        )
+
+
+class LlmcActFn(nn.Module):
+    def __init__(self, module, a_qdq) -> None:
+        super().__init__()
+        self.act_fn = module
+        self.a_qdq = a_qdq
+        self.calib = True
+
+    def forward(self, x):
+        if self.a_qdq is not None and not self.calib:
+            x = self.a_qdq(x, self)
+        x = self.act_fn(x)
+        return x
+
+    @classmethod
+    @torch.no_grad()
+    def new(cls, module, a_qdq):
+        new_module = cls(module, a_qdq)
+        return new_module
+
+    def disable_calib(self):
+        self.calib = False
+
+    def __repr__(self):
+        return f'LlmcActFn(calib={self.calib})'
+
+
 class RectifiedSigmoid(nn.Module):
     def __init__(self, gamma, zeta):
         super(RectifiedSigmoid, self).__init__()
