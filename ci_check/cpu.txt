@@ -5,3 +5,4 @@
 ../llmc/eval/eval_ppl.py
 ../llmc/compression/quantization/awq.py
 ../llmc/models/base_model.py
+../llmc/compression/quantization/auto_clip.py
