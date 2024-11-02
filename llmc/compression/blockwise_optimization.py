@@ -45,7 +45,7 @@ class BlockwiseOpt(metaclass=ABCMeta):
 
         if hasattr(self, 'save_clip') and self.save_clip:
             os.makedirs(self.clip_path, exist_ok=True)
-            torch.save(self.weight_clips, os.path.join(self.clip_path, 'clips.pth'))
+            torch.save(self.auto_clipper.weight_clips, os.path.join(self.clip_path, 'clips.pth'))
 
     @abstractmethod
     def block_opt(self, block):

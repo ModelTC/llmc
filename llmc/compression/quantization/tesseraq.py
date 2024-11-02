@@ -304,7 +304,7 @@ class TesseraQ(BaseBlockwiseQuantization):
 
     def tesseraq_weight_clip(self, block, input_feat):
         if self.clip_version == 'v1':
-            self.auto_clip(block, input_feat, n_sample_token=512)
+            self.auto_clipper.run(block, self.block_idx, input_feat, n_sample_token=512)
         elif self.clip_version == 'v2':
             logger.info('loading clips...')
             for n, m in block.named_modules():
@@ -461,6 +461,6 @@ class TesseraQ(BaseBlockwiseQuantization):
         super().deploy(quant_format)
         self.model.convert_dtype(self.model_dtype)
 
-    def save_model(self, path, copy_tokenizer):
+    def save_model(self, path):
         self.model.convert_dtype(self.model_dtype)
-        super().save_model(path, copy_tokenizer)
+        super().save_model(path)

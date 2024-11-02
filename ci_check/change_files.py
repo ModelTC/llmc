@@ -135,6 +135,20 @@ def main():
                     ("for i in range(0, nsamples, bs):", "for i in range(0, 1, 1):"),
                 ],
             }
+        elif file_path== "../llmc/compression/quantization/auto_clip.py":
+            modifications = {
+                "header": [
+                    'device_zbl = "cpu"\n',
+                    'use_cuda = (device_zbl != "cpu")\n',
+                ],
+                "modifications": [
+                    (".cuda()", ".to(device_zbl)"),
+                    (
+                        "torch.cuda.empty_cache()",
+                        "if use_cuda: torch.cuda.empty_cache()",
+                    ),
+                ],
+            }
         else:
             print(f"File {file_path} not recognized or not specified for modification.")
             continue
