@@ -107,7 +107,8 @@ def vlm_general(calib_dataset, tokenizer, preprocess, n_samples):
     fp = open(img_qa_json)
     img_qas = json.load(fp)
     for idx in range(len(img_qas)):
-        img_qas[idx]['img'] = os.path.join(calib_dataset, img_qas[idx]['img'])
+        if 'img' in img_qas[idx]:
+            img_qas[idx]['img'] = os.path.join(calib_dataset, img_qas[idx]['img'])
     random.shuffle(img_qas)
     if len(img_qas) > n_samples:
         img_qas = img_qas[:n_samples]

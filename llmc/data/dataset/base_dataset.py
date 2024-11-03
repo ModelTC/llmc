@@ -311,7 +311,7 @@ class BaseDataset(metaclass=ABCMeta):
         elif self.calib_bs == 1:
             attention_mask = [torch.ones(1, sample['input_ids'].shape[-1], dtype=torch.int64) for sample in samples] # noqa
             for i in range(len(samples)):
-                if 'cross_attention_mask' in sample:
+                if 'cross_attention_mask' in samples[i]:
                     calib_samples.append(
                         {
                             'input_ids': samples[i]['input_ids'],
