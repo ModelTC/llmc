@@ -151,7 +151,7 @@ class BaseModel(metaclass=ABCMeta):
 
         for data in calib_data:
             data = {
-                k: v.to(next(self.model.parameters()).device)
+                k: v.to(next(self.model.parameters()).device) if v is not None else v
                 for k, v in data.items()
             }
             try:
