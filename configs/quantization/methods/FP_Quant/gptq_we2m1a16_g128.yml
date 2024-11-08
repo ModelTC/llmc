@@ -28,7 +28,7 @@ eval:
     eval_token_consist: True
 quant:
     method: GPTQ
-    quant_type: float_quant
+    quant_type: float-quant
     weight:
         bit: e2m1
         symmetric: True

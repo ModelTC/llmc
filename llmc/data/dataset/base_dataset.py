@@ -20,6 +20,8 @@ class BaseDataset(metaclass=ABCMeta):
         self.calib_dataset_name = calib_cfg['name']
         self.calib_dataset_type = calib_cfg.get('type', 'txt')
         self.padding = calib_cfg.get('padding', False)
+        if self.calib_dataset_name == 'ultrachat':
+            assert self.padding
         self.download = calib_cfg['download']
         self.load_from_txt = calib_cfg.get('load_from_txt', False)
         self.calib_dataset_path = calib_cfg.get('path', None)
@@ -27,6 +29,8 @@ class BaseDataset(metaclass=ABCMeta):
         self.calib_bs = calib_cfg['bs']
         self.seq_len = calib_cfg.get('seq_len', None)
         self.preproc = calib_cfg['preproc']
+        if self.calib_dataset_name == 'ultrachat':
+            assert self.preproc == 'ultrachat_general'
         if self.preproc == 'original_txt':
             assert self.seq_len is None
         self.seed = calib_cfg['seed']
@@ -60,6 +64,10 @@ class BaseDataset(metaclass=ABCMeta):
                 elif self.calib_dataset_name == 'ptb':
                     self.calib_dataset = load_dataset(
                         'ptb_text_only', 'penn_treebank', split='train'
+                    )
+                elif self.calib_dataset_name == 'ultrachat':
+                    self.calib_dataset = load_dataset(
+                        'HuggingFaceH4/ultrachat_200k', split='train_sft'
                     )
                 else:
                     raise Exception(f'Not support {self.calib_dataset_name} dataset.')

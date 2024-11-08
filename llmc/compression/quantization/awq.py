@@ -130,13 +130,19 @@ class Awq(BaseBlockwiseQuantization):
                 if isinstance(out, tuple):
                     out = out[0]
 
-                if self.padding_mask:
+                if self.padding_mask and org_out.shape[1] == self.padding_mask[i].shape[-1]:
                     org_out = org_out * self.padding_mask[i].unsqueeze(dim=-1).to(org_out.device) # noqa
                     out = out * self.padding_mask[i].unsqueeze(dim=-1).to(out.device)
 
                 loss = (org_out - out).float().pow(2).mean().item()
-                loss_mean += x.shape[0] * 1.0 / self.n_samples * loss
-                scales_mean += x.shape[0] * 1.0 / self.n_samples * scales
+
+                if len(input) == 1:
+                    n_samples = x.shape[0]
+                else:
+                    n_samples = self.n_samples
+
+                loss_mean += x.shape[0] * 1.0 / n_samples * loss
+                scales_mean += x.shape[0] * 1.0 / n_samples * scales
                 inspect_module.load_state_dict(org_sd)
             is_best = loss_mean < best_error
             if is_best:
@@ -199,6 +205,9 @@ class Awq(BaseBlockwiseQuantization):
 
         if len(prev_op) == 0:
             logger.info('Cannot apply scale. Do not transform this subset.')
+            return
+
+        if 'mlp.experts.0.gate_proj' in list(layers_dict.keys()):
             return
 
         if isinstance(

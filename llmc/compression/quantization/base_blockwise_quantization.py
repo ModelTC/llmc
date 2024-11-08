@@ -1,3 +1,4 @@
+import copy
 import functools
 import gc
 import json
@@ -179,10 +180,10 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
         self.quant_config['weight']['tp'] = self.tp
 
         # select quant module
-        self.quant_type = self.quant_config.get('quant_type', 'int_quant')
-        if self.quant_type == 'int_quant':
+        self.quant_type = self.quant_config.get('quant_type', 'int-quant')
+        if self.quant_type == 'int-quant':
             self.quant_module = IntegerQuantizer
-        else:
+        elif self.quant_type == 'float-quant':
             self.quant_module = FloatQuantizer
         logger.info(f'The used Quant Module is {self.quant_module}')
 
@@ -373,7 +374,6 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
 
         if self.quant_attn:
             self.replace_attention(block, extra_modules)
-            logger.info(block)
         if self.quant_act_fn:
             self.replace_act_fn(block, extra_modules)
 
@@ -467,7 +467,9 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
                 subset_kwargs,
             )
             if self.act_static:
-                self.register_act_qparams(layers_dict, input_feat[input_name])
+                input_tensors = copy.deepcopy(input_feat[input_name])
+                self.register_act_qparams(layers_dict, input_tensors)
+                del input_tensors
 
             if self.true_sequential and index != len(subsets) - 1:
                 next_subset = subsets[index + 1]
@@ -576,7 +578,9 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
     def register_except_subsets_qparams(self, block, input_feat):
         layers_dict = self.model.get_linears_except_subsets(block)
         for name, layer in layers_dict.items():
-            self.register_act_qparams({name: layer}, input_feat[name])
+            input_tensors = copy.deepcopy(input_feat[name])
+            self.register_act_qparams({name: layer}, input_tensors)
+            del input_tensors
 
     @torch.no_grad()
     def register_non_linear_qparams(self, block, input_feat):
@@ -590,7 +594,9 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
             if getattr(self, mode, True) and all(getattr(self, dep, True) for dep in dependency):
                 layers_dict = layer_func(block)
                 for name, layer in layers_dict.items():
-                    self.register_act_qparams({name: layer}, input_feat[name])
+                    input_tensors = copy.deepcopy(input_feat[name])
+                    self.register_act_qparams({name: layer}, input_tensors)
+                    del input_tensors
 
     @torch.no_grad()
     def register_act_qparams(self, layers_dict, act_tensors):
@@ -600,16 +606,14 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
             scales, zeros, qmax, qmin = self.aquantizer.get_qparams(
                 (avg_min_val, avg_max_val), avg_min_val.device
             )
-            logger.info(f'avg_min_val:{avg_min_val}')
-            logger.info(f'avg_max_val:{avg_max_val}')
             for name in layers_dict:
                 layers_dict[name].register_buffer(f'buf_act_scales_{i}', scales)
                 layers_dict[name].register_buffer(f'buf_act_zeros_{i}', zeros)
                 layers_dict[name].register_buffer(f'buf_act_qmin_{i}', qmin)
                 layers_dict[name].register_buffer(f'buf_act_qmax_{i}', qmax)
-                logger.info(f'name: {name}')
-                logger.info(f'buf_act_scales_{i} : {scales}')
-                logger.info(f'buf_act_zeros_{i} : {zeros}')
+                # logger.info(f'name: {name}')
+                # logger.info(f'buf_act_scales_{i} : {scales}')
+                # logger.info(f'buf_act_zeros_{i} : {zeros}')
 
     @torch.no_grad()
     def apply_scale(self, scales, prev_op, layers):
@@ -827,7 +831,6 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
         for name, m in module.named_modules():
             if getattr(m, 'calib', None) is not None:
                 m.calib = mode
-                # logger.info(f'{m} has set calibration mode {mode}.')
 
     @torch.no_grad()
     def deploy(self, quant_format, keep_device=False):

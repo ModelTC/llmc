@@ -15,7 +15,7 @@ calib:
     preproc: wikitext2_gptq
     seed: *seed
 eval:
-    eval_pos: [fake_quant]
+    eval_pos: [fake-quant]
     name: wikitext2
     download: False
     path: eval data path

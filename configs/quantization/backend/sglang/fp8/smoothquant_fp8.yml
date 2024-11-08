@@ -22,7 +22,7 @@ eval:
     seq_len: 2048
 quant:
     method: SmoothQuant
-    quant_type: float_quant
+    quant_type: float-quant
     weight:
         # Support ["e4m3", "e5m2"]
         bit: e4m3

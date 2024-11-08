@@ -26,7 +26,7 @@ eval:
     inference_per_block: False
 quant:
     method: Awq
-    quant_type: float_quant
+    quant_type: float-quant
     weight:
         # Support ["e4m3", "e5m2"]
         bit: e4m3

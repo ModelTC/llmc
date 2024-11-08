@@ -17,7 +17,7 @@ eval:
     inference_per_block: False
 quant:
     method: RTN
-    quant_type: float_quant
+    quant_type: float-quant
     weight:
         bit: e4m3
         symmetric: True
