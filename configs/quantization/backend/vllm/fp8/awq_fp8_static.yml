@@ -6,13 +6,13 @@ model:
     tokenizer_mode: slow
     torch_dtype: auto
 calib:
-    name: wikitext2
+    name: pileval
     download: False
-    n_samples: 128
     path: calib data path
-    bs: 1
-    seq_len: 2048
-    preproc: wikitext2_gptq
+    n_samples: 128
+    bs: -1
+    seq_len: 512
+    preproc: general
     seed: *seed
 eval:
     eval_pos: [fake_quant]
@@ -25,27 +25,26 @@ eval:
     bs: 1
     inference_per_block: False
 quant:
-    method: GPTQ
+    method: Awq
     quant_type: float-quant
     weight:
         # Support ["e4m3", "e5m2"]
         bit: e4m3
         symmetric: True
-        granularity: per_channel
+        granularity: per_tensor
         use_qtorch: True
     act:
         # Support ["e4m3", "e5m2"]
         bit: e4m3
         symmetric: True
-        granularity: per_token
+        granularity: per_tensor
         use_qtorch: True
+        static: True
     special:
-        actorder: True
-        static_groups: False
-        percdamp: 0.01
-        blocksize: 128
-        true_sequential: True
+        trans: True
+        trans_version: v2
+        weight_clip: True
     quant_out: True
 save:
-    save_sgl: True
-    save_path: /path/to/save_for_sgl_gptq_fp8/
+    save_vllm: True
+    save_path: /path/to/save_for_vllm_awq_fp8/
