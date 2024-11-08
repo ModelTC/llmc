@@ -172,6 +172,7 @@ class LlmcDeepseekAttention(nn.Module):
         qk_nope_head_dim,
         q_head_dim,
         is_causal,
+        q_proj,
         q_a_proj,
         q_a_layernorm,
         q_b_proj,
@@ -200,6 +201,7 @@ class LlmcDeepseekAttention(nn.Module):
         self.qk_nope_head_dim = qk_nope_head_dim
         self.q_head_dim = q_head_dim
         self.is_causal = is_causal
+        self.q_proj = q_proj
         self.q_a_proj = q_a_proj
         self.q_a_layernorm = q_a_layernorm
         self.q_b_proj = q_b_proj
@@ -259,11 +261,18 @@ class LlmcDeepseekAttention(nn.Module):
         v_head_dim = module.config.v_head_dim
         qk_nope_head_dim = module.config.qk_nope_head_dim
         q_head_dim = module.q_head_dim
-        is_causal = True
+        is_causal = module.is_causal
 
-        q_a_proj = module.q_a_proj
-        q_a_layernorm = module.q_a_layernorm
-        q_b_proj = module.q_b_proj
+        if q_lora_rank is None:
+            q_proj = module.q_proj
+            q_a_proj = None
+            q_a_layernorm = None
+            q_b_proj = None
+        else:
+            q_proj = None
+            q_a_proj = module.q_a_proj
+            q_a_layernorm = module.q_a_layernorm
+            q_b_proj = module.q_b_proj
 
         kv_a_proj_with_mqa = module.kv_a_proj_with_mqa
         kv_a_layernorm = module.kv_a_layernorm
@@ -289,6 +298,7 @@ class LlmcDeepseekAttention(nn.Module):
             qk_nope_head_dim=qk_nope_head_dim,
             q_head_dim=q_head_dim,
             is_causal=is_causal,
+            q_proj=q_proj,
             q_a_proj=q_a_proj,
             q_a_layernorm=q_a_layernorm,
             q_b_proj=q_b_proj,
@@ -316,8 +326,11 @@ class LlmcDeepseekAttention(nn.Module):
         **kwargs,
     ):
         bsz, q_len, _ = hidden_states.size()
+        if self.q_lora_rank is None:
+            q = self.q_proj(hidden_states)
+        else:
+            q = self.q_b_proj(self.q_a_layernorm(self.q_a_proj(hidden_states)))
 
-        q = self.q_b_proj(self.q_a_layernorm(self.q_a_proj(hidden_states)))
         q = q.view(bsz, q_len, self.num_heads, self.q_head_dim).transpose(1, 2)
         q_nope, q_pe = torch.split(
             q, [self.qk_nope_head_dim, self.qk_rope_head_dim], dim=-1
@@ -934,7 +947,7 @@ class EffcientFakeQuantLinear(nn.Module):
 
 
 class VllmRealQuantLinear(nn.Module):
-    def __init__(self, weight, bias, scales, need_pack):
+    def __init__(self, weight, bias, scales, input_scale, need_pack):
         super().__init__()
         weight_name = 'weight_packed' if need_pack else 'weight'
         self.register_buffer(weight_name, weight)
@@ -946,6 +959,7 @@ class VllmRealQuantLinear(nn.Module):
         )
 
         self.register_buffer('weight_scale', scales)
+        self.register_buffer('input_scale', input_scale)
 
     @torch.no_grad()
     def forward(self, x):
@@ -955,13 +969,17 @@ class VllmRealQuantLinear(nn.Module):
     @torch.no_grad()
     def new(cls, module, w_q, quant_config):
         weight, scales = cls.quant_pack(module, w_q, quant_config)
+        if hasattr(module, 'buf_act_scales_0'):
+            input_scale = module.buf_act_scales_0
+        else:
+            input_scale = None
         if module.bias is not None:
             bias = module.bias.data
         else:
             bias = None
 
         need_pack = quant_config['weight'].get('need_pack', False)
-        new_module = cls(weight, bias, scales, need_pack)
+        new_module = cls(weight, bias, scales, input_scale, need_pack)
         new_module.in_features = module.in_features
         new_module.out_features = module.out_features
         new_module.weight_shape = weight.shape

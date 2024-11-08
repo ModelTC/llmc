@@ -416,9 +416,14 @@ class IntegerQuantizer(BaseQuantizer):
         elif self.sym:
             zeros = None
 
+        if self.granularity == 'per_tensor':
+            qparams_shape = (1)
+        else:
+            qparams_shape = (weight.shape[0], -1)
+
         if zeros is not None:
-            zeros = zeros.view(weight.shape[0], -1)
-        scales = scales.view(weight.shape[0], -1)
+            zeros = zeros.view(qparams_shape)
+        scales = scales.view(qparams_shape)
 
         return weight, scales, zeros
 
@@ -448,9 +453,14 @@ class IntegerQuantizer(BaseQuantizer):
         elif self.sym:
             zeros = None
 
+        if self.granularity == 'per_tensor':
+            qparams_shape = (1)
+        else:
+            qparams_shape = (weight.shape[0], -1)
+
         if zeros is not None:
-            zeros = zeros.view(weight.shape[0], -1)
-        scales = scales.view(weight.shape[0], -1)
+            zeros = zeros.view(qparams_shape)
+        scales = scales.view(qparams_shape)
 
         return weight, scales, zeros
 
@@ -671,7 +681,12 @@ class FloatQuantizer(BaseQuantizer):
 
         weight = weight.to(dtype)
         zeros = None
-        scales = scales.view(weight.shape[0], -1)
+        if self.granularity == 'per_tensor':
+            qparams_shape = (1)
+        else:
+            qparams_shape = (weight.shape[0], -1)
+
+        scales = scales.view(qparams_shape)
         return weight, scales, zeros
 
     def real_quant_weight_dynamic(self, weight, args={}):
@@ -692,7 +707,12 @@ class FloatQuantizer(BaseQuantizer):
 
         weight = weight.to(dtype)
         zeros = None
-        scales = scales.view(weight.shape[0], -1)
+        if self.granularity == 'per_tensor':
+            qparams_shape = (1)
+        else:
+            qparams_shape = (weight.shape[0], -1)
+
+        scales = scales.view(qparams_shape)
         return weight, scales, zeros
 
     def __repr__(self):
