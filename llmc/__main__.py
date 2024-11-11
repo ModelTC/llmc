@@ -9,7 +9,7 @@ import torch
 import yaml
 from easydict import EasyDict
 from loguru import logger
-from torch.distributed import destroy_process_group, init_process_group, barrier
+from torch.distributed import destroy_process_group, init_process_group
 
 from llmc.compression.quantization import *
 from llmc.compression.sparsification import *
