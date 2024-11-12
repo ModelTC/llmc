@@ -10,12 +10,29 @@ def update_vllm_quant_config(
 ):
 
     need_pack = config.quant.weight.get('need_pack', False)
-    if isinstance(config.quant.weight.bit, str):
-        vllm_quant_format = 'float-quantized'
-        quant_type = 'float'
-        w_num_bits = 8
-        if 'act' in config.quant:
-            a_num_bits = 8
+    if config.quant.quant_type == 'float-quant':
+
+        if 'act' in config.quant and config.quant.act.static:
+            quant_config = {
+                'activation_scheme': 'static',
+                'ignored_layers': [
+                    model.skip_layer_name()
+                ],
+                'quant_method': 'fp8'
+            }
+            config_file = save_quant_path + '/config.json'
+            with open(config_file, 'r') as file:
+                config_vllm = json.load(file)
+            config_vllm['quantization_config'] = quant_config
+            with open(config_file, 'w') as file:
+                json.dump(config_vllm, file, indent=4)
+            return
+        else:
+            vllm_quant_format = 'float-quantized'
+            quant_type = 'float'
+            w_num_bits = 8
+            if 'act' in config.quant:
+                a_num_bits = 8
     elif need_pack:
         vllm_quant_format = 'pack-quantized'
         quant_type = 'int'

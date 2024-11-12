@@ -34,11 +34,28 @@ class DeepseekV2(BaseModel):
     def has_bias(self):
         return False
 
+    def get_linears_except_subsets(self, block):
+        return {
+            'self_attn.o_proj': block.self_attn.o_proj
+        }
+
     def get_layernorms_in_block(self, block):
         return {
             'input_layernorm': block.input_layernorm,
             'post_attention_layernorm': block.post_attention_layernorm,
         }
+
+    def get_attn_in_block(self, block):
+        return {'self_attn': block.self_attn}
+
+    def get_matmul_in_block(self, block):
+        return {
+            'self_attn.matmul_1': block.self_attn.matmul_1,
+            'self_attn.matmul_2': block.self_attn.matmul_2,
+        }
+
+    def get_softmax_in_block(self, block):
+        return {'self_attn.softmax': block.self_attn.softmax}
 
     def get_subsets_in_block(self, block):
 

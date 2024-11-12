@@ -52,6 +52,21 @@ class Vit(BaseModel):
             'layernorm_after': block.layernorm_after,
         }
 
+    def get_act_fn_in_block(self, block):
+        return {'intermediate.intermediate_act_fn': block.intermediate.intermediate_act_fn}
+
+    def get_attn_in_block(self, block):
+        return {'attention.attention': block.attention.attention}
+
+    def get_matmul_in_block(self, block):
+        return {
+            'attention.attention.matmul_1': block.attention.attention.matmul_1,
+            'attention.attention.matmul_2': block.attention.attention.matmul_2,
+        }
+
+    def get_softmax_in_block(self, block):
+        return {'attention.attention.softmax': block.attention.attention.softmax}
+
     def __str__(self):
         return f'\nModel: \n{str(self.model)}'
 

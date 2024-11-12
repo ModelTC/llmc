@@ -37,6 +37,13 @@ def download(calib_dataset_name, path):
         save_path = os.path.join(path, 'ptb')
         calib_dataset.save_to_disk(save_path)
         logger.info('download ptb for calib finished.')
+    if 'ultrachat' in calib_dataset_name:
+        calib_dataset = load_dataset(
+            'HuggingFaceH4/ultrachat_200k', split='train_sft'
+        )
+        save_path = os.path.join(path, 'ultrachat')
+        calib_dataset.save_to_disk(save_path)
+        logger.info('download ultrachat for calib finished.')
 
 
 if __name__ == '__main__':
@@ -44,7 +51,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '--dataset_name',
         type=str,
-        default=['pileval', 'c4', 'wikitext2', 'ptb'],
+        default=['pileval', 'c4', 'wikitext2', 'ptb', 'ultrachat'],
         nargs='*',
     )
     parser.add_argument('--save_path', type=str, required=True)

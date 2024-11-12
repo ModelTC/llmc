@@ -238,35 +238,39 @@ if __name__ == '__main__':
 
     seed_all(config.base.seed + int(os.environ['RANK']))
 
-    # mkdirs
-    if 'save' in config:
-        if config.save.get('save_trans', False):
-            save_trans_path = os.path.join(config.save.save_path, 'transformed_model')
-            mkdirs(save_trans_path)
-        if config.save.get('save_trtllm', False):
-            save_trtllm_trans_path = os.path.join(
-                config.save.save_path, 'trtllm_transformed_model'
-            )
-            mkdirs(save_trtllm_trans_path)
-            save_trtllm_engine_path = os.path.join(
-                config.save.save_path, 'trtllm_engine'
-            )
-            mkdirs(save_trtllm_engine_path)
-        if config.save.get('save_vllm', False):
-            save_quant_path = os.path.join(config.save.save_path, 'vllm_quant_model')
-            mkdirs(save_quant_path)
-        if config.save.get('save_sgl', False):
-            save_quant_path = os.path.join(config.save.save_path, 'sgl_quant_model')
-            mkdirs(save_quant_path)
-        if config.save.get('save_autoawq', False):
-            save_quant_path = os.path.join(config.save.save_path, 'autoawq_quant_model')
-            mkdirs(save_quant_path)
-        if config.save.get('save_mlcllm', False):
-            save_quant_path = os.path.join(config.save.save_path, 'mlcllm_quant_model')
-            mkdirs(save_quant_path)
-        if config.save.get('save_fake', False):
-            save_fake_path = os.path.join(config.save.save_path, 'fake_quant_model')
-            mkdirs(save_fake_path)
+    # Ensure only the main process creates directories
+    if int(os.environ['RANK']) == 0:
+        if 'save' in config:
+            if config.save.get('save_trans', False):
+                save_trans_path = os.path.join(config.save.save_path, 'transformed_model')
+                mkdirs(save_trans_path)
+            if config.save.get('save_trtllm', False):
+                save_trtllm_trans_path = os.path.join(
+                    config.save.save_path, 'trtllm_transformed_model'
+                )
+                mkdirs(save_trtllm_trans_path)
+                save_trtllm_engine_path = os.path.join(
+                    config.save.save_path, 'trtllm_engine'
+                )
+                mkdirs(save_trtllm_engine_path)
+            if config.save.get('save_vllm', False):
+                save_quant_path = os.path.join(config.save.save_path, 'vllm_quant_model')
+                mkdirs(save_quant_path)
+            if config.save.get('save_sgl', False):
+                save_quant_path = os.path.join(config.save.save_path, 'sgl_quant_model')
+                mkdirs(save_quant_path)
+            if config.save.get('save_autoawq', False):
+                save_quant_path = os.path.join(config.save.save_path, 'autoawq_quant_model')
+                mkdirs(save_quant_path)
+            if config.save.get('save_mlcllm', False):
+                save_quant_path = os.path.join(config.save.save_path, 'mlcllm_quant_model')
+                mkdirs(save_quant_path)
+            if config.save.get('save_fake', False):
+                save_fake_path = os.path.join(config.save.save_path, 'fake_quant_model')
+                mkdirs(save_fake_path)
+
+    # Synchronize all processes after directory creation
+    torch.distributed.barrier()
 
     main(config)
 

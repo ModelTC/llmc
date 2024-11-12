@@ -386,7 +386,8 @@ class OmniQuant(BaseBlockwiseQuantization):
             else:
                 inputs = input_feat[n]
 
-            max_val, min_val = self.auto_clip_layer(
+            max_val, min_val = self.auto_clipper.auto_clip_layer(
+                self.block_idx,
                 n,
                 m.weight.data,
                 inputs,

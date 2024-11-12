@@ -21,6 +21,12 @@ class Mistral(BaseModel):
     def get_embed_layers(self):
         return [self.embed_tokens]
 
+    def get_head_layers(self):
+        return [self.model.lm_head]
+
+    def get_pre_head_layernorm_layers(self):
+        return [self.model.model.norm]
+
     def get_layers_except_blocks(self):
         return [self.embed_tokens, self.model.model.norm, self.model.lm_head]
 

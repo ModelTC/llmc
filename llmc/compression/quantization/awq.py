@@ -22,7 +22,6 @@ class Awq(BaseBlockwiseQuantization):
         special_config = self.quant_config.get('special', {})
         self.trans = special_config.get('trans', True)
         self.trans_version = special_config.get('trans_version', 'v2')
-        self.weight_clip = special_config.get('weight_clip', True)
         self.save_scale = special_config.get('save_scale', False)
 
     @torch.no_grad()
@@ -131,13 +130,19 @@ class Awq(BaseBlockwiseQuantization):
                 if isinstance(out, tuple):
                     out = out[0]
 
-                if self.padding_mask:
+                if self.padding_mask and org_out.shape[1] == self.padding_mask[i].shape[-1]:
                     org_out = org_out * self.padding_mask[i].unsqueeze(dim=-1).to(org_out.device) # noqa
                     out = out * self.padding_mask[i].unsqueeze(dim=-1).to(out.device)
 
                 loss = (org_out - out).float().pow(2).mean().item()
-                loss_mean += x.shape[0] * 1.0 / self.n_samples * loss
-                scales_mean += x.shape[0] * 1.0 / self.n_samples * scales
+
+                if len(input) == 1:
+                    n_samples = x.shape[0]
+                else:
+                    n_samples = self.n_samples
+
+                loss_mean += x.shape[0] * 1.0 / n_samples * loss
+                scales_mean += x.shape[0] * 1.0 / n_samples * scales
                 inspect_module.load_state_dict(org_sd)
             is_best = loss_mean < best_error
             if is_best:
@@ -152,13 +157,6 @@ class Awq(BaseBlockwiseQuantization):
         return best_scales
 
     @torch.no_grad()
-    def update_input_feat(self, scale, input_feat, layers_dict):
-        for layer_name in layers_dict:
-            for i in range(len(input_feat[layer_name])):
-                inp = input_feat[layer_name][i]
-                inp.div_(scale.view(1, -1).to(inp.device))
-
-    @torch.no_grad()
     def block_transform(self, block, input_feat, block_kwargs):
         if self.trans:
             super().block_transform(block, input_feat, block_kwargs)
@@ -166,8 +164,9 @@ class Awq(BaseBlockwiseQuantization):
         if self.weight_clip:
             logger.info('auto_clip start')
             logger.info(f'clip version: {self.clip_version}')
-            self.auto_clip(
+            self.auto_clipper.run(
                 block,
+                self.block_idx,
                 input_feat,
                 n_sample_token=self.config.calib.get('seq_len', None)
             )
@@ -203,9 +202,14 @@ class Awq(BaseBlockwiseQuantization):
         assert (
             len(prev_op) in (0, 1)
         ), 'Only support single prev_op. If multi prev_ops, code need to be updated.'
+
         if len(prev_op) == 0:
             logger.info('Cannot apply scale. Do not transform this subset.')
             return
+
+        if 'mlp.experts.0.gate_proj' in list(layers_dict.keys()):
+            return
+
         if isinstance(
             prev_op[0],
             tuple(

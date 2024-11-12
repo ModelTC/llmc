@@ -45,13 +45,18 @@ class BlockwiseOpt(metaclass=ABCMeta):
 
         if hasattr(self, 'save_clip') and self.save_clip:
             os.makedirs(self.clip_path, exist_ok=True)
-            torch.save(self.weight_clips, os.path.join(self.clip_path, 'clips.pth'))
+            torch.save(self.auto_clipper.weight_clips, os.path.join(self.clip_path, 'clips.pth'))
 
     @abstractmethod
     def block_opt(self, block):
         pass
 
     def cache_input_hook(self, m, x, y, name, feat_dict):
-        x = x[0]
-        x = x.detach().cpu()
-        feat_dict[name].append(x)
+        inputs = [i.detach().cpu() for i in x]
+        if len(inputs) == 1:
+            inp = inputs[0]
+            if len(inp.shape) == 2:
+                inp = inp.unsqueeze(0)
+            feat_dict[name].append(inp)
+        else:
+            feat_dict[name].append(tuple(inputs))

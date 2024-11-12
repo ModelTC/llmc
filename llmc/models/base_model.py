@@ -57,6 +57,18 @@ class BaseModel(metaclass=ABCMeta):
     def get_layers_except_blocks(self):
         pass
 
+    def get_matmul_in_block(self):
+        return {}
+
+    def get_act_fn_in_block(self):
+        return {}
+
+    def get_softmax_in_block(self):
+        return {}
+
+    def get_linears_except_subsets(self, block):
+        return {}
+
     @abstractmethod
     def get_subsets_in_block(self, block):
         pass

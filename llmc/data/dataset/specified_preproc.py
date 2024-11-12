@@ -149,3 +149,29 @@ def original_txt(calib_dataset, tokenizer, n_samples, seq_len=None):
         inp = trainenc.input_ids
         samples.append(inp)
     return samples
+
+
+@PREPROC_REGISTRY
+def ultrachat_general(calib_dataset, tokenizer, n_samples, seq_len):
+    calib_dataset = calib_dataset.shuffle(seed=42).select(range(n_samples))
+    texts = []
+    samples = []
+    for example in calib_dataset:
+        text = tokenizer.apply_chat_template(
+            example['messages'],
+            tokenize=False,
+        )
+        texts.append(text)
+
+    for i in range(n_samples):
+        trainenc = tokenizer(
+            texts[i],
+            padding=False,
+            max_length=seq_len,
+            truncation=True,
+            add_special_tokens=False,
+            return_tensors='pt'
+        )
+        inp = trainenc.input_ids
+        samples.append(inp)
+    return samples
