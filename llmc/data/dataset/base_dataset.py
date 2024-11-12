@@ -219,37 +219,6 @@ class BaseDataset(metaclass=ABCMeta):
                 calib_samples.append({'input_ids': batch})
         return calib_samples
 
-    def img_txt_group_samples_wo_mask(self, samples):  # without mask
-        calib_samples = []
-        if self.calib_bs < 0:
-            batch = self.preprocess(
-                text=samples['prompts'],
-                images=samples['raw_images'],
-                return_tensors='pt',
-                padding=True
-            )
-            calib_samples.append(batch)
-        elif self.calib_bs == 1:
-            for prompt, raw_image in zip(samples['prompts'], samples['raw_images']):
-                batch = self.preprocess(
-                    text=prompt,
-                    images=raw_image,
-                    return_tensors='pt'
-                )
-                calib_samples.append(batch)
-        elif self.calib_bs > 1:
-            for i in range(0, len(samples['prompts']), self.calib_bs):
-                start = i
-                end = min(i + self.calib_bs, len(samples['prompts']))
-                batch = self.preprocess(
-                    text=samples['prompts'][start:end],
-                    images=samples['raw_images'][start:end],
-                    return_tensors='pt',
-                    padding=True
-                )
-                calib_samples.append(batch)
-        return calib_samples
-
     def img_txt_group_samples_with_mask(self, samples):
         calib_samples = []
         if self.calib_bs < 0:

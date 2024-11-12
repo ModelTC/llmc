@@ -880,7 +880,7 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
         if int(os.environ['RANK']) != 0:
             return
         self.contiguous_params()
-        if self.config.model.type in ['Llava', 'InternVL2']:
+        if self.config.model.type in ['Llava', 'InternVL2', 'Mllama', 'Qwen2vl']:
             self.model.vlm_model.language_model = self.model.get_model()
             self.model.vlm_model.save_pretrained(path)
             logger.info('save model done --')

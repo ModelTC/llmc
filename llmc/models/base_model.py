@@ -84,8 +84,8 @@ class BaseModel(metaclass=ABCMeta):
     def get_attention_rotary_layers(self):
         return []
 
-    def preprocess(self):
-        raise Exception('preprocess should not be called here.')
+    def batch_process(self):
+        raise Exception('batch_process should not be called here.')
 
     def get_catcher(self, first_block_input):
 

@@ -1,5 +1,5 @@
 from loguru import logger
-from transformers import (AutoConfig, AutoProcessor, 
+from transformers import (AutoConfig, AutoProcessor,
                           Qwen2VLForConditionalGeneration)
 
 from llmc.utils.registry_factory import MODEL_REGISTRY
@@ -45,8 +45,9 @@ class Qwen2VL(Qwen2):
                         'role': 'user',
                         'content': [
                             {
-                                'type': 'image', "image": img_path,
-                                "resized_height": 280, "resized_width": 420  # default: original resolution
+                                'type': 'image', 'image': img_path,
+                                'resized_height': 280, 'resized_width': 420
+                                # default: original resolution
                             },
                             {'type': 'text', 'text': img_qas[idx]['question']}
                         ]
@@ -72,6 +73,6 @@ class Qwen2VL(Qwen2):
             images=image_inputs,
             videos=video_inputs,
             padding=True,
-            return_tensors="pt",
+            return_tensors='pt',
         ).to(next(self.vlm_model.parameters()).dtype)
         return inputs
