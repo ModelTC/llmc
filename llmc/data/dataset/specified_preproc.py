@@ -102,41 +102,27 @@ def pileval_omni(calib_dataset, tokenizer, n_samples, seq_len):
 
 
 @PREPROC_REGISTRY
-def vlm_general(calib_dataset, tokenizer, preprocess, n_samples):
+def vlm_general(calib_dataset, tokenizer, batch_process, n_samples):
     img_qa_json = os.path.join(calib_dataset, 'img_qa.json')
     fp = open(img_qa_json)
     img_qas = json.load(fp)
     for idx in range(len(img_qas)):
         if 'img' in img_qas[idx]:
             img_qas[idx]['img'] = os.path.join(calib_dataset, img_qas[idx]['img'])
+        else:
+            img_qas[idx]['img'] = None
     random.shuffle(img_qas)
     if len(img_qas) > n_samples:
         img_qas = img_qas[:n_samples]
-    vlm_data = preprocess(img_qas)
-    samples = []
-    for data in vlm_data:
-        if 'input_ids' in data:
-            samples.append(data)
-        elif 'text' in data:
-            trainenc = tokenizer(data['text'], return_tensors='pt')
-            inp = trainenc.input_ids
-            samples.append(
-                {
-                    'pixel_values': data['pixel_values'],
-                    'input_ids': inp
-                }
-            )
-        else:
-            raise Exception(f'Both input_ids and text are not in data. data is: {data}')
-    return samples
+    return img_qas
 
 
 @PREPROC_REGISTRY
-def img_general(calib_dataset, tokenizer, preprocess, n_samples):
+def img_general(calib_dataset, tokenizer, batch_process, n_samples):
     random.shuffle(calib_dataset)
     if len(calib_dataset) > n_samples:
         calib_dataset = calib_dataset[:n_samples]
-    samples = preprocess(calib_dataset)
+    samples = batch_process(calib_dataset)
     return samples
 
 

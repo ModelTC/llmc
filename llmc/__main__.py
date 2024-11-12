@@ -69,7 +69,7 @@ def main(config):
         )
         blockwise_opt.run_block_loop()
     else:
-        dataset = BaseDataset(tokenizer.get_tokenizer(), config.calib, model.preprocess)
+        dataset = BaseDataset(tokenizer.get_tokenizer(), config.calib, model.batch_process)
         calib_data, padding_mask = dataset.get_calib_dataset()
         padding_side = getattr(tokenizer.get_tokenizer(), 'padding_side', None)
         model.collect_first_block_input(calib_data, padding_mask, padding_side, config.calib.type)
