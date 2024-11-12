@@ -537,43 +537,6 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
             weights.append(_m.weight)
         return weights
 
-    def moving_avg_range(self, act_tensors):
-        avg_min_vals, avg_max_vals = [], []
-        if isinstance(act_tensors[0], tuple):
-            unzipped_inputs = zip(*act_tensors)
-            act_tensors = [torch.stack(tensor_list) for tensor_list in unzipped_inputs]
-        else:
-            if len(act_tensors) == 1:
-                tensor_list = [act_tensors[0][i] for i in range(act_tensors[0].size(0))]
-                act_tensors[0] = tensor_list
-            else:
-                act_tensors = [act_tensors]
-
-        for tensors in act_tensors:
-            avg_min_val, avg_max_val = None, None
-            for tensor in tensors:
-                tensor = self.aquantizer.reshape_tensor(tensor)
-                tensor_range = self.aquantizer.get_tensor_range(tensor)
-                min_val, max_val = tensor_range[0], tensor_range[1]
-                if min_val is None:
-                    avg_min_val = None
-                else:
-                    if avg_min_val is None:
-                        avg_min_val = min_val / len(tensors)
-                    else:
-                        avg_min_val += min_val / len(tensors)
-                if max_val is None:
-                    avg_max_val = None
-                else:
-                    if avg_max_val is None:
-                        avg_max_val = max_val / len(tensors)
-                    else:
-                        avg_max_val += max_val / len(tensors)
-            avg_min_vals.append(avg_min_val)
-            avg_max_vals.append(avg_max_val)
-
-        return avg_min_vals, avg_max_vals
-
     @torch.no_grad()
     def register_except_subsets_qparams(self, block, input_feat):
         layers_dict = self.model.get_linears_except_subsets(block)
@@ -600,20 +563,16 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
 
     @torch.no_grad()
     def register_act_qparams(self, layers_dict, act_tensors):
-        avg_min_vals, avg_max_vals = self.moving_avg_range(act_tensors)
-        for i in range(len(avg_min_vals)):
-            avg_min_val, avg_max_val = avg_min_vals[i], avg_max_vals[i]
-            scales, zeros, qmax, qmin = self.aquantizer.get_qparams(
-                (avg_min_val, avg_max_val), avg_min_val.device
-            )
+        scales_list, zeros_list, qmin_list, qmax_list = (
+            self.aquantizer.get_batch_tensors_qparams(act_tensors)
+        )
+        for i in range(len(scales_list)):
+            scales, zeros, qmin, qmax = scales_list[i], zeros_list[i], qmin_list[i], qmax_list[i]
             for name in layers_dict:
                 layers_dict[name].register_buffer(f'buf_act_scales_{i}', scales)
                 layers_dict[name].register_buffer(f'buf_act_zeros_{i}', zeros)
                 layers_dict[name].register_buffer(f'buf_act_qmin_{i}', qmin)
                 layers_dict[name].register_buffer(f'buf_act_qmax_{i}', qmax)
-                # logger.info(f'name: {name}')
-                # logger.info(f'buf_act_scales_{i} : {scales}')
-                # logger.info(f'buf_act_zeros_{i} : {zeros}')
 
     @torch.no_grad()
     def apply_scale(self, scales, prev_op, layers):

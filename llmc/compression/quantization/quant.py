@@ -42,6 +42,42 @@ class BaseQuantizer(object):
         else:
             raise ValueError(f'Unsupported calibration algorithm: {self.calib_algo}')
 
+    def get_running_tensor_range(self, act_tensors, alpha, args):
+        runing_min_vals, runing_max_vals = [], []
+        if isinstance(act_tensors[0], tuple):
+            # Handle multiple inputs by stacking tensors.
+            unzipped_inputs = zip(*act_tensors)
+            act_tensors = [torch.stack(tensor_list) for tensor_list in unzipped_inputs]
+        else:
+            if len(act_tensors) == 1:
+                # Handle batch-size=-1 case.
+                tensor_list = [act_tensors[0][i] for i in range(act_tensors[0].size(0))]
+                act_tensors[0] = tensor_list
+            else:
+                act_tensors = [act_tensors]
+
+        for tensors in act_tensors:
+            runing_min_val, runing_max_val = None, None
+            for tensor in tensors:
+                tensor = self.reshape_tensor(tensor)
+                tensor_range = self.get_tensor_range(tensor, args)
+                min_val, max_val = tensor_range[0], tensor_range[1]
+
+                if runing_min_val is None or runing_max_val is None:
+                    runing_min_val = min_val
+                    runing_max_val = max_val
+                else:
+                    runing_min_val = runing_min_val + alpha * (
+                        min_val - runing_min_val
+                    )
+                    runing_max_val = runing_max_val + alpha * (
+                        max_val - runing_max_val
+                    )
+            runing_min_vals.append(runing_min_val)
+            runing_max_vals.append(runing_max_val)
+
+        return runing_min_vals, runing_max_vals
+
     def get_minmax_range(self, tensor):
         if self.granularity == 'per_tensor':
             max_val = torch.max(tensor)
@@ -54,8 +90,9 @@ class BaseQuantizer(object):
 
     def get_mse_range(self, tensor, grid=100, norm=2.4, maxshrink=0.8, bs=256):
 
-        assert self.mse_b_num >= 1 and tensor.shape[0] % self.mse_b_num == 0, \
-            'Batch number must be divisible by tensor.shape[0],'
+        assert (
+            self.mse_b_num >= 1 and tensor.shape[0] % self.mse_b_num == 0
+        ), 'Batch number must be divisible by tensor.shape[0],'
         bs = tensor.shape[0] // self.mse_b_num
         tensor = tensor.float()
         min_val, max_val = self.get_minmax_range(tensor)
@@ -63,10 +100,10 @@ class BaseQuantizer(object):
         dev = tensor.device
 
         for b_num in range(self.mse_b_num):
-            _tensor = tensor[b_num * bs: (b_num + 1) * bs, :]
+            _tensor = tensor[b_num * bs:(b_num + 1) * bs, :]
             _min_val, _max_val = (
-                min_val[b_num * bs: (b_num + 1) * bs, :],
-                max_val[b_num * bs: (b_num + 1) * bs, :],
+                min_val[b_num * bs:(b_num + 1) * bs, :],
+                max_val[b_num * bs:(b_num + 1) * bs, :],
             )
 
             best = torch.full([_tensor.shape[0]], float('inf'), device=dev)
@@ -89,12 +126,8 @@ class BaseQuantizer(object):
                     )
 
                 else:
-                    scales, zeros, qmax, qmin = self.get_qparams(
-                        (xmin, xmax), dev
-                    )
-                    q_tensor = self.quant_dequant(
-                        _tensor, scales, zeros, qmax, qmin
-                    )
+                    scales, zeros, qmax, qmin = self.get_qparams((xmin, xmax), dev)
+                    q_tensor = self.quant_dequant(_tensor, scales, zeros, qmax, qmin)
 
                 q_tensor -= _tensor
                 q_tensor.abs_()
@@ -109,8 +142,8 @@ class BaseQuantizer(object):
                     best_max_val[tmp] = xmax[tmp]
 
             (
-                min_val[b_num * bs: (b_num + 1) * bs, :],
-                max_val[b_num * bs: (b_num + 1) * bs, :],
+                min_val[b_num * bs:(b_num + 1) * bs, :],
+                max_val[b_num * bs:(b_num + 1) * bs, :],
             ) = (best_min_val, best_max_val)
 
         return (min_val, max_val)
@@ -153,6 +186,23 @@ class BaseQuantizer(object):
         scales, zeros, qmax, qmin = self.get_qparams(tensor_range, tensor.device)
         return tensor, scales, zeros, qmax, qmin
 
+    def get_batch_tensors_qparams(self, act_tensors, alpha=0.01, args={}):
+        scales_list, zeros_list, qmin_list, qmax_list = [], [], [], []
+        runing_min_vals, runing_max_vals = self.get_running_tensor_range(
+            act_tensors, alpha, args
+        )
+        for i in range(len(runing_min_vals)):
+            runing_min_val, runing_max_val = runing_min_vals[i], runing_max_vals[i]
+            scales, zeros, qmax, qmin = self.get_qparams(
+                (runing_min_val, runing_max_val), runing_min_val.device
+            )
+            scales_list.append(scales)
+            zeros_list.append(zeros)
+            qmin_list.append(qmin)
+            qmax_list.append(qmax)
+
+        return scales_list, zeros_list, qmin_list, qmax_list
+
     def reshape_tensor(self, tensor, allow_padding=False):
         if self.granularity == 'per_group':
             if tensor.shape[1] >= self.group_size:
@@ -162,11 +212,11 @@ class BaseQuantizer(object):
                     deficiency = self.group_size - tensor.shape[1] % self.group_size
                     prefix = tensor.shape[:-1]
                     pad_zeros = torch.zeros(
-                        (*prefix, deficiency),
-                        device=tensor.device, dtype=tensor.dtype)
-                    t = torch.cat(
-                        (tensor, pad_zeros),
-                        dim=-1).reshape(-1, self.group_size)
+                        (*prefix, deficiency), device=tensor.device, dtype=tensor.dtype
+                    )
+                    t = torch.cat((tensor, pad_zeros), dim=-1).reshape(
+                        -1, self.group_size
+                    )
                 else:
                     raise ValueError(
                         f'Dimension {tensor.shape[-1]} '
@@ -212,9 +262,7 @@ class IntegerQuantizer(BaseQuantizer):
 
     def quant(self, tensor, scales, zeros, qmax, qmin):
         if self.round_zp:
-            tensor = torch.clamp(
-                self.round_func(tensor / scales) + zeros, qmin, qmax
-            )
+            tensor = torch.clamp(self.round_func(tensor / scales) + zeros, qmin, qmax)
         else:
             tensor = torch.clamp(
                 self.round_func(tensor / scales.clamp_min(1e-9) + zeros),
@@ -281,9 +329,7 @@ class IntegerQuantizer(BaseQuantizer):
         org_act_shape = q_act.shape
         org_act_dtype = q_act.dtype
 
-        q_act, scales, zeros, qmax, qmin = self.get_tensor_qparams(
-            q_act, args
-        )
+        q_act, scales, zeros, qmax, qmin = self.get_tensor_qparams(q_act, args)
         q_act = self.quant_dequant(q_act, scales, zeros, qmax, qmin)
 
         q_act = self.restore_tensor(q_act, org_act_shape).to(org_act_dtype)
@@ -324,10 +370,14 @@ class IntegerQuantizer(BaseQuantizer):
             args['qmax'],
             args['qmin'],
         )
-        output_scale_factor = args['output_scale_factor'] if 'output_scale_factor' in args else 1
+        output_scale_factor = (
+            args['output_scale_factor'] if 'output_scale_factor' in args else 1
+        )
 
         q_weight = self.reshape_tensor(q_weight)
-        q_weight = self.quant_dequant(q_weight, scales, zeros, qmax, qmin, output_scale_factor)
+        q_weight = self.quant_dequant(
+            q_weight, scales, zeros, qmax, qmin, output_scale_factor
+        )
         q_weight = self.restore_tensor(q_weight, org_w_shape).to(org_w_dtype)
 
         if 'int_indices' in args:
@@ -363,9 +413,7 @@ class IntegerQuantizer(BaseQuantizer):
         org_w_shape = q_weight.shape
         org_w_dtype = q_weight.dtype
 
-        q_weight, scales, zeros, qmax, qmin = self.get_tensor_qparams(
-            q_weight, args
-        )
+        q_weight, scales, zeros, qmax, qmin = self.get_tensor_qparams(q_weight, args)
         q_weight = self.quant_dequant(q_weight, scales, zeros, qmax, qmin)
 
         q_weight = self.restore_tensor(q_weight, org_w_shape).to(org_w_dtype)
@@ -417,7 +465,7 @@ class IntegerQuantizer(BaseQuantizer):
             zeros = None
 
         if self.granularity == 'per_tensor':
-            qparams_shape = (1)
+            qparams_shape = 1
         else:
             qparams_shape = (weight.shape[0], -1)
 
@@ -454,7 +502,7 @@ class IntegerQuantizer(BaseQuantizer):
             zeros = None
 
         if self.granularity == 'per_tensor':
-            qparams_shape = (1)
+            qparams_shape = 1
         else:
             qparams_shape = (weight.shape[0], -1)
 
@@ -512,8 +560,10 @@ class FloatQuantizer(BaseQuantizer):
                         finfo = torch.finfo(bit_ranges[key])
                         self.qmin, self.qmax = finfo.min, finfo.max
                 else:
-                    raise NotImplementedError('Only 4, 6, 8, and \
-                                                12-bit quantization is supported.')
+                    raise NotImplementedError(
+                        'Only 4, 6, 8, and \
+                                                12-bit quantization is supported.'
+                    )
             self.qmax = torch.tensor(self.qmax)
             self.qmin = torch.tensor(self.qmin)
 
@@ -557,10 +607,9 @@ class FloatQuantizer(BaseQuantizer):
         scaled_tensor = tensor / scales + zeros
         if self.use_qtorch:
             org_dtype = scaled_tensor.dtype
-            q_tensor = self.float_quantize(scaled_tensor.float(),
-                                           self.e_bits,
-                                           self.m_bits,
-                                           rounding='nearest')
+            q_tensor = self.float_quantize(
+                scaled_tensor.float(), self.e_bits, self.m_bits, rounding='nearest'
+            )
             q_tensor.to(org_dtype)
         else:
             q_tensor = self.round_func(scaled_tensor)
@@ -597,9 +646,7 @@ class FloatQuantizer(BaseQuantizer):
         org_act_shape = q_act.shape
         org_act_dtype = q_act.dtype
 
-        q_act, scales, zeros, qmax, qmin = self.get_tensor_qparams(
-            q_act, args
-        )
+        q_act, scales, zeros, qmax, qmin = self.get_tensor_qparams(q_act, args)
         q_act = self.quant_dequant(q_act, scales, zeros, qmax, qmin)
 
         q_act = self.restore_tensor(q_act, org_act_shape).to(org_act_dtype)
@@ -646,9 +693,7 @@ class FloatQuantizer(BaseQuantizer):
         org_w_shape = q_weight.shape
         org_w_dtype = q_weight.dtype
 
-        q_weight, scales, zeros, qmax, qmin = self.get_tensor_qparams(
-            q_weight, args
-        )
+        q_weight, scales, zeros, qmax, qmin = self.get_tensor_qparams(q_weight, args)
         q_weight = self.quant_dequant(q_weight, scales, zeros, qmax, qmin)
         q_weight = self.restore_tensor(q_weight, org_w_shape).to(org_w_dtype)
 
@@ -682,7 +727,7 @@ class FloatQuantizer(BaseQuantizer):
         weight = weight.to(dtype)
         zeros = None
         if self.granularity == 'per_tensor':
-            qparams_shape = (1)
+            qparams_shape = 1
         else:
             qparams_shape = (weight.shape[0], -1)
 
@@ -708,7 +753,7 @@ class FloatQuantizer(BaseQuantizer):
         weight = weight.to(dtype)
         zeros = None
         if self.granularity == 'per_tensor':
-            qparams_shape = (1)
+            qparams_shape = 1
         else:
             qparams_shape = (weight.shape[0], -1)
 
