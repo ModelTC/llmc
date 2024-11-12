@@ -8,6 +8,7 @@ import torch.nn as nn
 from loguru import logger
 from torch.nn import functional as F
 from transformers import AutoConfig, AutoModelForCausalLM
+from transformers.feature_extraction_utils import BatchFeature
 
 from llmc.compression.quantization.module_utils import (
     _LLMC_LINEAR_TYPES_, _LLMC_LN_TYPES_, _TRANSFORMERS_LINEAR_TYPES_,
@@ -138,15 +139,18 @@ class BaseModel(metaclass=ABCMeta):
         self.blocks[0] = Catcher(self.blocks[0])
 
         for data in calib_data:
-            data = {
-                k: v.to(next(self.model.parameters()).device)
-                for k, v in data.items()
-            }
+            if isinstance(data, BatchFeature):
+                data = data.to(next(self.model.parameters()).device)
+            else:
+                data = {
+                    k: (v.to(next(self.model.parameters()).device) if torch.is_tensor(v) else v)
+                    for k, v in data.items()
+                }
             try:
                 if data_type in ['txt', 'img']:
                     self.model(**data)
                 elif data_type == 'img_txt':
-                    self.vlm_model.generate(**data, max_new_tokens=200)
+                    self.vlm_model.generate(**data, max_new_tokens=128, do_sample=False)
             except ValueError:
                 pass
         self.first_block_input = first_block_input

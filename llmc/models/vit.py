@@ -55,7 +55,7 @@ class Vit(BaseModel):
     def __str__(self):
         return f'\nModel: \n{str(self.model)}'
 
-    def preprocess(self, imgs):
+    def batch_process(self, imgs):
         processor = AutoProcessor.from_pretrained(self.model_path)
         samples = []
         for img in imgs:

@@ -126,27 +126,32 @@ class InternVL2(InternLM2):
             trust_remote_code=True
         )
         IMG_CONTEXT_TOKEN = '<IMG_CONTEXT>'
-        self.vlm_model.img_context_token_id = tokenizer.convert_tokens_to_ids(IMG_CONTEXT_TOKEN) # noqa
+        self.vlm_model.img_context_token_id = tokenizer.convert_tokens_to_ids(IMG_CONTEXT_TOKEN)
 
-    def preprocess(self, img_qas):
-        pixel_values_list = []
+    def batch_process(self, img_qas):
+        if len(img_qas) == 1:
+            return self.single_process(img_qas[0])
+        tokenizer = AutoTokenizer.from_pretrained(self.model_path, trust_remote_code=True)
         questions = []
+        pixel_values_list = []
+        num_patches_list = []
         for idx in range(len(img_qas)):
-            pixel_values = load_image(img_qas[idx]['img'], max_num=12).to(next(self.vlm_model.parameters()).dtype) # noqa
+            img_path = img_qas[idx]['img']
+            pixel_values = load_image(img_path, max_num=12).to(
+                next(self.vlm_model.parameters()).dtype
+            )
             pixel_values_list.append(pixel_values)
-            txt = f"<image>\n{img_qas[idx]['question']}"
-            questions.append(txt)
+            num_patches_list.append(pixel_values.size(0))
+            questions.append(f"<image>\n{img_qas[idx]['question']}")
+        pixel_values = torch.cat(pixel_values_list, dim=0)
+        generation_config = dict()
 
-        num_patches_list = [pixel_values.size(0) for pixel_values in pixel_values_list]
-
-        vlm_data = []
         IMG_CONTEXT_TOKEN = '<IMG_CONTEXT>'
         IMG_START_TOKEN = '<img>'
         IMG_END_TOKEN = '</img>'
+        queries = []
         for idx, num_patches in enumerate(num_patches_list):
             question = questions[idx]
-            if pixel_values is not None and '<image>' not in question:
-                question = '<image>\n' + question
             try:
                 template = get_conv_template(self.vlm_model.template)
             except Exception:
@@ -158,13 +163,71 @@ class InternVL2(InternLM2):
             template.append_message(template.roles[0], question)
             template.append_message(template.roles[1], None)
             query = template.get_prompt()
-
-            image_tokens = IMG_START_TOKEN + IMG_CONTEXT_TOKEN * self.vlm_model.num_image_token * num_patches + IMG_END_TOKEN # noqa
+            image_tokens = (IMG_START_TOKEN +
+                            IMG_CONTEXT_TOKEN * self.vlm_model.num_image_token * num_patches +
+                            IMG_END_TOKEN)
             query = query.replace('<image>', image_tokens, 1)
-            vlm_data.append(
-                {
-                    'pixel_values': pixel_values_list[idx],
-                    'text': query
-                }
+            queries.append(query)
+
+        tokenizer.padding_side = 'left'
+        model_inputs = tokenizer(queries, return_tensors='pt', padding=True)
+        input_ids = model_inputs['input_ids']
+        attention_mask = model_inputs['attention_mask']
+        eos_token_id = tokenizer.convert_tokens_to_ids(template.sep)
+        generation_config['eos_token_id'] = eos_token_id
+
+        inputs = {
+            'pixel_values': pixel_values,
+            'input_ids': input_ids,
+            'attention_mask': attention_mask,
+            **generation_config
+        }
+        return inputs
+
+    def single_process(self, img_qas):
+        tokenizer = AutoTokenizer.from_pretrained(self.model_path, trust_remote_code=True)
+        if img_qas['img'] is not None:
+            pixel_values = load_image(img_qas['img'], max_num=12).to(
+                next(self.vlm_model.parameters()).dtype
             )
-        return vlm_data
+        else:
+            pixel_values = None
+        question = img_qas['question']
+        if pixel_values is not None and '<image>' not in question:
+            question = '<image>\n' + question
+        num_patches_list = [pixel_values.shape[0]] if pixel_values is not None else []
+        generation_config = dict()
+
+        IMG_CONTEXT_TOKEN = '<IMG_CONTEXT>'
+        IMG_START_TOKEN = '<img>'
+        IMG_END_TOKEN = '</img>'
+        try:
+            template = get_conv_template(self.vlm_model.template)
+        except Exception:
+            raise Exception(
+                'InternLM2 conversation.py not be found. '
+                'Please copy it from model path to llmc/models.'
+            )
+        template.system_message = self.vlm_model.system_message
+        template.append_message(template.roles[0], question)
+        template.append_message(template.roles[1], None)
+        query = template.get_prompt()
+        for num_patches in num_patches_list:
+            image_tokens = (IMG_START_TOKEN +
+                            IMG_CONTEXT_TOKEN * self.vlm_model.num_image_token * num_patches +
+                            IMG_END_TOKEN)
+            query = query.replace('<image>', image_tokens, 1)
+
+        model_inputs = tokenizer(query, return_tensors='pt')
+        input_ids = model_inputs['input_ids']
+        attention_mask = model_inputs['attention_mask']
+        eos_token_id = tokenizer.convert_tokens_to_ids(template.sep)
+        generation_config['eos_token_id'] = eos_token_id
+
+        inputs = {
+            'pixel_values': pixel_values,
+            'input_ids': input_ids,
+            'attention_mask': attention_mask,
+            **generation_config
+        }
+        return inputs

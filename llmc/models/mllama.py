@@ -30,11 +30,13 @@ class Mllama(Llama):
         self.projector = self.vlm_model.multi_modal_projector
         self.model = self.vlm_model.language_model
         self.model_config = self.vlm_model_config.text_config
-        self.need_update_mask = True
 
-    def preprocess(self, img_qas):
+    def batch_process(self, img_qas):
+        if len(img_qas) == 1:
+            return self.single_process(img_qas[0])
         processor = AutoProcessor.from_pretrained(self.model_path)
-        samples = []
+        messages = []
+        images = []
         for idx in range(len(img_qas)):
             img_path = img_qas[idx]['img']
             image = [Image.open(img_path)]
@@ -42,15 +44,47 @@ class Mllama(Llama):
                 {
                     'role': 'user',
                     'content': [
-                        {'index': 0, 'type': 'image', 'text': None},
-                        {'index': None, 'type': 'text', 'text': img_qas[idx]['question']}
+                        {'type': 'image'},
+                        {'type': 'text', 'text': img_qas[idx]['question']}
                     ]
                 }
             ]
-            text = processor.apply_chat_template(message, tokenize=False)
-            sample = processor(text=text, images=image, return_tensors='pt').to(next(self.vlm_model.parameters()).dtype) # noqa
-            samples.append(sample)
-        return samples
+            messages.append(message)
+            images.append(image)
+        texts = [
+            processor.apply_chat_template(msg, add_generation_prompt=True)
+            for msg in messages
+        ]
+        inputs = processor(
+            text=texts,
+            images=images,
+            padding=True,
+            return_tensors='pt'
+        ).to(next(self.vlm_model.parameters()).dtype) # noqa
+        return inputs
+
+    def single_process(self, img_qas):
+        processor = AutoProcessor.from_pretrained(self.model_path)
+        img_path = img_qas['img']
+        message = [
+            {
+                'role': 'user',
+                'content': [{'type': 'text', 'text': img_qas['question']}]
+            }
+        ]
+        if img_path is not None:
+            image = Image.open(img_path)
+            message[0]['content'].insert(0, {'type': 'image'})
+        else:
+            image = None
+            raise NotImplementedError('Currently, only pure image-text data is supported.')
+        text = processor.apply_chat_template(message, add_generation_prompt=True)
+        inputs = processor(
+            text=text,
+            images=image,
+            return_tensors='pt'
+        ).to(next(self.vlm_model.parameters()).dtype)
+        return inputs
 
     def get_layernorms_in_block(self, block):
         return {
