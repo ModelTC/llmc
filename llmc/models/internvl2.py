@@ -132,12 +132,20 @@ class InternVL2(InternLM2):
         pixel_values_list = []
         questions = []
         for idx in range(len(img_qas)):
-            pixel_values = load_image(img_qas[idx]['img'], max_num=12).to(next(self.vlm_model.parameters()).dtype) # noqa
+            if 'img' in img_qas[idx]:
+                pixel_values = load_image(img_qas[idx]['img'], max_num=12).to(next(self.vlm_model.parameters()).dtype) # noqa
+                txt = f"<image>\n{img_qas[idx]['question']}"
+            else:
+                pixel_values = None
+                txt = f"{img_qas[idx]['question']}"
             pixel_values_list.append(pixel_values)
-            txt = f"<image>\n{img_qas[idx]['question']}"
             questions.append(txt)
-
-        num_patches_list = [pixel_values.size(0) for pixel_values in pixel_values_list]
+        num_patches_list = []
+        for pixel_values in pixel_values_list:
+            if pixel_values is None:
+                num_patches_list.append(0)
+            else:
+                num_patches_list.append(pixel_values.size(0))
 
         vlm_data = []
         IMG_CONTEXT_TOKEN = '<IMG_CONTEXT>'
@@ -145,8 +153,6 @@ class InternVL2(InternLM2):
         IMG_END_TOKEN = '</img>'
         for idx, num_patches in enumerate(num_patches_list):
             question = questions[idx]
-            if pixel_values is not None and '<image>' not in question:
-                question = '<image>\n' + question
             try:
                 template = get_conv_template(self.vlm_model.template)
             except Exception:

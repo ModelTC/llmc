@@ -107,7 +107,8 @@ def vlm_general(calib_dataset, tokenizer, preprocess, n_samples):
     fp = open(img_qa_json)
     img_qas = json.load(fp)
     for idx in range(len(img_qas)):
-        img_qas[idx]['img'] = os.path.join(calib_dataset, img_qas[idx]['img'])
+        if 'img' in img_qas[idx]:
+            img_qas[idx]['img'] = os.path.join(calib_dataset, img_qas[idx]['img'])
     random.shuffle(img_qas)
     if len(img_qas) > n_samples:
         img_qas = img_qas[:n_samples]
@@ -159,6 +160,32 @@ def original_txt(calib_dataset, tokenizer, n_samples, seq_len=None):
     samples = []
     for i in range(n_samples):
         trainenc = tokenizer(calib_dataset[i], return_tensors='pt')
+        inp = trainenc.input_ids
+        samples.append(inp)
+    return samples
+
+
+@PREPROC_REGISTRY
+def ultrachat_general(calib_dataset, tokenizer, n_samples, seq_len):
+    calib_dataset = calib_dataset.shuffle(seed=42).select(range(n_samples))
+    texts = []
+    samples = []
+    for example in calib_dataset:
+        text = tokenizer.apply_chat_template(
+            example['messages'],
+            tokenize=False,
+        )
+        texts.append(text)
+
+    for i in range(n_samples):
+        trainenc = tokenizer(
+            texts[i],
+            padding=False,
+            max_length=seq_len,
+            truncation=True,
+            add_special_tokens=False,
+            return_tensors='pt'
+        )
         inp = trainenc.input_ids
         samples.append(inp)
     return samples

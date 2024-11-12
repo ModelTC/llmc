@@ -32,13 +32,11 @@ quant:
         symmetric: True
         granularity: per_channel
         group_size: -1
-        qmax_to_tensor: True
     act:
         bit: 8
         symmetric: True
         granularity: per_tensor
         static: True
-        qmax_to_tensor: True
 save:
     save_fake: False
     save_path: /path/to/save/
