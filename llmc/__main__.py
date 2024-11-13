@@ -54,8 +54,9 @@ def main(config):
 
         if 'eval' in config and 'pretrain' in config.eval.eval_pos:
             if config.eval.type == 'acc':
-                acc_eval = AccuracyEval(eval_config)
-                eval_list.append(acc_eval)
+                for acc_eval in eval_list:
+                    acc = acc_eval.eval(model)
+                    logger.info(f'{config.eval.name} acc : {acc}')
             else:
                 for ppl_eval in eval_list:
                     ppl = ppl_eval.eval(model)
@@ -213,7 +214,6 @@ def main(config):
             )
             logger.info(f'opencompass_cmd : {opencompass_cmd}')
             os.system(opencompass_cmd)
-
     dist.barrier()
 
 
