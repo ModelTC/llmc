@@ -47,10 +47,6 @@ class BlockwiseOpt(metaclass=ABCMeta):
             os.makedirs(self.clip_path, exist_ok=True)
             torch.save(self.auto_clipper.weight_clips, os.path.join(self.clip_path, 'clips.pth'))
 
-    @abstractmethod
-    def block_opt(self, block):
-        pass
-
     def cache_input_hook(self, m, x, y, name, feat_dict):
         inputs = [i.detach().cpu() for i in x]
         if len(inputs) == 1:
@@ -60,3 +56,16 @@ class BlockwiseOpt(metaclass=ABCMeta):
             feat_dict[name].append(inp)
         else:
             feat_dict[name].append(tuple(inputs))
+
+    @abstractmethod
+    def block_opt(self, block):
+        pass
+
+    def layer_init(self, layer):
+        pass
+
+    def subset_init(self, subset):
+        pass
+
+    def block_init(self, block):
+        pass
