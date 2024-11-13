@@ -162,7 +162,6 @@ def main(config):
                 if a:
                     assert a.symmetric, 'Only symmetric quant is supported.'
                     assert a.bit == 8, 'Supported quant: w4a16, w8a16, w8a8.'
-
             blockwise_opt.deploy('vllm_quant')
             blockwise_opt.save_model(save_quant_path)
             update_vllm_quant_config(blockwise_opt.model, config, save_quant_path)
