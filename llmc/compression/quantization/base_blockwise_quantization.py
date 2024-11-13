@@ -522,15 +522,6 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
 
         return input_feat_subset
 
-    def layer_init(self, layer):
-        pass
-
-    def subset_init(self, subset):
-        pass
-
-    def block_init(self, block):
-        pass
-
     def collect_layers_weights(self, layers, tensor_parallelize_style=None):
         weights = []
         for _m in layers:
@@ -566,13 +557,20 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
         scales_list, zeros_list, qmin_list, qmax_list = (
             self.aquantizer.get_batch_tensors_qparams(act_tensors)
         )
-        for i in range(len(scales_list)):
-            scales, zeros, qmin, qmax = scales_list[i], zeros_list[i], qmin_list[i], qmax_list[i]
-            for name in layers_dict:
-                layers_dict[name].register_buffer(f'buf_act_scales_{i}', scales)
-                layers_dict[name].register_buffer(f'buf_act_zeros_{i}', zeros)
-                layers_dict[name].register_buffer(f'buf_act_qmin_{i}', qmin)
-                layers_dict[name].register_buffer(f'buf_act_qmax_{i}', qmax)
+        world_size = int(os.environ['WORLD_SIZE'])
+
+        for i, (scales, zeros, qmin, qmax) in enumerate(
+            zip(scales_list, zeros_list, qmin_list, qmax_list)
+        ):
+            scales = scales.cuda()
+            dist.all_reduce(scales, op=dist.ReduceOp.SUM)
+            scales = (scales / world_size).cpu()
+
+            for name, layer in layers_dict.items():
+                layer.register_buffer(f'buf_act_scales_{i}', scales)
+                layer.register_buffer(f'buf_act_zeros_{i}', zeros)
+                layer.register_buffer(f'buf_act_qmin_{i}', qmin)
+                layer.register_buffer(f'buf_act_qmax_{i}', qmax)
 
     @torch.no_grad()
     def apply_scale(self, scales, prev_op, layers):
