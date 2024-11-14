@@ -255,9 +255,10 @@ class BaseDataset(metaclass=ABCMeta):
         samples = self.get_calib_samples()
         if self.calib_dataset_type in ['txt', 'img', 'img_txt']:
             logger.info(f'len(samples) all : {len(samples)}')
-            assert len(samples) % int(os.environ['WORLD_SIZE']) == 0
-            samples = samples[int(os.environ['RANK'])::int(os.environ['WORLD_SIZE'])]
-            logger.info(f'len(samples) rank : {len(samples)}')
+            if os.environ.get('WORLD_SIZE') is not None:
+                assert len(samples) % int(os.environ['WORLD_SIZE']) == 0
+                samples = samples[int(os.environ['RANK'])::int(os.environ['WORLD_SIZE'])]
+                logger.info(f'len(samples) rank : {len(samples)}')
         calib_samples = []
         if self.calib_dataset_type == 'txt':
             if self.padding:

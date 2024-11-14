@@ -76,6 +76,18 @@ def main(config):
         dataset = BaseDataset(tokenizer.get_tokenizer(), config.calib, model.batch_process)
         calib_data, padding_mask = dataset.get_calib_dataset()
         padding_side = getattr(tokenizer.get_tokenizer(), 'padding_side', None)
+        if config.calib.type == 'img_txt':
+            model.collect_first_encoder_block_input(calib_data, padding_mask,
+                                                    padding_side, config.calib.type)
+            blockwise_opt = ALGO_REGISTRY[config.quant.method](
+                model,
+                config.quant,
+                model.get_first_block_input(),
+                model.get_padding_mask(),
+                config,
+                'vision'
+            )
+            blockwise_opt.run_block_loop()
         model.collect_first_block_input(calib_data, padding_mask, padding_side, config.calib.type)
         del calib_data
         gc.collect()
