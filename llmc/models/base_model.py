@@ -216,6 +216,13 @@ class BaseModel(metaclass=ABCMeta):
             if isinstance(m, tuple(_LLMC_LINEAR_TYPES_ + _TRANSFORMERS_LINEAR_TYPES_))
         }
 
+    def get_all_linears(self, module):
+        return {
+            name: m
+            for name, m in module.named_modules()
+            if isinstance(m, tuple(_LLMC_LINEAR_TYPES_ + _TRANSFORMERS_LINEAR_TYPES_))
+        }
+
     def get_extra_modules(self, block):
         return {}
 
@@ -280,7 +287,27 @@ class BaseModel(metaclass=ABCMeta):
             params_mix_dict['a_qdq'] = None
         return params_mix_dict
 
-    def replace_module_all(self, module, params_dict, keep_device=False):
+    def replace_vision_module_all(self, module, params_dict, keep_device=False):
+        vision_model_linears = self.get_block_linears(self.vision_model)
+        for name, m in vision_model_linears.items():
+            M = module.new(m, **params_dict)
+
+            name_tmp = name.rsplit('.', 1)
+            if len(name_tmp) == 2:
+                parent_name = name_tmp[0]
+                parent = self.vision_model.get_submodule(parent_name)
+                child_name = name_tmp[1]
+            elif len(name_tmp) == 1:
+                parent = self.vision_model
+                child_name = name_tmp[0]
+
+            setattr(parent, child_name, M)
+
+        gc.collect()
+        torch.cuda.empty_cache()
+        logger.info(f'The Replaced vision_model: {self.vision_model}')
+
+    def replace_language_module_all(self, module, params_dict, keep_device=False):
         for block_idx in range(len(self.blocks)):
             logger.info(f'Replace block index: {block_idx}/{len(self.blocks)}')
             block = self.blocks[block_idx]
