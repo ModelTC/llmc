@@ -63,9 +63,6 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
         else:
             return aquantizer.fake_quant_act_dynamic(act)
 
-    def logit(self, x):
-        return torch.log(x / (1 - x))
-
     def get_replacement_params(self, mode='fake_quant', w_only=False, name=None):
         params_dict = {}
         if mode == 'fake_quant':
