@@ -15,7 +15,8 @@ from torch.distributed import destroy_process_group, init_process_group
 from llmc.compression.quantization import *
 from llmc.compression.sparsification import *
 from llmc.data import BaseDataset, BaseTokenizer
-from llmc.eval import AccuracyEval, PerplexityEval, TokenConsistencyEval
+from llmc.eval import (AccuracyEval, PerplexityEval, TokenConsistencyEval,
+                       VLMEval)
 from llmc.models import *
 from llmc.utils import (check_config, mkdirs, print_important_package_version,
                         seed_all, update_autoawq_quant_config,
@@ -48,6 +49,9 @@ def main(config):
                 if config.eval.type == 'acc':
                     acc_eval = AccuracyEval(eval_config)
                     eval_list.append(acc_eval)
+                elif config.eval.type == 'img_txt':
+                    acc_eval = VLMEval(eval_config)
+                    eval_list.append(acc_eval)
                 else:
                     ppl_eval = PerplexityEval(tokenizer.get_tokenizer(), eval_config)
                     eval_list.append(ppl_eval)
@@ -57,6 +61,10 @@ def main(config):
                 for acc_eval in eval_list:
                     acc = acc_eval.eval(model)
                     logger.info(f'{config.eval.name} acc : {acc}')
+            elif config.eval.type == 'img_txt':
+                for vlm_eval in eval_list:
+                    results = vlm_eval.eval(model, tokenizer)
+                    logger.info(f'{config.eval.name} results : {results}')
             else:
                 for ppl_eval in eval_list:
                     ppl = ppl_eval.eval(model)
@@ -76,18 +84,6 @@ def main(config):
         dataset = BaseDataset(tokenizer.get_tokenizer(), config.calib, model.batch_process)
         calib_data, padding_mask = dataset.get_calib_dataset()
         padding_side = getattr(tokenizer.get_tokenizer(), 'padding_side', None)
-        if config.calib.type == 'img_txt':
-            model.collect_first_encoder_block_input(calib_data, padding_mask,
-                                                    padding_side, config.calib.type)
-            blockwise_opt = ALGO_REGISTRY[config.quant.method](
-                model,
-                config.quant,
-                model.get_first_block_input(),
-                model.get_padding_mask(),
-                config,
-                'vision'
-            )
-            blockwise_opt.run_block_loop()
         model.collect_first_block_input(calib_data, padding_mask, padding_side, config.calib.type)
         del calib_data
         gc.collect()
@@ -118,6 +114,10 @@ def main(config):
                 for acc_eval in eval_list:
                     acc = acc_eval.eval(model)
                     logger.info(f'{config.eval.name} acc : {acc}')
+            elif config.eval.type == 'img_txt':
+                for vlm_eval in eval_list:
+                    results = vlm_eval.eval(model, tokenizer)
+                    logger.info(f'{config.eval.name} results : {results}')
             else:
                 for ppl_eval in eval_list:
                     ppl = ppl_eval.eval(model)
@@ -142,6 +142,10 @@ def main(config):
                 for acc_eval in eval_list:
                     acc = acc_eval.eval(model)
                     logger.info(f'{config.eval.name} acc : {acc}')
+            elif config.eval.type == 'img_txt':
+                for vlm_eval in eval_list:
+                    results = vlm_eval.eval(model, tokenizer)
+                    logger.info(f'{config.eval.name} results : {results}')
             else:
                 for ppl_eval in eval_list:
                     ppl = ppl_eval.eval(model)

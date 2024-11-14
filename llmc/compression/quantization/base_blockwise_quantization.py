@@ -27,8 +27,8 @@ from .utils import check_do_quant, check_w_only, get_aquantizer, get_wquantizer
 
 
 class BaseBlockwiseQuantization(BlockwiseOpt):
-    def __init__(self, model, quant_config, input, padding_mask, config, modality='language'):
-        super().__init__(model, quant_config, input, padding_mask, config, modality)
+    def __init__(self, model, quant_config, input, padding_mask, config):
+        super().__init__(model, quant_config, input, padding_mask, config)
         self.set_quant_config()
 
     def w_qdq(self, module, wquantizer):
@@ -62,6 +62,9 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
             return aquantizer.fake_quant_act_static(act, args)
         else:
             return aquantizer.fake_quant_act_dynamic(act)
+
+    def logit(self, x):
+        return torch.log(x / (1 - x))
 
     def get_replacement_params(self, mode='fake_quant', w_only=False, name=None):
         params_dict = {}
@@ -268,6 +271,9 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
             self.intermediate_size = self.model.model_config.intermediate_size
             self.fp32_had = special_config.get('fp32_had', False)
 
+        self.quant_objects = self.quant_config.get('quant_objects', ['language'])
+        logger.info(f'self.quant_objects : {self.quant_objects}')
+
     def replace_rotate_linears(self, block):
         for n, m in block.named_modules():
             if isinstance(m, nn.Linear) and ('down_proj' in n
@@ -433,8 +439,7 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
 
     def block_transform(self, block, input_feat, block_kwargs):
         logger.info(f'Start transform the {self.block_idx}-th block')
-        subsets = self.model.get_subsets_in_block(block) \
-            if self.modality == 'language' else self.model.get_encoder_subsets_in_block(block)
+        subsets = self.model.get_subsets_in_block(block)
 
         if self.act_static:
             self.register_non_linear_qparams(block, input_feat)
@@ -804,12 +809,22 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
             )
 
         module = module_mapping[quant_format]
-        self.model.replace_module_all(
-            module,
-            self.get_replacement_params(mode=quant_format, w_only=self.w_only),
-            keep_device=keep_device
-        )
-        self.set_non_linear_mode(quant_format, self.model.model, False)
+        if 'vision' in self.quant_objects:
+            self.model.replace_vision_module_all(
+                module,
+                self.get_replacement_params(mode=quant_format, w_only=self.w_only),
+                keep_device=keep_device
+            )
+        if 'language' in self.quant_objects:
+            self.model.replace_language_module_all(
+                module,
+                self.get_replacement_params(mode=quant_format, w_only=self.w_only),
+                keep_device=keep_device
+            )
+            self.set_non_linear_mode(quant_format, self.model.model, False)
+
+        if hasattr(self.model, 'vlm_model'):
+            logger.info(f'Now, the vlm_model is: {self.model.vlm_model}')
 
         logger.info(f'-- deploy_{quant_format}_model done --')
 

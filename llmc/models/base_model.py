@@ -28,7 +28,6 @@ class BaseModel(metaclass=ABCMeta):
         self.build_model()
         self.model.eval()
         self.find_blocks()
-        self.find_encoder_blocks()
         self.find_embed_layers()
         self.find_block_name()
         self.add_layernorms_class()
@@ -37,20 +36,14 @@ class BaseModel(metaclass=ABCMeta):
     def find_blocks(self):
         pass
 
-    def find_encoder_blocks(self):
-        pass
-
-    def get_encoder_catcher(self, first_block_input):
-        pass
-
     def find_block_name(self):
         pass
 
     def get_model(self):
         return self.model
 
-    def get_blocks(self, modality='language'):
-        return self.blocks if modality == 'language' else self.encoder_blocks
+    def get_blocks(self):
+        return self.blocks
 
     @abstractmethod
     def find_embed_layers(self):
@@ -193,43 +186,6 @@ class BaseModel(metaclass=ABCMeta):
         self.blocks[0] = self.blocks[0].cpu()
         self.move_embed_to_device('cpu')
 
-    @torch.no_grad()
-    def collect_first_encoder_block_input(self, calib_data, padding_mask=None, padding_side=None, data_type='txt'):  # noqa
-        first_block_input = defaultdict(list)
-
-        Catcher = self.get_encoder_catcher(first_block_input)
-
-        self.move_embed_to_device('cuda')
-        if data_type == 'img_txt':
-            self.vision_model = self.vision_model.to('cuda')
-            self.projector = self.projector.to('cuda')
-        self.encoder_blocks[0] = self.encoder_blocks[0].cuda()
-        self.encoder_blocks[0] = Catcher(self.encoder_blocks[0])
-
-        for data in calib_data:
-            if isinstance(data, BatchFeature):
-                data = data.to(next(self.model.parameters()).device)
-            else:
-                data = {
-                    k: (v.to(next(self.model.parameters()).device) if torch.is_tensor(v) else v)
-                    for k, v in data.items()
-                }
-            try:
-                if data_type in ['txt', 'img']:
-                    self.model(**data)
-                elif data_type == 'img_txt':
-                    self.vlm_model.generate(**data, max_new_tokens=128, do_sample=False)
-            except ValueError:
-                pass
-        self.first_block_input = first_block_input
-        self.padding_mask = None
-        if data_type == 'img_txt':
-            self.vision_model = self.vision_model.cpu()
-            self.projector = self.projector.cpu()
-        self.encoder_blocks[0] = self.encoder_blocks[0].module
-        self.encoder_blocks[0] = self.encoder_blocks[0].cpu()
-        self.move_embed_to_device('cpu')
-
     def get_one_pad_setting(self, padding_side, length):
         if padding_side == 'left':
             return [0, length]
@@ -257,6 +213,13 @@ class BaseModel(metaclass=ABCMeta):
         return {
             name: m
             for name, m in block.named_modules()
+            if isinstance(m, tuple(_LLMC_LINEAR_TYPES_ + _TRANSFORMERS_LINEAR_TYPES_))
+        }
+
+    def get_all_linears(self, module):
+        return {
+            name: m
+            for name, m in module.named_modules()
             if isinstance(m, tuple(_LLMC_LINEAR_TYPES_ + _TRANSFORMERS_LINEAR_TYPES_))
         }
 
@@ -324,24 +287,36 @@ class BaseModel(metaclass=ABCMeta):
             params_mix_dict['a_qdq'] = None
         return params_mix_dict
 
-    def replace_modality_module_all(self, module, blocks, params_dict, keep_device=False):
-        for block_idx in range(len(blocks)):
-            logger.info(f'Replace block index: {block_idx}/{len(blocks)}')
-            block = blocks[block_idx]
+    def replace_vision_module_all(self, module, params_dict, keep_device=False):
+        vision_model_linears = self.get_block_linears(self.vision_model)
+        for name, m in vision_model_linears.items():
+            M = module.new(m, **params_dict)
+
+            name_tmp = name.rsplit('.', 1)
+            if len(name_tmp) == 2:
+                parent_name = name_tmp[0]
+                parent = self.vision_model.get_submodule(parent_name)
+                child_name = name_tmp[1]
+            elif len(name_tmp) == 1:
+                parent = self.vision_model
+                child_name = name_tmp[0]
+
+            setattr(parent, child_name, M)
+
+        gc.collect()
+        torch.cuda.empty_cache()
+        logger.info(f'The Replaced vision_model: {self.vision_model}')
+
+    def replace_language_module_all(self, module, params_dict, keep_device=False):
+        for block_idx in range(len(self.blocks)):
+            logger.info(f'Replace block index: {block_idx}/{len(self.blocks)}')
+            block = self.blocks[block_idx]
             if keep_device:
                 self.replace_module_block(module, block, block_idx, params_dict)
             else:
                 block = block.cuda()
                 self.replace_module_block(module, block, block_idx, params_dict)
                 block = block.cpu()
-
-    def replace_module_all(self, module, params_dict, keep_device=False):
-        if hasattr(self, 'encoder_blocks'):
-            logger.info('start replace vision blocks')
-            self.replace_modality_module_all(module, self.encoder_blocks, params_dict, keep_device)
-
-        logger.info('start replace language blocks')
-        self.replace_modality_module_all(module, self.blocks, params_dict, keep_device)
 
         gc.collect()
         torch.cuda.empty_cache()
