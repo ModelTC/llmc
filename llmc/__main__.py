@@ -63,6 +63,16 @@ def main(config):
                     logger.info(f'{ppl_eval.dataset} ppl : {ppl}')
 
     if not config.get('calib', False):
+        if getattr(model, 'is_vlm', False):
+            blockwise_opt = ALGO_REGISTRY[config.quant.method](
+                model,
+                quant_config=config.quant,
+                input=None,
+                padding_mask=None,
+                config=config,
+                modality='vision'
+            )
+            blockwise_opt.run_block_loop()
         blockwise_opt = ALGO_REGISTRY[config.quant.method](
             model,
             quant_config=config.quant,
@@ -76,7 +86,7 @@ def main(config):
         dataset = BaseDataset(tokenizer.get_tokenizer(), config.calib, model.batch_process)
         calib_data, padding_mask = dataset.get_calib_dataset()
         padding_side = getattr(tokenizer.get_tokenizer(), 'padding_side', None)
-        if config.calib.type == 'img_txt':
+        if getattr(model, 'is_vlm', False):
             model.collect_first_encoder_block_input(calib_data, padding_mask,
                                                     padding_side, config.calib.type)
             blockwise_opt = ALGO_REGISTRY[config.quant.method](
