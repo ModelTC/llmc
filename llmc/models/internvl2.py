@@ -184,18 +184,31 @@ class InternVL2(InternLM2):
         }
         return inputs
 
-    def single_process(self, img_qas):
+    def single_process(self, img_qa):
         tokenizer = AutoTokenizer.from_pretrained(self.model_path, trust_remote_code=True)
-        if img_qas['img'] is not None:
-            pixel_values = load_image(img_qas['img'], max_num=12).to(
-                next(self.vlm_model.parameters()).dtype
-            )
+        num_patches_list = None
+        pixel_values_list = []
+        if img_qa['img'] is not None:
+            if isinstance(img_qa['img'], list):
+                num_patches_list = []
+                for img_idx in range(len(img_qa['img'])):
+                    pixel_values = load_image(img_qa['img'][img_idx], max_num=12).to(
+                        next(self.vlm_model.parameters()).dtype
+                    )
+                    pixel_values_list.append(pixel_values)
+                    num_patches_list.append(pixel_values.size(0))
+                pixel_values = torch.cat(pixel_values_list, dim=0)
+            else:
+                pixel_values = load_image(img_qa['img'], max_num=12).to(
+                    next(self.vlm_model.parameters()).dtype
+                )
         else:
             pixel_values = None
-        question = img_qas['question']
+        question = img_qa['question']
         if pixel_values is not None and '<image>' not in question:
             question = '<image>\n' + question
-        num_patches_list = [pixel_values.shape[0]] if pixel_values is not None else []
+        if num_patches_list is None:
+            num_patches_list = [pixel_values.shape[0]] if pixel_values is not None else []
         generation_config = dict()
 
         IMG_CONTEXT_TOKEN = '<IMG_CONTEXT>'
