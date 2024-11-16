@@ -71,7 +71,7 @@ class SmoothQuant(BaseBlockwiseQuantization):
         inspect_module,
         subset_kwargs,
     ):
-        if not self.filter_subset(prev_op):
+        if not self.filter_subset(layers_dict, prev_op):
             logger.info('Do not transform this subset.')
             return
         layers = list(layers_dict.values())
