@@ -8,9 +8,10 @@ from loguru import logger
 
 
 class BaseEval:
-    def __init__(self, tokenizer, eval_cfg):
+    def __init__(self, tokenizer, config):
         self.tokenizer = tokenizer
         # eval_cfg
+        eval_cfg = config.eval
         logger.info(f'eval_cfg : {eval_cfg}')
         self.dataset = eval_cfg['name']
         assert self.dataset in [

@@ -10,16 +10,17 @@ from sklearn.metrics import (accuracy_score, confusion_matrix, precision_score,
 
 
 class VLMEval:
-    def __init__(self, eval_config):
-        self.eval_config = eval_config
-        self.dataset = eval_config['name']
+    def __init__(self, config):
+        self.eval_config = config.eval
+        self.dataset = self.eval_config['name']
         assert self.dataset in [
             'MME',
         ], 'VLM eval only support MME dataset now.'
-        self.eval_dataset_path = eval_config['path']
-        self.eval_bs = eval_config['bs']
+        self.eval_dataset_path = self.eval_config['path']
+        self.eval_bs = self.eval_config['bs']
         if self.dataset == 'MME':
             self.img_qas = self.load_mme()
+        self.patch_datasets(config.model.type)
         logger.info('VLMEval load dataset done.')
 
     def load_mme(self):
@@ -31,6 +32,13 @@ class VLMEval:
                 self.eval_dataset_path, img_qas[idx]['img']
             )
         return img_qas
+
+    def patch_datasets(self, model_type):
+        if self.dataset == 'MME':
+            if model_type == 'InternVL2':
+                for idx in range(len(self.img_qas)):
+                    if '<image>\n' not in self.img_qas[idx]['question']:
+                        self.img_qas[idx]['question'] = '<image>\n' + self.img_qas[idx]['question']
 
     def eval(self, model, tokenizer):
         vlm_model = model.vlm_model

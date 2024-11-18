@@ -8,9 +8,9 @@ from torchvision.datasets import ImageFolder
 
 
 class AccuracyEval:
-    def __init__(self, eval_config, batch_size=256, num_workers=8):
-        self.eval_config = eval_config
-        self.imagenet_root = eval_config['path']
+    def __init__(self, config, batch_size=256, num_workers=8):
+        self.eval_config = config.eval
+        self.imagenet_root = self.eval_config['path']
         self.batch_size = batch_size
         self.num_workers = num_workers
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
