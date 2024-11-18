@@ -42,18 +42,18 @@ def main(config):
                 else [config.eval.name]
             )
             for name in name_list:
-                eval_config = copy.deepcopy(config.eval)
-                eval_config.name = name
+                config_for_eval = copy.deepcopy(config)
+                config_for_eval.eval.name = name
                 if len(name_list) != 1:  # eval multi datasets
-                    eval_config.path = os.path.join(config.eval.path, name)
+                    config_for_eval.eval.path = os.path.join(config.eval.path, name)
                 if config.eval.type == 'acc':
-                    acc_eval = AccuracyEval(eval_config)
+                    acc_eval = AccuracyEval(config_for_eval)
                     eval_list.append(acc_eval)
                 elif config.eval.type == 'img_txt':
-                    acc_eval = VLMEval(eval_config)
+                    acc_eval = VLMEval(config_for_eval)
                     eval_list.append(acc_eval)
                 else:
-                    ppl_eval = PerplexityEval(tokenizer.get_tokenizer(), eval_config)
+                    ppl_eval = PerplexityEval(tokenizer.get_tokenizer(), config_for_eval)
                     eval_list.append(ppl_eval)
 
         if 'eval' in config and 'pretrain' in config.eval.eval_pos:
@@ -156,7 +156,7 @@ def main(config):
                     config.model.path, config.model.torch_dtype
                 )
                 token_consist_eval = TokenConsistencyEval(tokenizer.get_tokenizer(),
-                                                          eval_config)
+                                                          config_for_eval)
                 consistency_ratio = token_consist_eval.eval(model, org_model)
                 logger.info(f'Token consistency ratio: {consistency_ratio}')
                 del org_model
