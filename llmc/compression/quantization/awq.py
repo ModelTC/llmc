@@ -17,8 +17,8 @@ from .utils import check_do_quant, check_w_only, get_aquantizer, get_wquantizer
 
 @ALGO_REGISTRY
 class Awq(BaseBlockwiseQuantization):
-    def __init__(self, model, quant_config, input, padding_mask, config):
-        super().__init__(model, quant_config, input, padding_mask, config)
+    def __init__(self, model, quant_config, input, padding_mask, config, modality='language'):
+        super().__init__(model, quant_config, input, padding_mask, config, modality)
         special_config = self.quant_config.get('special', {})
         self.trans = special_config.get('trans', True)
         self.trans_version = special_config.get('trans_version', 'v2')

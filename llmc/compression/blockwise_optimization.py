@@ -6,8 +6,10 @@ from loguru import logger
 
 
 class BlockwiseOpt(metaclass=ABCMeta):
-    def __init__(self, model, quant_config, input, padding_mask, config):
+    def __init__(self, model, quant_config, input, padding_mask, config, modality='language'):
         self.model = model
+        self.modality = modality
+        self.model.find_blocks(modality)
         self.blocks = model.get_blocks()
         self.quant_config = quant_config
         self.sparsity_config = quant_config

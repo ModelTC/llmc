@@ -26,7 +26,7 @@ class Gemma2(BaseModel):
                 m.weight = nn.Parameter(w + 1.0)
                 m.forward = MethodType(gemma2_rms_norm_forward, m)
 
-    def find_blocks(self):
+    def find_blocks(self, modality='language'):
         self.blocks = self.model.model.layers
 
     def find_embed_layers(self):

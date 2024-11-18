@@ -13,8 +13,8 @@ from .quant import IntegerQuantizer
 
 @ALGO_REGISTRY
 class DGQ(BaseBlockwiseQuantization):
-    def __init__(self, model, quant_config, input, padding_mask, config):
-        super().__init__(model, quant_config, input, padding_mask, config)
+    def __init__(self, model, quant_config, input, padding_mask, config, modality='language'):
+        super().__init__(model, quant_config, input, padding_mask, config, modality)
         self.model_dtype = next(self.model.model.parameters()).dtype
 
     def w_qdq(self, module, wquantizer):

@@ -9,8 +9,8 @@ from .module_utils import FakeQuantLinear
 
 @ALGO_REGISTRY
 class AdaDim(BaseBlockwiseQuantization):
-    def __init__(self, model, quant_config, input, config):
-        super().__init__(model, quant_config, input, config)
+    def __init__(self, model, quant_config, input, config, modality='language'):
+        super().__init__(model, quant_config, input, config, modality)
 
     def get_layer_out(self, x, layer):
         with torch.no_grad():

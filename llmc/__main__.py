@@ -69,43 +69,50 @@ def main(config):
                 for ppl_eval in eval_list:
                     ppl = ppl_eval.eval(model)
                     logger.info(f'{ppl_eval.dataset} ppl : {ppl}')
-
-    if not config.get('calib', False):
-        blockwise_opt = ALGO_REGISTRY[config.quant.method](
-            model,
-            quant_config=config.quant,
-            input=None,
-            padding_mask=None,
-            config=config
-        )
-        blockwise_opt.run_block_loop()
-        dist.barrier()
-    else:
-        dataset = BaseDataset(tokenizer.get_tokenizer(), config.calib, model.batch_process)
-        calib_data, padding_mask = dataset.get_calib_dataset()
-        padding_side = getattr(tokenizer.get_tokenizer(), 'padding_side', None)
-        model.collect_first_block_input(calib_data, padding_mask, padding_side, config.calib.type)
-        del calib_data
-        gc.collect()
-        torch.cuda.empty_cache()
-        if not config.get('sparse', False):
+    for modality in config.quant.get('quant_objects', ['language']):
+        if not config.get('calib', False):
             blockwise_opt = ALGO_REGISTRY[config.quant.method](
                 model,
-                config.quant,
-                model.get_first_block_input(),
-                model.get_padding_mask(),
-                config
+                quant_config=config.quant,
+                input=None,
+                padding_mask=None,
+                config=config,
+                modality=modality,
             )
+            blockwise_opt.run_block_loop()
+            dist.barrier()
         else:
-            blockwise_opt = ALGO_REGISTRY[config.sparse.method](
-                model,
-                config.sparse,
-                model.get_first_block_input(),
-                model.get_padding_mask(),
-                config
-            )
-        blockwise_opt.run_block_loop()
-        dist.barrier()
+            dataset = BaseDataset(tokenizer.get_tokenizer(), config.calib, model.batch_process)
+            calib_data, padding_mask = dataset.get_calib_dataset()
+            padding_side = getattr(tokenizer.get_tokenizer(), 'padding_side', None)
+            model.collect_first_block_input(calib_data,
+                                            padding_mask,
+                                            padding_side,
+                                            config.calib.type,
+                                            modality)
+            del calib_data
+            gc.collect()
+            torch.cuda.empty_cache()
+            if not config.get('sparse', False):
+                blockwise_opt = ALGO_REGISTRY[config.quant.method](
+                    model,
+                    config.quant,
+                    model.get_first_block_input(),
+                    model.get_padding_mask(),
+                    config,
+                    modality
+                )
+            else:
+                blockwise_opt = ALGO_REGISTRY[config.sparse.method](
+                    model,
+                    config.sparse,
+                    model.get_first_block_input(),
+                    model.get_padding_mask(),
+                    config,
+                    modality
+                )
+            blockwise_opt.run_block_loop()
+            dist.barrier()
 
     if int(os.environ['RANK']) == 0:
         if 'eval' in config and 'transformed' in config.eval.eval_pos:

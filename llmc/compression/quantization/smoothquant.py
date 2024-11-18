@@ -12,8 +12,8 @@ from .module_utils import _LLMC_LN_TYPES_, _TRANSFORMERS_LN_TYPES_
 
 @ALGO_REGISTRY
 class SmoothQuant(BaseBlockwiseQuantization):
-    def __init__(self, model, quant_config, input, padding_mask, config):
-        super().__init__(model, quant_config, input, padding_mask, config)
+    def __init__(self, model, quant_config, input, padding_mask, config, modality='language'):
+        super().__init__(model, quant_config, input, padding_mask, config, modality)
         special_config = self.quant_config.get('special', {})
         self.alpha = special_config.get('alpha', 0.5)
 
