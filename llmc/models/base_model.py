@@ -1,4 +1,5 @@
 import gc
+import inspect
 from abc import ABCMeta, abstractmethod
 from collections import defaultdict
 from functools import partial
@@ -33,7 +34,7 @@ class BaseModel(metaclass=ABCMeta):
         self.add_layernorms_class()
 
     @abstractmethod
-    def find_blocks(self):
+    def find_blocks(self, modality='language'):
         pass
 
     def find_block_name(self):
@@ -87,7 +88,29 @@ class BaseModel(metaclass=ABCMeta):
     def batch_process(self):
         raise Exception('batch_process should not be called here.')
 
-    def get_catcher(self, first_block_input):
+    def get_vision_catcher(self, first_block_input):
+
+        class Catcher(nn.Module):
+            def __init__(self, module):
+                super().__init__()
+                self.module = module
+                self.signature = inspect.signature(module.forward)
+
+            def forward(self, *args, **kwargs):
+                params = list(self.signature.parameters.keys())
+                for i, arg in enumerate(args):
+                    if i > 0:
+                        kwargs[params[i]] = arg
+                first_block_input['data'].append(args[0])
+                if 'output_router_logits' in kwargs:
+                    assert kwargs['output_router_logits'] is False
+                    kwargs.pop('output_router_logits')
+                first_block_input['kwargs'].append(kwargs)
+                raise ValueError
+
+        return Catcher
+
+    def get_language_catcher(self, first_block_input):
 
         class Catcher(nn.Module):
             def __init__(self, module):
@@ -138,10 +161,15 @@ class BaseModel(metaclass=ABCMeta):
         logger.info(f'_TRANSFORMERS_LN_TYPES_ : {_TRANSFORMERS_LN_TYPES_}')
 
     @torch.no_grad()
-    def collect_first_block_input(self, calib_data, padding_mask=None, padding_side=None, data_type='txt'):  # noqa
+    def collect_first_block_input(self, calib_data, padding_mask=None,
+                                  padding_side=None, data_type='txt', modality='language'):
         first_block_input = defaultdict(list)
 
-        Catcher = self.get_catcher(first_block_input)
+        self.find_blocks(modality)
+        if modality == 'language':
+            Catcher = self.get_language_catcher(first_block_input)
+        elif modality == 'vision':
+            Catcher = self.get_vision_catcher(first_block_input)
 
         self.move_embed_to_device('cuda')
         if data_type == 'img_txt':

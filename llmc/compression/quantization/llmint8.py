@@ -9,8 +9,8 @@ from .module_utils import FakeQuantLinear
 
 @ALGO_REGISTRY
 class LlmInt8(BaseBlockwiseQuantization):
-    def __init__(self, model, quant_config, input, padding_mask, config):
-        super().__init__(model, quant_config, input, padding_mask, config)
+    def __init__(self, model, quant_config, input, padding_mask, config, modality='language'):
+        super().__init__(model, quant_config, input, padding_mask, config, modality)
         self.add_quant_config()
 
     @torch.no_grad()

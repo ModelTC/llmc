@@ -11,7 +11,7 @@ class InternLM2(BaseModel):
         global _TRANSFORMERS_LN_TYPES_
         _TRANSFORMERS_LN_TYPES_ += [type(self.model.model.norm)]
 
-    def find_blocks(self):
+    def find_blocks(self, modality='language'):
         self.blocks = self.model.model.layers
 
     def find_embed_layers(self):

@@ -8,7 +8,7 @@ class StableLm(BaseModel):
     def __init__(self, model_path, torch_dtype, device_map=None, use_cache=False):
         super().__init__(model_path, torch_dtype, device_map, use_cache)
 
-    def find_blocks(self):
+    def find_blocks(self, modality='language'):
         self.blocks = self.model.model.layers
         self.rotary_emb = self.model.model.rotary_emb
 

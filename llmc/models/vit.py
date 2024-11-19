@@ -22,7 +22,7 @@ class Vit(BaseModel):
         self.processor = ViTImageProcessor.from_pretrained(self.model_path)
         self.model = ViTForImageClassification.from_pretrained(self.model_path)
 
-    def find_blocks(self):
+    def find_blocks(self, modality='vision'):
         self.blocks = self.model.vit.encoder.layer
 
     def find_embed_layers(self):

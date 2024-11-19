@@ -25,8 +25,8 @@ from .train_utils import (LossFunction, NativeScalerWithGradNormCount,
 
 @ALGO_REGISTRY
 class OmniQuant(BaseBlockwiseQuantization):
-    def __init__(self, model, quant_config, input, padding_mask, config):
-        super().__init__(model, quant_config, input, padding_mask, config)
+    def __init__(self, model, quant_config, input, padding_mask, config, modality='language'):
+        super().__init__(model, quant_config, input, padding_mask, config, modality)
         self.add_quant_config()
 
         model_type = self.config['model']['type']
