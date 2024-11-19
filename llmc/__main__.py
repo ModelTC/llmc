@@ -26,9 +26,7 @@ from llmc.utils.registry_factory import ALGO_REGISTRY, MODEL_REGISTRY
 
 def main(config):
     tokenizer = BaseTokenizer(config.model.path, config.model.tokenizer_mode, config.model.type)
-    model = MODEL_REGISTRY[config.model.type](
-        config.model.path, config.model.torch_dtype
-    )
+    model = MODEL_REGISTRY[config.model.type](config)
 
     logger.info(tokenizer)
     logger.info(model)
@@ -159,9 +157,7 @@ def main(config):
                     logger.info(f'{ppl_eval.dataset} ppl : {ppl}')
 
             if 'eval_token_consist' in config.eval and config.eval.eval_token_consist:
-                org_model = MODEL_REGISTRY[config.model.type](
-                    config.model.path, config.model.torch_dtype
-                )
+                org_model = MODEL_REGISTRY[config.model.type](config)
                 token_consist_eval = TokenConsistencyEval(tokenizer.get_tokenizer(),
                                                           config_for_eval)
                 consistency_ratio = token_consist_eval.eval(model, org_model)

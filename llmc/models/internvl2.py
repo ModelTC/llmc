@@ -98,8 +98,8 @@ def load_image(image_file, input_size=448, max_num=12):
 
 @MODEL_REGISTRY
 class InternVL2(InternLM2):
-    def __init__(self, model_path, torch_dtype, device_map=None, use_cache=False):
-        super().__init__(model_path, torch_dtype, device_map, use_cache)
+    def __init__(self, config, device_map=None, use_cache=False):
+        super().__init__(config, device_map, use_cache)
 
     def build_model(self):
         self.vlm_model_config = AutoConfig.from_pretrained(

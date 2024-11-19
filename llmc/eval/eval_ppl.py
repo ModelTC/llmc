@@ -56,36 +56,3 @@ class PerplexityEval(BaseEval):
         torch.cuda.empty_cache()
 
         return ppl.item()
-
-
-if __name__ == '__main__':
-    import sys
-
-    sys.path.append('../../')
-    import argparse
-
-    from llmc.data import BaseTokenizer
-    from llmc.models import Llama
-    from llmc.utils.registry_factory import MODEL_REGISTRY
-
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--model_type', type=str, required=True)
-    parser.add_argument('--model_path', type=str, required=True)
-    args = parser.parse_args()
-
-    tokenizer = BaseTokenizer(args.model_path, tokenizer_mode='fast')
-    model = MODEL_REGISTRY[args.model_type](args.model_path, 'auto')
-
-    # Llama2-70B config example
-    eval_cfg = {
-        'name': 'wikitext2',
-        'seq_len': 2048,
-        'bs': 20,
-        'download': False,
-        'path': 'data_path',
-        'inference_per_block': True,
-    }
-    ppl_eval = PerplexityEval(tokenizer.get_tokenizer(), eval_cfg)
-
-    ppl = ppl_eval.eval(model)
-    logger.info(f'ppl : {ppl}')

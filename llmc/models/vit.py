@@ -12,8 +12,8 @@ from .base_model import BaseModel
 # Only verified that vit-base-patch16-224 is correct.
 @MODEL_REGISTRY
 class Vit(BaseModel):
-    def __init__(self, model_path, torch_dtype, device_map=None, use_cache=False):
-        super().__init__(model_path, torch_dtype, device_map, use_cache)
+    def __init__(self, config, device_map=None, use_cache=False):
+        super().__init__(config, device_map, use_cache)
 
     def build_model(self):
         self.model_config = AutoConfig.from_pretrained(
