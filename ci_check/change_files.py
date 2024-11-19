@@ -55,7 +55,16 @@ def main():
         elif file_path == "../llmc/compression/quantization/awq.py":
             modifications = {
                 "header": ["n_grid_zbl = 1\n"],
-                "modifications": [("n_grid = 20", "n_grid = n_grid_zbl")],
+                "modifications": [
+                    (
+                        "n_grid = 20",
+                        "n_grid = n_grid_zbl"
+                    ),
+                    (
+                        "device='cuda'",
+                        "device='cpu'"
+                    )
+                ],
             }
         elif file_path == "../llmc/compression/quantization/gptq.py":
             modifications = {
