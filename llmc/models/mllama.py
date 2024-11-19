@@ -1,7 +1,14 @@
 from loguru import logger
 from PIL import Image
-from transformers import (AutoConfig, AutoProcessor,
-                          MllamaForConditionalGeneration)
+from transformers import AutoConfig, AutoProcessor
+
+try:
+    from transformers import MllamaForConditionalGeneration
+except Exception:
+    logger.warning(
+        'Can not import MllamaForConditionalGeneration. '
+        'Please upgrade transformers.'
+    )
 
 from llmc.utils.registry_factory import MODEL_REGISTRY
 

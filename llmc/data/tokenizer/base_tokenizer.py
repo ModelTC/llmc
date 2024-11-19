@@ -7,11 +7,12 @@ class BaseTokenizer(metaclass=ABCMeta):
     def __init__(self, tokenizer_path, tokenizer_mode, model_type):
         self.tokenizer_path = tokenizer_path
         self.tokenizer_mode = tokenizer_mode
+        self.model_type = model_type
         if self.tokenizer_mode == 'fast':
             self.use_fast = True
         else:
             self.use_fast = False
-        if model_type == 'Vit':
+        if self.model_type == 'Vit':
             self.tokenizer = None
         else:
             self.build_tokenizer()
@@ -29,10 +30,7 @@ class BaseTokenizer(metaclass=ABCMeta):
         return self.tokenizer
 
     def patch(self):
-        model_config = AutoConfig.from_pretrained(
-            self.tokenizer_path, trust_remote_code=True
-        )
-        if 'Intern' in model_config.architectures[0]:
+        if 'Intern' in self.model_type:
             self.tokenizer.padding_side = 'left'
         if self.tokenizer.pad_token is None:
             self.tokenizer.pad_token = self.tokenizer.eos_token

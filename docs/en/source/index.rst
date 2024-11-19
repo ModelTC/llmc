@@ -32,6 +32,8 @@ arxiv: https://arxiv.org/abs/2405.06001
    advanced/model_test_v1.md
    advanced/model_test_v2.md
    advanced/custom_dataset.md
+   advanced/Vit_quant&img_dataset.md
+   advanced/VLM_quant&img-txt_dataset.md
    advanced/mix_bits.md
    advanced/sparsification.md
 
