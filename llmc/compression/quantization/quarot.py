@@ -49,6 +49,29 @@ class Quarot(BaseBlockwiseQuantization):
         )
 
         self.rotate_head(self.Q)
+
+        # for vlm model
+        if hasattr(self.model, 'vlm_model'):
+            logger.info('For vlm model, quarot need rotate last layer in projector.')
+            """
+            txt_input     img_input
+                |             |
+            Embeding      projector
+                |             |
+                       |
+                  input_embeds
+                       |
+                       Y
+            Therefore:
+            X_txt ~ W_embeding * Q = X_txt ~ (W_embeding * Q)
+            X_proj * W_proj.t() * Q = X_proj * (Q.t() * W_proj).t()
+            """
+            assert hasattr(self.model, 'projector')
+            dtype = self.model.projector[-1].weight.dtype
+            device = self.Q.device
+            W = self.model.projector[-1].weight.data.to(device=device, dtype=torch.float64)
+            self.model.projector[-1].weight.data = torch.matmul(self.Q.T, W).to(device='cpu', dtype=dtype) # noqa
+
         gc.collect()
         torch.cuda.empty_cache()
 

@@ -1,6 +1,13 @@
 from loguru import logger
-from transformers import (AutoConfig, AutoProcessor,
-                          Qwen2VLForConditionalGeneration)
+from transformers import AutoConfig, AutoProcessor
+
+try:
+    from transformers import Qwen2VLForConditionalGeneration
+except Exception:
+    logger.warning(
+        'Can not import Qwen2VLForConditionalGeneration. '
+        'Please upgrade transformers.'
+    )
 
 from llmc.utils.registry_factory import MODEL_REGISTRY
 
