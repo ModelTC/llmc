@@ -17,7 +17,6 @@ from .qwen import Qwen
 from .qwen2 import Qwen2
 from .qwen2moe import Qwen2Moe
 from .qwen2vl import Qwen2VL
-from .qwenvl import QwenVL
 from .smollm import SmolLM
 from .stablelm import StableLm
 from .starcoder import Starcoder
