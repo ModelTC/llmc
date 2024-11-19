@@ -44,11 +44,20 @@ jobs:
           wget -i model_urls.txt
           wget --no-check-certificate https://hf-mirror.com/facebook/opt-125m/resolve/main/pytorch_model.bin
 
-      - name: Run push_tests
+      - name: Preparation for check.
         run: |
           cd ci_check    # /home/runner/work/llmc/llmc/ci_check
           python change_files.py
-          bash run.sh
+
+      - name: Run awq check
+        run: |
+          cd ci_check    # /home/runner/work/llmc/llmc/ci_check
+          bash run_awq.sh
+
+      - name: Run gptq check
+        run: |
+          cd ci_check    # /home/runner/work/llmc/llmc/ci_check
+          bash run_gptq.sh
 
       - name: Check success
         if: ${{ success() }}

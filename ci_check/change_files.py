@@ -57,6 +57,25 @@ def main():
                 "header": ["n_grid_zbl = 1\n"],
                 "modifications": [("n_grid = 20", "n_grid = n_grid_zbl")],
             }
+        elif file_path == "../llmc/compression/quantization/gptq.py":
+            modifications = {
+                "header": [
+                    'device_zbl = "cpu"\n',
+                    'use_cuda = (device_zbl != "cpu")\n',
+                ],
+                "modifications": [
+                    (
+                        "torch.cuda.empty_cache()",
+                        "if use_cuda: torch.cuda.empty_cache()"
+                    ),
+                    (".cuda()", ".to(device_zbl)"),
+                    ("torch.device('cuda')", "torch.device('cpu')"),
+                    (
+                        "torch.cuda.synchronize()",
+                        "if use_cuda: torch.cuda.synchronize()"
+                    ),
+                ],
+            }
         elif (
             file_path
             == "../llmc/compression/quantization/base_blockwise_quantization.py"
