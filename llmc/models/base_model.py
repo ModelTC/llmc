@@ -67,9 +67,6 @@ class BaseModel(metaclass=ABCMeta):
     def get_softmax_in_block(self):
         return {}
 
-    def get_linears_except_subsets(self, block):
-        return {}
-
     @abstractmethod
     def get_subsets_in_block(self, block):
         pass
@@ -253,6 +250,9 @@ class BaseModel(metaclass=ABCMeta):
 
     def get_extra_modules(self, block):
         return {}
+
+    def get_moe_gate(self, block):
+        return None
 
     def set_mix_bits_params_dict(self, block_idx, name, params_dict):
 

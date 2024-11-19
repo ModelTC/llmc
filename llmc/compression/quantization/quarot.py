@@ -51,7 +51,7 @@ class Quarot(BaseBlockwiseQuantization):
         self.rotate_head(self.Q)
 
         # for vlm model
-        if hasattr(self.model, 'vlm_model'):
+        if hasattr(self.model, 'vlm_model') and self.model.vlm_model is not None:
             logger.info('For vlm model, quarot need rotate last layer in projector.')
             """
             txt_input     img_input
@@ -116,6 +116,19 @@ class Quarot(BaseBlockwiseQuantization):
 
         layers = list(layers_dict.values())
 
+        if 'skip_rotate' in subset and subset['skip_rotate']:
+            return
+
+        if 'need_rotate_alone' in subset and subset['need_rotate_alone']:
+            assert isinstance(prev_op[0], tuple(_LLMC_LN_TYPES_ + _TRANSFORMERS_LN_TYPES_))
+            pre_layers = subset['pre_layers']
+            post_layers = subset['post_layers']
+            for layer in pre_layers + post_layers:
+                layer = layer.cuda()
+            self.fuse_ln_fcs(prev_op[0], layers)
+            self.rotate_pre_layers(pre_layers, self.Q)
+            self.rotate_post_layers(post_layers, self.Q)
+
         if isinstance(prev_op[0], tuple(_LLMC_LN_TYPES_ + _TRANSFORMERS_LN_TYPES_)):
             self.fuse_ln_fcs(prev_op[0], layers)
             self.rotate_pre_layers(layers, self.Q)
@@ -133,10 +146,11 @@ class Quarot(BaseBlockwiseQuantization):
                 logger.info(f'{self.Q.shape}')
                 self.rotate_post_layers(layers, self.Q, exact_had=False)
                 if self.online_rotate:
-                    apply_exact_had_to_linear(
-                        prev_op[0], had_dim=self.head_dim, output=True
-                    )
-                    apply_exact_had_to_linear(layers[0], had_dim=-1, output=False)
+                    if prev_op[0] is not None:
+                        apply_exact_had_to_linear(
+                            prev_op[0], had_dim=self.head_dim, output=True
+                        )
+                        apply_exact_had_to_linear(layers[0], had_dim=-1, output=False)
 
     @torch.no_grad()
     def save_model(self, path):
