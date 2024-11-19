@@ -4,5 +4,6 @@
 ../llmc/eval/eval_token_consist.py
 ../llmc/eval/eval_ppl.py
 ../llmc/compression/quantization/awq.py
+../llmc/compression/quantization/gptq.py
 ../llmc/models/base_model.py
 ../llmc/compression/quantization/auto_clip.py
