@@ -51,7 +51,7 @@ class Quarot(BaseBlockwiseQuantization):
         self.rotate_head(self.Q)
 
         # for vlm model
-        if hasattr(self.model, 'vlm_model') and self.model.vlm_model is not None:
+        if self.model.vlm_model is not None:
             logger.info('For vlm model, quarot need rotate last layer in projector.')
             """
             txt_input     img_input

@@ -810,7 +810,7 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
             )
             self.set_non_linear_mode(quant_format, self.model.model, False)
 
-        if hasattr(self.model, 'vlm_model'):
+        if self.model.vlm_model is not None:
             logger.info(f'Now, the vlm_model is: {self.model.vlm_model}')
 
         logger.info(f'-- deploy_{quant_format}_model done --')

@@ -45,9 +45,9 @@ class VLMEval:
         elif model_type == 'Llava':
             self.output_include_input = True
 
-    def eval(self, model, tokenizer):
+    def eval(self, model):
         vlm_model = model.vlm_model
-        vlm_tokenizer = tokenizer.get_tokenizer()
+        vlm_tokenizer = model.get_tokenizer()
         vlm_model.cuda()
         results = []
         logger.info(f'len(self.img_qas): {len(self.img_qas)}')
