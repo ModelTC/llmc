@@ -20,8 +20,10 @@ from llmc.compression.quantization.utils import (check_do_quant, check_w_only,
 
 
 class BaseModel(metaclass=ABCMeta):
-    def __init__(self, model_path, torch_dtype, device_map=None, use_cache=False):
-        self.model_path = model_path
+    def __init__(self, config, device_map=None, use_cache=False):
+        self.config = config
+        self.model_path = self.config.model.path
+        torch_dtype = self.config.model.torch_dtype
         self.torch_dtype = torch_dtype if torch_dtype == 'auto' else eval(torch_dtype)
         self.device_map = device_map
         self.use_cache = use_cache

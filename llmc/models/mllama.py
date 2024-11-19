@@ -17,8 +17,8 @@ from .llama import Llama
 
 @MODEL_REGISTRY
 class Mllama(Llama):
-    def __init__(self, model_path, torch_dtype, device_map=None, use_cache=False):
-        super().__init__(model_path, torch_dtype, device_map, use_cache)
+    def __init__(self, config, device_map=None, use_cache=False):
+        super().__init__(config, device_map, use_cache)
 
     def build_model(self):
         self.vlm_model_config = AutoConfig.from_pretrained(
