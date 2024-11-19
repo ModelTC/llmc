@@ -14,7 +14,7 @@ from torch.distributed import destroy_process_group, init_process_group
 
 from llmc.compression.quantization import *
 from llmc.compression.sparsification import *
-from llmc.data import BaseDataset, BaseTokenizer
+from llmc.data import BaseDataset
 from llmc.eval import (AccuracyEval, PerplexityEval, TokenConsistencyEval,
                        VLMEval)
 from llmc.models import *
@@ -25,11 +25,10 @@ from llmc.utils.registry_factory import ALGO_REGISTRY, MODEL_REGISTRY
 
 
 def main(config):
-    tokenizer = BaseTokenizer(config.model.path, config.model.tokenizer_mode, config.model.type)
     model = MODEL_REGISTRY[config.model.type](config)
 
-    logger.info(tokenizer)
-    logger.info(model)
+    logger.info(f'model: {model}')
+    logger.info(f'tokenizer: {model.get_tokenizer()}')
 
     if int(os.environ['RANK']) == 0:
         if 'eval' in config and len(config.eval.eval_pos):
@@ -51,7 +50,7 @@ def main(config):
                     acc_eval = VLMEval(config_for_eval)
                     eval_list.append(acc_eval)
                 else:
-                    ppl_eval = PerplexityEval(tokenizer.get_tokenizer(), config_for_eval)
+                    ppl_eval = PerplexityEval(model.get_tokenizer(), config_for_eval)
                     eval_list.append(ppl_eval)
 
         if 'eval' in config and 'pretrain' in config.eval.eval_pos:
@@ -61,7 +60,7 @@ def main(config):
                     logger.info(f'{config.eval.name} acc : {acc}')
             elif config.eval.type == 'img_txt':
                 for vlm_eval in eval_list:
-                    results = vlm_eval.eval(model, tokenizer)
+                    results = vlm_eval.eval(model)
                     logger.info(f'{config.eval.name} results : {results}')
             else:
                 for ppl_eval in eval_list:
@@ -80,9 +79,9 @@ def main(config):
             blockwise_opt.run_block_loop()
             dist.barrier()
         else:
-            dataset = BaseDataset(tokenizer.get_tokenizer(), config.calib, model.batch_process)
+            dataset = BaseDataset(model.get_tokenizer(), config.calib, model.batch_process)
             calib_data, padding_mask = dataset.get_calib_dataset()
-            padding_side = getattr(tokenizer.get_tokenizer(), 'padding_side', None)
+            padding_side = getattr(model.get_tokenizer(), 'padding_side', None)
             model.collect_first_block_input(calib_data,
                                             padding_mask,
                                             padding_side,
@@ -121,7 +120,7 @@ def main(config):
                     logger.info(f'{config.eval.name} acc : {acc}')
             elif config.eval.type == 'img_txt':
                 for vlm_eval in eval_list:
-                    results = vlm_eval.eval(model, tokenizer)
+                    results = vlm_eval.eval(model)
                     logger.info(f'{config.eval.name} results : {results}')
             else:
                 for ppl_eval in eval_list:
@@ -149,7 +148,7 @@ def main(config):
                     logger.info(f'{config.eval.name} acc : {acc}')
             elif config.eval.type == 'img_txt':
                 for vlm_eval in eval_list:
-                    results = vlm_eval.eval(model, tokenizer)
+                    results = vlm_eval.eval(model)
                     logger.info(f'{config.eval.name} results : {results}')
             else:
                 for ppl_eval in eval_list:
@@ -158,7 +157,7 @@ def main(config):
 
             if 'eval_token_consist' in config.eval and config.eval.eval_token_consist:
                 org_model = MODEL_REGISTRY[config.model.type](config)
-                token_consist_eval = TokenConsistencyEval(tokenizer.get_tokenizer(),
+                token_consist_eval = TokenConsistencyEval(model.get_tokenizer(),
                                                           config_for_eval)
                 consistency_ratio = token_consist_eval.eval(model, org_model)
                 logger.info(f'Token consistency ratio: {consistency_ratio}')

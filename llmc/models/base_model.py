@@ -8,7 +8,7 @@ import torch
 import torch.nn as nn
 from loguru import logger
 from torch.nn import functional as F
-from transformers import AutoConfig, AutoModelForCausalLM
+from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
 from transformers.feature_extraction_utils import BatchFeature
 
 from llmc.compression.quantization.module_utils import (
@@ -22,12 +22,15 @@ from llmc.compression.quantization.utils import (check_do_quant, check_w_only,
 class BaseModel(metaclass=ABCMeta):
     def __init__(self, config, device_map=None, use_cache=False):
         self.config = config
+        self.model_type = self.config.model.type
         self.model_path = self.config.model.path
+        self.tokenizer_mode = self.config.model.get('tokenizer_mode', 'fast')
         torch_dtype = self.config.model.torch_dtype
         self.torch_dtype = torch_dtype if torch_dtype == 'auto' else eval(torch_dtype)
         self.device_map = device_map
         self.use_cache = use_cache
         self.vlm_model = None
+        self.build_tokenizer()
         self.build_model()
         self.model.eval()
         self.find_blocks()
@@ -80,6 +83,22 @@ class BaseModel(metaclass=ABCMeta):
     @abstractmethod
     def has_bias(self):
         pass
+
+    def build_tokenizer(self):
+        if self.model_type not in ['Vit']:
+            assert self.tokenizer_mode in ['fast', 'slow']
+            self.tokenizer = AutoTokenizer.from_pretrained(
+                self.model_path, use_fast=self.tokenizer_mode, trust_remote_code=True
+            )
+            if 'Intern' in self.model_type:
+                self.tokenizer.padding_side = 'left'
+            if self.tokenizer.pad_token is None:
+                self.tokenizer.pad_token = self.tokenizer.eos_token
+        else:
+            self.tokenizer = None
+
+    def get_tokenizer(self):
+        return self.tokenizer
 
     def get_attention_rotary_layers(self):
         return []
