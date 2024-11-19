@@ -18,12 +18,9 @@ class SmoothQuant(BaseBlockwiseQuantization):
         self.alpha = special_config.get('alpha', 0.5)
 
     @torch.no_grad()
-    def filter_subset(self, layers_dict, prev_op):
+    def filter_subset(self, prev_op):
         if isinstance(prev_op[0], tuple(_LLMC_LN_TYPES_ + _TRANSFORMERS_LN_TYPES_)):
-            if 'mlp.experts.0.gate_proj' in list(layers_dict.keys()):
-                return False
-            else:
-                return True
+            return True
         else:
             return False
 
@@ -71,7 +68,7 @@ class SmoothQuant(BaseBlockwiseQuantization):
         inspect_module,
         subset_kwargs,
     ):
-        if not self.filter_subset(layers_dict, prev_op):
+        if not self.filter_subset(prev_op):
             logger.info('Do not transform this subset.')
             return
         layers = list(layers_dict.values())

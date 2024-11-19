@@ -17,8 +17,8 @@ from ..blockwise_optimization import BlockwiseOpt
 from .auto_clip import AutoClipper
 from .hadamard_utils import apply_exact_had_to_linear, get_hadK
 from .module_utils import (_LLMC_ATTN_MAP_, _LLMC_LINEAR_TYPES_,
-                           _LLMC_LN_TYPES_, _REALQUANT_LINEAR_MAP_,
-                           _TRANSFORMERS_LINEAR_TYPES_,
+                           _LLMC_LN_TYPES_, _LLMC_MOE_GATE_MAP_,
+                           _REALQUANT_LINEAR_MAP_, _TRANSFORMERS_LINEAR_TYPES_,
                            _TRANSFORMERS_LN_TYPES_, EffcientFakeQuantLinear,
                            FakeQuantLinear, LlmcActFn, OriginFloatLinear,
                            RotateLinear)
@@ -62,9 +62,6 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
             return aquantizer.fake_quant_act_static(act, args)
         else:
             return aquantizer.fake_quant_act_dynamic(act)
-
-    def logit(self, x):
-        return torch.log(x / (1 - x))
 
     def get_replacement_params(self, mode='fake_quant', w_only=False, name=None):
         params_dict = {}
@@ -324,6 +321,22 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
         extra_modules.update(matmul_modules)
         extra_modules.update(softmax_modules)
 
+    def replace_moe_gate(self, block):
+        moe_gate_layer = self.model.get_moe_gate(block)
+        if moe_gate_layer is not None:
+            logger.info(moe_gate_layer)
+            moe_gate_module = _LLMC_MOE_GATE_MAP_[self.config['model']['type']]
+            layers_dict = {'layers': moe_gate_layer}
+            self.model.replace_module_subset(
+                moe_gate_module,
+                block,
+                layers_dict,
+                self.block_idx,
+                self.get_replacement_params(
+                    mode='quant_moegate', w_only=self.w_only, name=None
+                ),
+            )
+
     @torch.no_grad()
     def collect_block_qparams(self, block):
         named_linears = self.model.get_block_linears(block)
@@ -367,6 +380,7 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
         return output
 
     def block_opt(self, block):
+        self.replace_moe_gate(block)
         block = block.cuda()
         named_linears = self.model.get_block_linears(block)
         extra_modules = self.model.get_extra_modules(block)
@@ -444,7 +458,6 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
 
         if self.act_static:
             self.register_non_linear_qparams(block, input_feat)
-            self.register_except_subsets_qparams(block, input_feat)
 
         self.set_non_linear_mode('fake_quant', block, False)
 
@@ -487,25 +500,6 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
 
     def rehook_next_subset(self, block, subset, next_subset):
         self.subset_init(next_subset)
-
-        layers_except_subsets = self.model.get_linears_except_subsets(block)
-        if (
-            layers_except_subsets
-            and not isinstance(
-                layers_except_subsets[list(layers_except_subsets.keys())[0]],
-                FakeQuantLinear
-            )
-        ):
-            self.model.replace_module_subset(
-                FakeQuantLinear,
-                block,
-                {'layers': layers_except_subsets},
-                self.block_idx,
-                self.get_replacement_params(
-                    mode='fake_quant', w_only=self.w_only, name=None
-                ),
-            )
-
         self.model.replace_module_subset(
             FakeQuantLinear,
             block,
@@ -531,14 +525,6 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
         for _m in layers:
             weights.append(_m.weight)
         return weights
-
-    @torch.no_grad()
-    def register_except_subsets_qparams(self, block, input_feat):
-        layers_dict = self.model.get_linears_except_subsets(block)
-        for name, layer in layers_dict.items():
-            input_tensors = copy.deepcopy(input_feat[name])
-            self.register_act_qparams({name: layer}, input_tensors)
-            del input_tensors
 
     @torch.no_grad()
     def register_non_linear_qparams(self, block, input_feat):

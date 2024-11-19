@@ -34,11 +34,6 @@ class DeepseekV2(BaseModel):
     def has_bias(self):
         return False
 
-    def get_linears_except_subsets(self, block):
-        return {
-            'self_attn.o_proj': block.self_attn.o_proj
-        }
-
     def get_layernorms_in_block(self, block):
         return {
             'input_layernorm': block.input_layernorm,
@@ -57,13 +52,21 @@ class DeepseekV2(BaseModel):
     def get_softmax_in_block(self, block):
         return {'self_attn.softmax': block.self_attn.softmax}
 
+    def get_head_layers(self):
+        return [self.model.lm_head]
+
+    def get_pre_head_layernorm_layers(self):
+        return [self.model.model.norm]
+
+    def get_moe_gate(self, block):
+        if hasattr(block.mlp, 'gate'):
+            return {'mlp.gate': block.mlp.gate}
+        else:
+            return None
+
     def get_subsets_in_block(self, block):
-
         layers = []
-
-        # attn input
         if hasattr(block.self_attn, 'q_proj'):
-
             layers.append(
                 {
                     'layers': {
@@ -96,9 +99,21 @@ class DeepseekV2(BaseModel):
                     'input': ['self_attn.q_b_proj'],
                     'inspect': block.self_attn.q_b_proj,
                     'has_kwargs': False,
+                    'need_rotate_alone': True,
+                    'pre_layers': [block.self_attn.q_a_proj],
+                    'post_layers': [block.self_attn.q_b_proj]
                 }
             )
 
+        layers.append(
+            {
+                'layers': {'self_attn.o_proj': block.self_attn.o_proj},
+                'prev_op': [None],
+                'input': ['self_attn.o_proj'],
+                'inspect': block.self_attn.o_proj,
+                'has_kwargs': False,
+            },
+        )
         layers.append(
             {
                 'layers': {'self_attn.kv_b_proj': block.self_attn.kv_b_proj},
@@ -106,6 +121,7 @@ class DeepseekV2(BaseModel):
                 'input': ['self_attn.kv_b_proj'],
                 'inspect': block.self_attn.kv_b_proj,
                 'has_kwargs': False,
+                'skip_rotate': True
             }
         )
 
@@ -119,6 +135,7 @@ class DeepseekV2(BaseModel):
                            for i in range(len(block.mlp.experts))},
                         'mlp.shared_experts.gate_proj': block.mlp.shared_experts.gate_proj, # noqa
                         'mlp.shared_experts.up_proj': block.mlp.shared_experts.up_proj,
+                        'mlp.gate.fc': block.mlp.gate.fc,
                     },
                     'prev_op': [block.post_attention_layernorm],
                     'input': ['mlp'],

@@ -131,7 +131,7 @@ class Awq(BaseBlockwiseQuantization):
                     out = out[0]
 
                 if self.padding_mask and org_out.shape[1] == self.padding_mask[i].shape[-1]:
-                    org_out = org_out * self.padding_mask[i].unsqueeze(dim=-1).to(org_out.device) # noqa
+                    org_out = org_out * self.padding_mask[i].unsqueeze(dim=-1).to(org_out.device)  # noqa
                     out = out * self.padding_mask[i].unsqueeze(dim=-1).to(out.device)
 
                 loss = (org_out - out).float().pow(2).mean().item()
@@ -144,13 +144,31 @@ class Awq(BaseBlockwiseQuantization):
                 loss_mean += x.shape[0] * 1.0 / n_samples * loss
                 scales_mean += x.shape[0] * 1.0 / n_samples * scales
                 inspect_module.load_state_dict(org_sd)
-            is_best = loss_mean < best_error
-            if is_best:
-                best_error = loss_mean
-                best_scales = scales_mean
-        best_scales = best_scales.view(-1)
-        dist.all_reduce(best_scales, op=dist.ReduceOp.SUM)
-        best_scales /= int(os.environ['WORLD_SIZE'])
+                is_best = loss_mean < best_error
+                if is_best:
+                    best_error = loss_mean
+                    best_scales = scales_mean
+
+        # Synchronize across ranks
+        best_error_tensor = torch.tensor([best_error], device='cuda')
+        dist.all_reduce(best_error_tensor, op=dist.ReduceOp.MIN)
+        global_best_error = best_error_tensor.item()
+
+        # Identify the rank with the minimum loss
+        global_best_rank = torch.tensor([dist.get_rank()
+                                        if best_error == global_best_error
+                                        else -1],
+                                        device='cuda')
+        dist.all_reduce(global_best_rank, op=dist.ReduceOp.MAX)
+        global_best_rank = global_best_rank.item()
+
+        # Broadcast the best scales from the rank with the minimum loss to all ranks
+        if dist.get_rank() == global_best_rank:
+            dist.broadcast(best_scales, src=global_best_rank)
+        else:
+            best_scales = torch.zeros_like(best_scales, device='cuda')
+            dist.broadcast(best_scales, src=global_best_rank)
+
         del org_out_dict
         gc.collect()
         torch.cuda.empty_cache()
@@ -203,11 +221,8 @@ class Awq(BaseBlockwiseQuantization):
             len(prev_op) in (0, 1)
         ), 'Only support single prev_op. If multi prev_ops, code need to be updated.'
 
-        if len(prev_op) == 0:
+        if len(prev_op) == 0 or (len(prev_op) == 1 and prev_op[0] is None):
             logger.info('Cannot apply scale. Do not transform this subset.')
-            return
-
-        if 'mlp.experts.0.gate_proj' in list(layers_dict.keys()):
             return
 
         if isinstance(
