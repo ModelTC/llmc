@@ -308,6 +308,7 @@ class GPTQ(BaseBlockwiseQuantization):
         for i in range(len(self.blocks)):
             block = self.blocks[i]
             block = block.cuda()
+            self.replace_moe_gate(block)
             self.collect_block_qparams(block)
             block = block.cpu()
 

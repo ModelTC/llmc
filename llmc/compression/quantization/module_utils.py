@@ -818,7 +818,7 @@ class FakeQuantLinear(nn.Module):
         self.dynamic_quant_weight = False
         self.dynamic_quant_tmp_weight = False
 
-    def forward(self, x):
+    def forward(self, x, dtype=None):
         if hasattr(self, 'buf_rotate') and self.buf_rotate:
             x = self.rotater.rotate(x)
 
@@ -837,9 +837,19 @@ class FakeQuantLinear(nn.Module):
         elif self.dynamic_quant_tmp_weight:
             self.tmp_weight = self.w_qdq(self)
 
+        org_dtype = self.tmp_weight.data.dtype
+        if dtype is not None:
+            self.convert_dtype(dtype)
+
         x = torch.functional.F.linear(x, self.tmp_weight, self.tmp_bias)
 
+        self.convert_dtype(org_dtype)
         return x
+
+    def convert_dtype(self, dtype):
+        self.tmp_weight.data = self.tmp_weight.data.to(dtype)
+        if self.bias is not None:
+            self.bias.data = self.bias.data.to(dtype)
 
     @classmethod
     @torch.no_grad()
@@ -964,21 +974,32 @@ class LlmcDeepSeekV2MoEGate(nn.Module):
         # topk selection algorithm
         self.norm_topk_prob = module.config.norm_topk_prob
         self.gating_dim = module.config.hidden_size
-        self.fc = nn.Linear(self.gating_dim, self.n_routed_experts, bias=False)
-        self.fc.weight = module.weight
+        self.fc = getattr(module, 'fc',
+                          nn.Linear(self.gating_dim, self.n_routed_experts, bias=False))
+        if not hasattr(module, 'fc'):
+            self.fc.weight = module.weight
 
     @property
     def weight(self):
         return self.fc.weight
 
+    def _fp32_forward(self, hidden_states):
+        if isinstance(self.fc, tuple(_LLMC_LINEAR_TYPES_)):
+            logits = self.fc(hidden_states.type(torch.float32), dtype=torch.float32)
+        else:
+            org_dtype = self.fc.weight.dtype
+            self.fc.weight.data = self.fc.weight.data.to(torch.float32)
+            logits = self.fc(hidden_states.type(torch.float32))
+            self.fc.weight.data = self.fc.weight.data.to(org_dtype)
+        return logits
+
     def forward(self, hidden_states):
         bsz, seq_len, h = hidden_states.shape
         # compute gating score
         hidden_states = hidden_states.view(-1, h)
-        org_dtype = self.fc.weight.dtype
-        self.fc.weight.data = self.fc.weight.data.to(torch.float32)
-        logits = self.fc(hidden_states.type(torch.float32))
-        self.fc.weight.data = self.fc.weight.data.to(org_dtype)
+
+        logits = self._fp32_forward(hidden_states)
+
         if self.scoring_func == 'softmax':
             scores = logits.softmax(dim=-1, dtype=torch.float32)
         else:

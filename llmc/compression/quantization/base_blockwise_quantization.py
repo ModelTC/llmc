@@ -109,6 +109,7 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
                 'softmax_a_qdq': partial(self.a_qdq, aquantizer=self.aquantizer)
                 if self.quant_softmax else None
             }
+
         elif mode == 'quant_act_fn':
             params_dict = {
                 'a_qdq': partial(self.a_qdq, aquantizer=self.aquantizer)
@@ -324,7 +325,6 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
     def replace_moe_gate(self, block):
         moe_gate_layer = self.model.get_moe_gate(block)
         if moe_gate_layer is not None:
-            logger.info(moe_gate_layer)
             moe_gate_module = _LLMC_MOE_GATE_MAP_[self.config['model']['type']]
             layers_dict = {'layers': moe_gate_layer}
             self.model.replace_module_subset(
@@ -333,7 +333,7 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
                 layers_dict,
                 self.block_idx,
                 self.get_replacement_params(
-                    mode='quant_moegate', w_only=self.w_only, name=None
+                    mode=None, w_only=self.w_only, name=None
                 ),
             )
 
@@ -554,13 +554,13 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
         ):
             scales = scales.cuda()
             dist.all_reduce(scales, op=dist.ReduceOp.SUM)
-            scales = (scales / world_size).cpu()
+            scales = (scales / world_size)
 
             for name, layer in layers_dict.items():
                 layer.register_buffer(f'buf_act_scales_{i}', scales)
-                layer.register_buffer(f'buf_act_zeros_{i}', zeros)
-                layer.register_buffer(f'buf_act_qmin_{i}', qmin)
-                layer.register_buffer(f'buf_act_qmax_{i}', qmax)
+                layer.register_buffer(f'buf_act_zeros_{i}', zeros.cuda())
+                layer.register_buffer(f'buf_act_qmin_{i}', qmin.cuda())
+                layer.register_buffer(f'buf_act_qmax_{i}', qmax.cuda())
 
     @torch.no_grad()
     def apply_scale(self, scales, prev_op, layers):
@@ -808,7 +808,7 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
                 self.get_replacement_params(mode=quant_format, w_only=self.w_only),
                 keep_device=keep_device
             )
-            self.set_non_linear_mode(quant_format, self.model.model, False)
+        self.set_non_linear_mode(quant_format, self.model.model, False)
 
         if self.model.vlm_model is not None:
             logger.info(f'Now, the vlm_model is: {self.model.vlm_model}')
