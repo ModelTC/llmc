@@ -121,15 +121,10 @@ class InternVL2(InternLM2):
             if hasattr(self.model_config, 'use_cache'):
                 self.model_config.use_cache = False
 
-        tokenizer = AutoTokenizer.from_pretrained(
-            self.model_path,
-            trust_remote_code=True
-        )
         IMG_CONTEXT_TOKEN = '<IMG_CONTEXT>'
-        self.vlm_model.img_context_token_id = tokenizer.convert_tokens_to_ids(IMG_CONTEXT_TOKEN)
+        self.vlm_model.img_context_token_id = self.tokenizer.convert_tokens_to_ids(IMG_CONTEXT_TOKEN) # noqa
 
     def batch_process(self, img_qas):
-        tokenizer = AutoTokenizer.from_pretrained(self.model_path, trust_remote_code=True)
         questions = []
         pixel_values_list = []
         num_patches_list = []
@@ -171,11 +166,11 @@ class InternVL2(InternLM2):
                 image_tokens = IMG_START_TOKEN + IMG_CONTEXT_TOKEN * self.vlm_model.num_image_token * _num_patches_i + IMG_END_TOKEN # noqa
                 query = query.replace('<image>', image_tokens, 1)
             queries.append(query)
-        tokenizer.padding_side = 'left'
-        model_inputs = tokenizer(queries, return_tensors='pt', padding=True)
+        assert self.tokenizer.padding_side == 'left'
+        model_inputs = self.tokenizer(queries, return_tensors='pt', padding=True)
         input_ids = model_inputs['input_ids']
         attention_mask = model_inputs['attention_mask']
-        eos_token_id = tokenizer.convert_tokens_to_ids(template.sep)
+        eos_token_id = self.tokenizer.convert_tokens_to_ids(template.sep)
         generation_config['eos_token_id'] = eos_token_id
 
         inputs = {
