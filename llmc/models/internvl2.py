@@ -124,6 +124,19 @@ class InternVL2(InternLM2):
         IMG_CONTEXT_TOKEN = '<IMG_CONTEXT>'
         self.vlm_model.img_context_token_id = self.tokenizer.convert_tokens_to_ids(IMG_CONTEXT_TOKEN) # noqa
 
+        self.default_image_prompt_template = {
+            'single': '<image>\n',
+            'multiple': 'Image-<|idx|>: <image>\n'
+        }
+        logger.warning(
+            f'InternVL2 default_image_prompt_template: {self.default_image_prompt_template}'
+        )
+        logger.warning(
+            'Default template refer to the link https://huggingface.co/OpenGVLab/InternVL2-2B. '
+            'If you want a custom template, you can change it. '
+            'Besides, you can also put the <image> into your calib dataset.'
+        )
+
     def batch_process(self, img_qas):
         questions = []
         pixel_values_list = []
@@ -141,8 +154,22 @@ class InternVL2(InternLM2):
                     pixel_values_list.append(pixel_values)
                     _num_patches_i.append(pixel_values.size(0))
             num_patches_list.append(_num_patches_i)
+            if img_path is not None:
+                if img_qas[idx]['question'].count('<image>') == 0:
+                    prefix = ''
+                    if len(img_path) == 1:
+                        prefix = self.default_image_prompt_template['single']
+                    else:
+                        for n in range(len(img_path)):
+                            prefix = prefix + self.default_image_prompt_template['multiple'].replace('<|idx|>', f'{n+1}') # noqa
+                    img_qas[idx]['question'] = prefix + img_qas[idx]['question']
+                else:
+                    assert img_qas[idx]['question'].count('<image>') == len(img_path), f"{img_qas[idx]['img']} this data prompt is wrong." # noqa
             questions.append(img_qas[idx]['question'])
-        pixel_values = torch.cat(pixel_values_list, dim=0) if len(pixel_values_list) > 0 else None
+
+        pixel_values = (
+            torch.cat(pixel_values_list, dim=0) if len(pixel_values_list) > 0 else None
+        )
         generation_config = dict()
 
         IMG_CONTEXT_TOKEN = '<IMG_CONTEXT>'

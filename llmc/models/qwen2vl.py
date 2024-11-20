@@ -52,8 +52,8 @@ class Qwen2VL(Qwen2):
         self.max_pixels = 1280 * 28 * 28
         logger.warning(f'min_pixels is set to: {self.min_pixels}')
         logger.warning(f'max_pixels is set to: {self.max_pixels}')
-        logger.warning('You can refer the link https://huggingface.co/Qwen/Qwen2-VL-2B-Instruct '
-                       'to get more info of image Resolution for performance boost.')
+        logger.warning('You can refer to the link https://huggingface.co/Qwen/Qwen2-VL-2B-Instruct '
+                       'to get more info of image resolution for performance boost.')
         self.processor = AutoProcessor.from_pretrained(
             self.model_path,
             min_pixels=self.min_pixels,
