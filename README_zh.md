@@ -108,7 +108,7 @@ docker pull registry.cn-hangzhou.aliyuncs.com/yongyang/llmcompression:pure-lates
 
 - 💥**支持的格式**: 支持 ✨`量化`（整型和浮点）和 ✨`稀疏化`，具体包括 ✅权重激活量化、✅权重量化、✅混合精度量化，以及 ✅结构化 和 ✅非结构化稀疏化。
 
-- 💥**广泛模型支持**: 支持多种 ✨`LLM模型`，包括 ✅LLama、✅Mistral、✅InternLM2、✅Qwen2 等，以及 ✅MOE(DeepSeekv2, Deepseekv2.5) 和 ✅VLM(Llama3.2-vision, Qwen-vl) 模型（参见[支持的模型列表](#supported-model-list)）。
+- 💥**广泛模型支持**: 支持多种 ✨`LLM模型`，包括 ✅LLama、✅Mistral、✅InternLM2、✅Qwen2 等，以及 ✅MOE(DeepSeekv2, Deepseekv2.5) 和 ✅VLM(Llama3.2-vision, Qwen2-vl) 模型（参见[支持的模型列表](#supported-model-list)）。
 
 - 💥**多后端兼容性**: 无缝集成多个后端，增强部署灵活性。多种量化设置和模型格式兼容广泛的后端和硬件平台，例如 ✅VLLM、✅Sglang、✅LightLLM、✅MLC-LLM 和 ✅AutoAWQ，使其高度灵活（参见✨`推理后端` 章节 [此处](https://llmc-zhcn.readthedocs.io/en/latest/)）。
 
@@ -164,7 +164,9 @@ docker pull registry.cn-hangzhou.aliyuncs.com/yongyang/llmcompression:pure-lates
 
 ✅ [Qwen MOE](https://huggingface.co/Qwen/Qwen1.5-MoE-A2.7B)
 
-✅ [Qwen-VL](https://huggingface.co/Qwen/Qwen-VL)
+✅ [Qwen2-VL](https://huggingface.co/Qwen/Qwen2-VL-7B-Instruct)
+
+✅ [InternVL2](https://huggingface.co/OpenGVLab/InternVL2-2B)
 
 你可以参考 `llmc/models/*.py` 文件添加自己的模型类型。
 

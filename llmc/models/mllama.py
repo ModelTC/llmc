@@ -38,7 +38,8 @@ class Mllama(Llama):
         self.model = self.vlm_model.language_model
         self.model_config = self.vlm_model_config.text_config
 
-    def batch_process(self, img_qas):
+    def batch_process(self, img_qas, calib_or_eval='eval'):
+        assert calib_or_eval == 'calib' or calib_or_eval == 'eval'
         if len(img_qas) == 1:
             return self.single_process(img_qas[0])
         processor = AutoProcessor.from_pretrained(self.model_path)

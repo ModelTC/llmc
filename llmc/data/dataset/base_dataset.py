@@ -111,8 +111,6 @@ class BaseDataset(metaclass=ABCMeta):
             preproc = PREPROC_REGISTRY[self.preproc]
             samples = preproc(
                 self.calib_dataset,
-                self.tokenizer,
-                self.batch_process,
                 self.n_samples
             )
         else:
@@ -222,15 +220,15 @@ class BaseDataset(metaclass=ABCMeta):
     def img_txt_group_samples_with_mask(self, samples):
         calib_samples = []
         if self.calib_bs < 0:
-            calib_samples.append(self.batch_process(samples))
+            calib_samples.append(self.batch_process(samples, calib_or_eval='calib'))
         elif self.calib_bs == 1:
-            calib_samples = [self.batch_process([sample]) for sample in samples]
+            calib_samples = [self.batch_process([sample], calib_or_eval='calib') for sample in samples] # noqa
         elif self.calib_bs > 1:
             for i in range(0, len(samples), self.calib_bs):
                 start = i
                 end = min(i + self.calib_bs, len(samples))
                 batch = samples[start:end]
-                calib_samples.append(self.batch_process(batch))
+                calib_samples.append(self.batch_process(batch, calib_or_eval='calib'))
         return calib_samples
 
     def img_group_samples_wo_mask(self, samples):  # without mask

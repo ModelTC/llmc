@@ -60,8 +60,10 @@ class Qwen2VL(Qwen2):
             max_pixels=self.max_pixels
         )
 
-    def batch_process(self, img_qas):
+    def batch_process(self, img_qas, calib_or_eval='eval'):
+        assert calib_or_eval == 'calib' or calib_or_eval == 'eval'
         messages = []
+        answers = []
         for idx in range(len(img_qas)):
             img_path = img_qas[idx]['img']
             if img_path is not None:
@@ -87,10 +89,19 @@ class Qwen2VL(Qwen2):
                     }
                 ]
             messages.append(message)
+            answers.append(img_qas[idx]['answer'] + '<|im_end|>')
         texts = [
             self.processor.apply_chat_template(msg, tokenize=False, add_generation_prompt=True)
             for msg in messages
         ]
+        if calib_or_eval == 'calib' and self.config['calib'].get('add_answer', False):
+            texts = [
+                texts[n] + answers[n]
+                for n in range(len(texts))
+            ]
+        if calib_or_eval == 'calib':
+            logger.info(f'Calib data is:\n{texts}')
+
         image_inputs, video_inputs = process_vision_info(messages)
         inputs = self.processor(
             text=texts,

@@ -108,7 +108,7 @@ docker pull registry.cn-hangzhou.aliyuncs.com/yongyang/llmcompression:pure-lates
 
 - 💥**サポートされているフォーマット**: ✨`量子化`（整数および浮動小数点）と ✨`疎性` の両方をサポートし、具体的には ✅重量-活性化、✅重量のみ、✅混合精度量子化、および ✅構造化疎性 と ✅非構造化疎性 を含みます。
 
-- 💥**広範なモデルサポート**: 多様な ✨`LLMモデル` をサポートしており、✅LLama、✅Mistral、✅InternLM2、✅Qwen2 など、さらに ✅✅MOE(DeepSeekv2, Deepseekv2.5) モデルや ✅VLM(Llama3.2-vision, Qwen-vl) モデルもサポートしています（[サポートされているモデルリスト](#supported-model-list)を参照してください）。
+- 💥**広範なモデルサポート**: 多様な ✨`LLMモデル` をサポートしており、✅LLama、✅Mistral、✅InternLM2、✅Qwen2 など、さらに ✅✅MOE(DeepSeekv2, Deepseekv2.5) モデルや ✅VLM(Llama3.2-vision, Qwen2-vl) モデルもサポートしています（[サポートされているモデルリスト](#supported-model-list)を参照してください）。
 
 - 💥**マルチバックエンドの互換性**: 複数のバックエンドとシームレスに統合し、展開の柔軟性を強化します。さまざまな量子化設定およびモデルフォーマットが、✅VLLM、✅Sglang、✅LightLLM、✅MLC-LLM、✅AutoAWQ など、幅広いバックエンドおよびハードウェアプラットフォームと互換性があり、高い柔軟性を実現しています（`Backend`セクションは[こちら](https://llmc-en.readthedocs.io/en/latest/)をご覧ください）。
 
@@ -164,7 +164,9 @@ docker pull registry.cn-hangzhou.aliyuncs.com/yongyang/llmcompression:pure-lates
 
 ✅ [Qwen MOE](https://huggingface.co/Qwen/Qwen1.5-MoE-A2.7B)
 
-✅ [Qwen-VL](https://huggingface.co/Qwen/Qwen-VL)
+✅ [Qwen2-VL](https://huggingface.co/Qwen/Qwen2-VL-7B-Instruct)
+
+✅ [InternVL2](https://huggingface.co/OpenGVLab/InternVL2-2B)
 
 独自のモデルタイプを追加するには、`llmc/models/*.py` ファイルを参照してください。
 

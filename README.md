@@ -110,7 +110,7 @@ docker pull registry.cn-hangzhou.aliyuncs.com/yongyang/llmcompression:pure-lates
 
 - 💥**Supported Formats**: Supports both ✨`quantization` (integer and floating-point) and ✨`sparsity`, specifically including ✅weight-activation, ✅weight-only, ✅mixed-precision quantization, as well as ✅structured and ✅unstructured sparsity.
 
-- 💥**Wide Model Support**: Offers support for a diverse array of ✨`LLM models`, including ✅LLama, ✅Mistral, ✅InternLM2, ✅Qwen2, among others, as well as ✅MOE(DeepSeekv2, Deepseekv2.5) and ✅VLM(Llama3.2-vision, Qwen-vl) models (see [Supported Model List](#supported-model-list)).
+- 💥**Wide Model Support**: Offers support for a diverse array of ✨`LLM models`, including ✅LLama, ✅Mistral, ✅InternLM2, ✅Qwen2, among others, as well as ✅MOE(DeepSeekv2, Deepseekv2.5) and ✅VLM(Llama3.2-vision, Qwen2-vl) models (see [Supported Model List](#supported-model-list)).
 
 - 💥**Multi-backend Compatibility**: Seamlessly integrates with various backends for enhanced deployment flexibility. Multiple quantization settings and model formats are compatible with a wide range of backends and hardware platforms, such as ✅VLLM, ✅Sglang, ✅LightLLM, ✅MLC-LLM, and ✅AutoAWQ, making it highly versatile(see Section `Backend` [here](https://llmc-en.readthedocs.io/en/latest/)).
 
@@ -166,7 +166,9 @@ Please refer to the 🚀`Quick Start` section in the [documentation](https://llm
 
 ✅ [Qwen MOE](https://huggingface.co/Qwen/Qwen1.5-MoE-A2.7B)
 
-✅ [Qwen-VL](https://huggingface.co/Qwen/Qwen-VL)
+✅ [Qwen2-VL](https://huggingface.co/Qwen/Qwen2-VL-7B-Instruct)
+
+✅ [InternVL2](https://huggingface.co/OpenGVLab/InternVL2-2B)
 
 You can add your own model type referring to files under `llmc/models/*.py`.
 

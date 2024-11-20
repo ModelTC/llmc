@@ -102,7 +102,7 @@ def pileval_omni(calib_dataset, tokenizer, n_samples, seq_len):
 
 
 @PREPROC_REGISTRY
-def vlm_general(calib_dataset, tokenizer, batch_process, n_samples):
+def vlm_general(calib_dataset, n_samples):
     img_qa_json = os.path.join(calib_dataset, 'img_qa.json')
     fp = open(img_qa_json)
     img_qas = json.load(fp)

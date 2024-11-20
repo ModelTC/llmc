@@ -33,9 +33,11 @@ class Llava(Llama):
 
         self.processor = AutoProcessor.from_pretrained(self.model_path)
 
-    def batch_process(self, img_qas):
+    def batch_process(self, img_qas, calib_or_eval='eval'):
+        assert calib_or_eval == 'calib' or calib_or_eval == 'eval'
         messages = []
         images = []
+        answers = []
         for idx in range(len(img_qas)):
             img_path = img_qas[idx]['img']
             image = Image.open(img_path)
@@ -50,10 +52,19 @@ class Llava(Llama):
             ]
             messages.append(message)
             images.append(image)
+            answers.append(img_qas[idx]['answer'])
         texts = [
-            self.processor.apply_chat_template(msg, add_generation_prompt=True)
-            for msg in messages
+            self.processor.apply_chat_template(messages[n], add_generation_prompt=True)
+            for n in range(len(messages))
         ]
+        if calib_or_eval == 'calib' and self.config['calib'].get('add_answer', False):
+            texts = [
+                texts[n] + ' ' + answers[n]
+                for n in range(len(texts))
+            ]
+        if calib_or_eval == 'calib':
+            logger.info(f'Calib data is:\n{texts}')
+
         inputs = self.processor(
             text=texts,
             images=images,

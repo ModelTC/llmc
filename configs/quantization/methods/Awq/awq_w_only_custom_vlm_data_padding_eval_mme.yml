@@ -18,17 +18,13 @@ calib:
     padding: True
     seed: *seed
 eval:
-    eval_pos: [pretrain, transformed, fake_quant]
-    name: wikitext2
+    eval_pos: [pretrain, fake_quant]
+    type: img_txt
+    name: MME
     download: False
-    path: eval data path
-    seq_len: 2048
-    # For 7B / 13B model eval, bs can be set to "1", and inference_per_block can be set to "False".
-    # For 70B model eval, bs can be set to "20", and inference_per_block can be set to "True".
-    bs: 1
+    path: MME dataset path
+    bs: 16
     inference_per_block: False
-    # Consistency of tokens between original and fake-quantized model output.
-    eval_token_consist: False
 quant:
     method: Awq
     weight:
