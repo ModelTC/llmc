@@ -156,7 +156,7 @@ class Awq(BaseBlockwiseQuantization):
 
         # Identify the rank with the minimum loss
         global_best_rank = torch.tensor([dist.get_rank()
-                                        if best_error == global_best_error
+                                        if abs(best_error - global_best_error) < 1e-5
                                         else -1],
                                         device='cuda')
         dist.all_reduce(global_best_rank, op=dist.ReduceOp.MAX)

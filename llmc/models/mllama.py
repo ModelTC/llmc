@@ -7,7 +7,7 @@ try:
 except Exception:
     logger.warning(
         'Can not import MllamaForConditionalGeneration. '
-        'Please upgrade transformers.'
+        'If you need it, please upgrade transformers.'
     )
 
 from llmc.utils.registry_factory import MODEL_REGISTRY
