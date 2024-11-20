@@ -23,9 +23,9 @@
 
 **Chinese doc** is [here](https://llmc-zhcn.readthedocs.io/en/latest/).
 
-**docker hub** is [here](https://hub.docker.com/r/llmcompression/llmc).
+**Docker hub** is [here](https://hub.docker.com/r/llmcompression/llmc).
 
-**aliyun docker**: `registry.cn-hangzhou.aliyuncs.com/yongyang/llmcompression:[tag]`
+**Aliyun docker**: `registry.cn-hangzhou.aliyuncs.com/yongyang/llmcompression:[tag]`
 
 You can download the Docker image that can run llmc with the following command. Users in mainland China are recommended to use Alibaba Cloud Docker.
 
@@ -47,6 +47,10 @@ docker pull registry.cn-hangzhou.aliyuncs.com/yongyang/llmcompression:pure-lates
 - [Tencent QQ Group](http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=I9IGPWWj8uuRXWH3_ELWjouf6gkIMgUl&authKey=GA3WbFAsm90ePJf%2FCbc7ZyXXq4ShQktlBaLxgqS5yuSPAsr3%2BDKMRdosUiLYoilO&noverify=0&group_code=526192592)
 
 ## Latest News
+
+- **Nov 20, 2024:** 🔥 We now fully support the quantization of ✨`DeepSeekv2(2.5)` and other `MOE` models, as well as ✨`Qwen2VL`, `Llama3.2`, and other `VLM` models. Supported quantization methods include ✅integer quantization, ✅floating-point quantization, and advanced algorithms like ✅AWQ, ✅GPTQ, ✅SmoothQuant, and ✅Quarot.
+
+- **Nov 12, 2024:** 🔥 We have added support for 💥`static per-tensor activation quantization` across various models and algorithms, covering ✅integer quantization and ✅floating-point quantization to further optimize performance and efficiency. Additionally, we now support exporting ✨`real quantized models` and using the [VLLM](https://github.com/vllm-project/vllm) and [SGLang](https://github.com/sgl-project/sglang) backends for inference acceleration. For more details, refer to the [VLLM documentation](https://llmc-zhcn.readthedocs.io/en/latest/backend/vllm.html) and [SGLang documentation](https://llmc-zhcn.readthedocs.io/en/latest/backend/sglang.html).
 
 - **Sep 26, 2024:** 🔥 We now support exporting 💥`FP8 quantized(E4M3, E5M2)` models from 🚀`LLMC` to advanced inference backends such as [VLLM](https://github.com/vllm-project/vllm) and [SGLang](https://github.com/sgl-project/sglang). For detailed usage, please refer to the [VLLM documentation](https://llmc-en.readthedocs.io/en/latest/backend/vllm.html) and [SGLang documentation](https://llmc-en.readthedocs.io/en/latest/backend/sglang.html).
 
@@ -106,11 +110,11 @@ docker pull registry.cn-hangzhou.aliyuncs.com/yongyang/llmcompression:pure-lates
 
 - 💥**Supported Formats**: Supports both ✨`quantization` (integer and floating-point) and ✨`sparsity`, specifically including ✅weight-activation, ✅weight-only, ✅mixed-precision quantization, as well as ✅structured and ✅unstructured sparsity.
 
-- 💥**Wide Model Support**: Offers support for a diverse array of ✨`LLM models`, including ✅LLama, ✅Mistral, ✅InternLM2, ✅Qwen2, among others, as well as ✅MOE and ✅VLM models (see [Supported Model List](#supported-model-list)).
+- 💥**Wide Model Support**: Offers support for a diverse array of ✨`LLM models`, including ✅LLama, ✅Mistral, ✅InternLM2, ✅Qwen2, among others, as well as ✅MOE(DeepSeekv2, Deepseekv2.5) and ✅VLM(Llama3.2-vision, Qwen-vl) models (see [Supported Model List](#supported-model-list)).
 
 - 💥**Multi-backend Compatibility**: Seamlessly integrates with various backends for enhanced deployment flexibility. Multiple quantization settings and model formats are compatible with a wide range of backends and hardware platforms, such as ✅VLLM, ✅Sglang, ✅LightLLM, ✅MLC-LLM, and ✅AutoAWQ, making it highly versatile(see Section `Backend` [here](https://llmc-en.readthedocs.io/en/latest/)).
 
-- 💥**Performance Efficiency**: Enables quantization of large LLMs, such as ✨`Llama3.1-405B` and ✨`OPT-175B`, with PPL evaluation on a `single A100/H100/H800 GPU`.
+- 💥**Performance Efficiency**: Enables quantization of large LLMs, such as ✨`Llama3.1-405B` and ✨`DeepSeekV2-236B`, with PPL evaluation on a `single A100/H100/H800 GPU`.
 
 ## Usage
 
@@ -155,6 +159,14 @@ Please refer to the 🚀`Quick Start` section in the [documentation](https://llm
 ✅ [MiniCPM](https://github.com/OpenBMB/MiniCPM)
 
 ✅ [SmolLM](https://huggingface.co/collections/HuggingFaceTB/smollm-6695016cad7167254ce15966)
+
+✅ [DeepSeekv2.5](https://huggingface.co/deepseek-ai/DeepSeek-V2.5)
+
+✅ [LLaMA V3.2 Vision](https://huggingface.co/meta-llama/Llama-3.2-11B-Vision)
+
+✅ [Qwen MOE](https://huggingface.co/Qwen/Qwen1.5-MoE-A2.7B)
+
+✅ [Qwen-VL](https://huggingface.co/Qwen/Qwen-VL)
 
 You can add your own model type referring to files under `llmc/models/*.py`.
 

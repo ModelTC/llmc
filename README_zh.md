@@ -23,7 +23,7 @@
 
 **中文文档**在[此处](https://llmc-zhcn.readthedocs.io/en/latest/)。
 
-**docker hub**在[此处](https://hub.docker.com/r/llmcompression/llmc)。
+**Docker hub**在[此处](https://hub.docker.com/r/llmcompression/llmc)。
 
 **阿里云docker**: `registry.cn-hangzhou.aliyuncs.com/yongyang/llmcompression:[tag]`
 
@@ -48,11 +48,15 @@ docker pull registry.cn-hangzhou.aliyuncs.com/yongyang/llmcompression:pure-lates
 
 ## 最新消息
 
+- **2024年11月20日:** 🔥 我们现已全面支持✨`DeepSeekv2(2.5)`等`MOE`模型以及✨`Qwen2VL`、`Llama3.2`等`VLM`模型的量化。支持的量化方案包括✅整型量化、✅浮点量化，以及✅AWQ、✅GPTQ、✅SmoothQuant 和 ✅Quarot 等先进算法。
+
+- **2024年11月12日:** 🔥 我们新增对各种模型和算法的💥`激活静态 per-tensor量化`支持，涵盖✅整型量化和✅浮点量化，进一步优化性能和效率。同时支持导出`✨真实量化模型`，并使用 [VLLM](https://github.com/vllm-project/vllm)和[SGLang](https://github.com/sgl-project/sglang)后端进行推理加速，具体请参阅[VLLM文档](https://llmc-zhcn.readthedocs.io/en/latest/backend/vllm.html)和[SGLang文档](https://llmc-zhcn.readthedocs.io/en/latest/backend/sglang.html)。
+
 - **2024年9月26日:** 🔥 我们现在支持从🚀 `LLMC`导出💥 `FP8 量化（E4M3，E5M2）`模型到一些先进的推理后端，例如[VLLM](https://github.com/vllm-project/vllm)和[SGLang](https://github.com/sgl-project/sglang)。关于详细使用方法，请参阅[VLLM文档](https://llmc-zhcn.readthedocs.io/en/latest/backend/vllm.html)和[SGLang文档](https://llmc-zhcn.readthedocs.io/en/latest/backend/sglang.html)。
 
 - **2024年9月24日:** 🔥 我们正式发布了 ✨`Llama-3.1-405B` 的 ✅INT4 和 ✅INT8 模型，这些模型通过 🚀`LLMC` 使用 `save_lightllm` 模式进行量化。你可以在[此处](https://huggingface.co/Dongz/llama31-405b-quant)下载模型参数。
 
-- **2024年9月23日:** 🔥 我们现在支持从 🚀`LLMC` 导出 ✨`真正量化的(INT4, INT8)` 模型到高级推理后端，例如 [VLLM](https://github.com/vllm-project/vllm), [SGLang](https://github.com/sgl-project/sglang), [AutoAWQ](https://github.com/casper-hansen/AutoAWQ), 和 [MLC-LLM](https://github.com/mlc-ai/mlc-llm) 用于量化推理部署，从而实现 ✨`减少内存使用` 和 ✨`加快推理速度`。
+- **2024年9月23日:** 🔥 我们现在支持从 🚀`LLMC` 导出 ✨`真正量化的(INT4, INT8)` 模型到先进推理后端，例如 [VLLM](https://github.com/vllm-project/vllm), [SGLang](https://github.com/sgl-project/sglang), [AutoAWQ](https://github.com/casper-hansen/AutoAWQ), 和 [MLC-LLM](https://github.com/mlc-ai/mlc-llm) 用于量化推理部署，从而实现 ✨`减少内存使用` 和 ✨`加快推理速度`。
   详细使用方法，请参考 [VLLM 文档](https://llmc-zhcn.readthedocs.io/en/latest/backend/vllm.html)、[SGLang 文档](https://llmc-zhcn.readthedocs.io/en/latest/backend/sglang.html)、[AutoAWQ 文档](https://llmc-zhcn.readthedocs.io/en/latest/backend/autoawq.html) 和 [MLC-LLM 文档](https://llmc-zhcn.readthedocs.io/en/latest/backend/mlcllm.html)。
 
 - **2024年9月9日:** 🔥 我们提供了一些最佳实践配置，帮助提升性能（参见最佳实践[此处](https://llmc-zhcn.readthedocs.io/en/latest/)）。
@@ -104,11 +108,11 @@ docker pull registry.cn-hangzhou.aliyuncs.com/yongyang/llmcompression:pure-lates
 
 - 💥**支持的格式**: 支持 ✨`量化`（整型和浮点）和 ✨`稀疏化`，具体包括 ✅权重激活量化、✅权重量化、✅混合精度量化，以及 ✅结构化 和 ✅非结构化稀疏化。
 
-- 💥**广泛模型支持**: 支持多种 ✨`LLM模型`，包括 ✅LLama、✅Mistral、✅InternLM2、✅Qwen2 等，以及 ✅MOE 和 ✅VLM 模型（参见[支持的模型列表](#supported-model-list)）。
+- 💥**广泛模型支持**: 支持多种 ✨`LLM模型`，包括 ✅LLama、✅Mistral、✅InternLM2、✅Qwen2 等，以及 ✅MOE(DeepSeekv2, Deepseekv2.5) 和 ✅VLM(Llama3.2-vision, Qwen-vl) 模型（参见[支持的模型列表](#supported-model-list)）。
 
 - 💥**多后端兼容性**: 无缝集成多个后端，增强部署灵活性。多种量化设置和模型格式兼容广泛的后端和硬件平台，例如 ✅VLLM、✅Sglang、✅LightLLM、✅MLC-LLM 和 ✅AutoAWQ，使其高度灵活（参见✨`推理后端` 章节 [此处](https://llmc-zhcn.readthedocs.io/en/latest/)）。
 
-- 💥**性能效率**: 支持大规模LLM的量化，例如 ✨`Llama3.1-405B` 和 ✨`OPT-175B`，并可在 `单个 A100/H100/H800 GPU` 上评估 PPL。
+- 💥**性能效率**: 支持大规模LLM的量化，例如 ✨`Llama3.1-405B` 和 ✨`DeepSeekV2-236B`，并可在 `单个 A100/H100/H800 GPU` 上评估 PPL。
 
 ## 使用指南
 
@@ -153,6 +157,14 @@ docker pull registry.cn-hangzhou.aliyuncs.com/yongyang/llmcompression:pure-lates
 ✅ [MiniCPM](https://github.com/OpenBMB/MiniCPM)
 
 ✅ [SmolLM](https://huggingface.co/collections/HuggingFaceTB/smollm-6695016cad7167254ce15966)
+
+✅ [DeepSeekv2.5](https://huggingface.co/deepseek-ai/DeepSeek-V2.5)
+
+✅ [LLaMA V3.2 Vision](https://huggingface.co/meta-llama/Llama-3.2-11B-Vision)
+
+✅ [Qwen MOE](https://huggingface.co/Qwen/Qwen1.5-MoE-A2.7B)
+
+✅ [Qwen-VL](https://huggingface.co/Qwen/Qwen-VL)
 
 你可以参考 `llmc/models/*.py` 文件添加自己的模型类型。
 

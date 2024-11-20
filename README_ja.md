@@ -48,6 +48,10 @@ docker pull registry.cn-hangzhou.aliyuncs.com/yongyang/llmcompression:pure-lates
 
 ## 最新情報
 
+- **2024年11月20日:** 🔥 私たちは現在、✨`DeepSeekv2(2.5)`などの`MOE`モデルおよび✨`Qwen2VL`、`Llama3.2`などの`VLM`モデルの量子化を完全にサポートしています。対応する量子化手法には、✅整数量子化、✅浮動小数点量子化、さらに✅AWQ、✅GPTQ、✅SmoothQuant、✅Quarotといった高度なアルゴリズムが含まれます。
+
+- **2024年11月12日:** 🔥 私たちは💥`アクティベーション静的per-tensor`量子化のサポートを、様々なモデルやアルゴリズムに追加しました。これにより、✅整数量子化および✅浮動小数点量子化をカバーし、性能と効率をさらに最適化します。また、✨`真の量子化モデル`のエクスポートをサポートし、[VLLM](https://github.com/vllm-project/vllm)および[SGLang](https://github.com/sgl-project/sglang)バックエンドを使用した推論の高速化も可能です。詳細は[VLLMドキュメント](https://llmc-zhcn.readthedocs.io/en/latest/backend/vllm.html)および[SGLangドキュメント](https://llmc-zhcn.readthedocs.io/en/latest/backend/sglang.html)をご参照ください。
+
 - **2024年9月26日:** 🔥 `LLMC`からの✨ `FP8量子化（E4M3、E5M2）`モデルを、VLLMやSGLangのような高度な推理バックエンドにエクスポートできるようになりました。🚀 詳細な使用方法については、[VLLMのドキュメント](https://llmc-en.readthedocs.io/en/latest/backend/vllm.html)と[SGLangのドキュメント](https://llmc-en.readthedocs.io/en/latest/backend/sglang.html)を参照してください。
 
 - **2024年9月24日:** 🔥 私たちは正式に ✨`Llama-3.1-405B` の ✅INT4 と ✅INT8 モデルをリリースしました。これらは 🚀`LLMC` の `save_lightllm` モードを使用して量子化されています。モデルパラメータは[こちら](https://huggingface.co/Dongz/llama31-405b-quant)からダウンロードできます。
@@ -104,11 +108,11 @@ docker pull registry.cn-hangzhou.aliyuncs.com/yongyang/llmcompression:pure-lates
 
 - 💥**サポートされているフォーマット**: ✨`量子化`（整数および浮動小数点）と ✨`疎性` の両方をサポートし、具体的には ✅重量-活性化、✅重量のみ、✅混合精度量子化、および ✅構造化疎性 と ✅非構造化疎性 を含みます。
 
-- 💥**広範なモデルサポート**: 多様な ✨`LLMモデル` をサポートしており、✅LLama、✅Mistral、✅InternLM2、✅Qwen2 など、さらに ✅MOE モデルや ✅VLM モデルもサポートしています（[サポートされているモデルリスト](#supported-model-list)を参照してください）。
+- 💥**広範なモデルサポート**: 多様な ✨`LLMモデル` をサポートしており、✅LLama、✅Mistral、✅InternLM2、✅Qwen2 など、さらに ✅✅MOE(DeepSeekv2, Deepseekv2.5) モデルや ✅VLM(Llama3.2-vision, Qwen-vl) モデルもサポートしています（[サポートされているモデルリスト](#supported-model-list)を参照してください）。
 
 - 💥**マルチバックエンドの互換性**: 複数のバックエンドとシームレスに統合し、展開の柔軟性を強化します。さまざまな量子化設定およびモデルフォーマットが、✅VLLM、✅Sglang、✅LightLLM、✅MLC-LLM、✅AutoAWQ など、幅広いバックエンドおよびハードウェアプラットフォームと互換性があり、高い柔軟性を実現しています（`Backend`セクションは[こちら](https://llmc-en.readthedocs.io/en/latest/)をご覧ください）。
 
-- 💥**パフォーマンス効率**: ✨`Llama3.1-405B` や ✨`OPT-175B` などの大規模LLMの量子化をサポートし、`単一の A100/H100/H800 GPU` でPPL評価を可能にします。
+- 💥**パフォーマンス効率**: ✨`Llama3.1-405B` や ✨`DeepSeekV2-236B` などの大規模LLMの量子化をサポートし、`単一の A100/H100/H800 GPU` でPPL評価を可能にします。
 
 ## 使用方法
 
@@ -153,6 +157,14 @@ docker pull registry.cn-hangzhou.aliyuncs.com/yongyang/llmcompression:pure-lates
 ✅ [MiniCPM](https://github.com/OpenBMB/MiniCPM)
 
 ✅ [SmolLM](https://huggingface.co/collections/HuggingFaceTB/smollm-6695016cad7167254ce15966)
+
+✅ [DeepSeekv2.5](https://huggingface.co/deepseek-ai/DeepSeek-V2.5)
+
+✅ [LLaMA V3.2 Vision](https://huggingface.co/meta-llama/Llama-3.2-11B-Vision)
+
+✅ [Qwen MOE](https://huggingface.co/Qwen/Qwen1.5-MoE-A2.7B)
+
+✅ [Qwen-VL](https://huggingface.co/Qwen/Qwen-VL)
 
 独自のモデルタイプを追加するには、`llmc/models/*.py` ファイルを参照してください。
 
