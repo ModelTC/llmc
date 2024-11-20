@@ -137,8 +137,10 @@ class InternVL2(InternLM2):
             'Besides, you can also put the <image> into your calib dataset.'
         )
 
-    def batch_process(self, img_qas):
+    def batch_process(self, img_qas, calib_or_eval='eval'):
+        assert calib_or_eval == 'calib' or calib_or_eval == 'eval'
         questions = []
+        answers = []
         pixel_values_list = []
         num_patches_list = []
         for idx in range(len(img_qas)):
@@ -166,6 +168,7 @@ class InternVL2(InternLM2):
                 else:
                     assert img_qas[idx]['question'].count('<image>') == len(img_path), f"{img_qas[idx]['img']} this data prompt is wrong." # noqa
             questions.append(img_qas[idx]['question'])
+            answers.append(img_qas[idx]['answer'] + '<|im_end|>')
 
         pixel_values = (
             torch.cat(pixel_values_list, dim=0) if len(pixel_values_list) > 0 else None
@@ -189,6 +192,10 @@ class InternVL2(InternLM2):
             template.append_message(template.roles[0], question)
             template.append_message(template.roles[1], None)
             query = template.get_prompt()
+            if calib_or_eval == 'calib' and self.config['calib'].get('add_answer', False):
+                query += answers[idx]
+            if calib_or_eval == 'calib':
+                logger.info(f'Calib data is:\n{query}')
             for _num_patches_i in num_patches:
                 image_tokens = IMG_START_TOKEN + IMG_CONTEXT_TOKEN * self.vlm_model.num_image_token * _num_patches_i + IMG_END_TOKEN # noqa
                 query = query.replace('<image>', image_tokens, 1)

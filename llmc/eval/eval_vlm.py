@@ -35,11 +35,6 @@ class VLMEval:
         return img_qas
 
     def patch_datasets(self, model_type):
-        if self.dataset == 'MME':
-            if model_type == 'InternVL2':
-                for idx in range(len(self.img_qas)):
-                    if '<image>\n' not in self.img_qas[idx]['question']:
-                        self.img_qas[idx]['question'] = '<image>\n' + self.img_qas[idx]['question']
         if model_type == 'InternVL2':
             self.output_include_input = False
         elif model_type == 'Llava':
