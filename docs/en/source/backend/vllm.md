@@ -17,13 +17,15 @@ pip install vllm
 
 In **VLLM**'s fixed-point integer quantization, the following common formats are supported:
 
-- **W4A16**: Weights are int4, activations are float16;
-- **W8A16**: Weights are int8, activations are float16;
-- **W8A8**: Weights are int8, activations are int8;
-- **FP8 (E4M3, E5M2)**: Weights are float8, activations are float8;
-- **Per-channel/group quantization**: Quantization is applied per channel or per group;
-- **Per-token dynamic quantization**: Dynamic quantization per token, which further improves quantization accuracy and efficiency;
-- **Weight/activation symmetric quantization**: quantization parameters include scale.
+- **W4A16**: Weights are int4, activations are float16.
+- **W8A16**: Weights are int8, activations are float16.
+- **W8A8**: Weights are int8, activations are int8.
+- **FP8 (E4M3, E5M2)**: Weights are float8, activations are float8.
+- **Per-channel/group weight quantization**: Quantization applied per channel or group.
+- **Per-tensor weight quantization**: Quantization applied per tensor.
+- **Per-token dynamic activation quantization**: Dynamic quantization for each token to further improve precision.
+- **Per-tensor static activation quantization**: Static quantization for each tensor to enhance efficiency.
+- **Symmetric weight/activation quantization**: Quantization parameters include scale.
 
 Therefore, when quantizing models with **LLMC**, make sure that the bit settings for weights and activations are in formats supported by **VLLM**.
 
@@ -112,10 +114,9 @@ quant:
 
 If AWQ cannot meet accuracy requirements, we recommend using the **Quarot + GPTQ combination algorithm** described in [this chapter](https://llmc-en.readthedocs.io/en/latest/practice/quarot_gptq.html) to further improve accuracy. The corresponding [configuration file](https://github.com/ModelTC/llmc/tree/main/configs/quantization/backend/vllm/w8a8_combin) is also provided.
 
-**FP8**
+**FP8-Dynamic**
 
-In the FP8 quantization, it typically offers marginally better precision than INT8. In some cases, the use of the RTN (Round to Nearest) algorithm is sufficient. However, we still recommend utilizing the AWQ algorithm for enhanced quantization accuracy. The specific implementation can be referenced from the AWQ FP8 [configuration](https://github.com/ModelTC/llmc/tree/main/configs/quantization/backend/vllm/fp8/awq_fp8.yml).
-
+In FP8 quantization, **LLMC** supports weight quantization per-channel and activation quantization dynamically per-token. In this case, the RTN (Round to Nearest) algorithm is sufficient. However, we recommend using the AWQ algorithm for better quantization accuracy. For implementation details, refer to the AWQ FP8 [configuration file](https://github.com/ModelTC/llmc/tree/main/configs/quantization/backend/vllm/fp8/awq_fp8.yml).
 
 ```yaml
 # configs/quantization/backend/vllm/fp8/awq_fp8.yml
@@ -141,12 +142,36 @@ quant:
     quant_out: True
 ```
 
-Please ensure that the `quant_type` is set to `float_quant`, which represents floating-point quantization. Additionally, set `use_qtorch` to `True`, as `LLMC`'s floating-point quantization implementation relies on functionalities from the [QPyTorch](https://github.com/Tiiiger/QPyTorch) library.
+Ensure that `quant_type` is set to `float_quant` to indicate floating-point quantization. Additionally, set `use_qtorch` to `True`, as **LLMC**'s FP8 implementation depends on certain functionalities from the [QPyTorch](https://github.com/Tiiiger/QPyTorch) library.
 
-You can install [QPyTorch](https://github.com/Tiiiger/QPyTorch) using the following command:
+Install [QPyTorch](https://github.com/Tiiiger/QPyTorch) with the following command:
 
 ```bash
 pip install qtorch
+```
+
+**FP8-Static**
+
+In FP8 quantization, **LLMC** also supports weight quantization per-tensor and activation quantization statically per-tensor. In this case, we recommend using the AWQ algorithm while adjusting the activation ranges. Refer to the AWQ FP8 static quantization [configuration file](https://github.com/ModelTC/llmc/tree/main/configs/quantization/backend/vllm/fp8/awq_fp8_static.yml).
+
+```yaml
+# configs/quantization/backend/vllm/fp8/awq_fp8_static.yml
+quant:
+    method: Awq
+    quant_type: float-quant
+    weight:
+        # Support ["e4m3", "e5m2"]
+        bit: e4m3
+        symmetric: True
+        granularity: per_tensor
+        use_qtorch: True
+    act:
+        # Support ["e4m3", "e5m2"]
+        bit: e4m3
+        symmetric: True
+        granularity: per_tensor
+        use_qtorch: True
+        static: True
 ```
 
 ### 1.3.3 Exporting Real Quantized Model

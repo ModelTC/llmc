@@ -106,12 +106,12 @@ quant:
 
 此外，如果 AWQ 无法满足精度需求，我们建议使用 [章节](https://llmc-zhcn.readthedocs.io/en/latest/practice/quarot_gptq.html) 介绍的 **Quarot+GPTQ 组合算法** 来进一步提升精度。在此也给出相应的[配置文件](https://github.com/ModelTC/llmc/tree/main/configs/quantization/backend/sglang/w8a8_combin)
 
-**FP8**
+**FP8-Dynamic**
 
-在 FP8 的量化中，其精度通常略优于 INT8，而且在某些情况下，使用RTN（Round to Nearest）算法就足够了。然而，我们仍然建议使用AWQ算法以获得更好的量化精度。具体的实现可以参考AWQ FP8的[配置文件](https://github.com/ModelTC/llmc/tree/main/configs/quantization/backend/sglang/fp8/awq_fp8.yml)。
+在 FP8 的量化中，**LLMC** 支持权重per-channel，激活动态per-token的量化，在这种情况下，使用RTN（Round to Nearest）算法就足够了。然而，我们仍然建议使用AWQ算法以获得更好的量化精度。具体的实现可以参考AWQ FP8的[配置文件](https://github.com/ModelTC/llmc/tree/main/configs/quantization/backend/vllm/fp8/awq_fp8.yml)。
 
 ```yaml
-# configs/quantization/backend/sglang/fp8/awq_fp8.yml
+# configs/quantization/backend/vllm/fp8/awq_fp8.yml
 quant:
     method: Awq
     quant_type: float_quant
@@ -133,12 +133,37 @@ quant:
         weight_clip: True
     quant_out: True
 ```
+
 请确保将 `quant_type` 设置为 `float_quant`，表示浮点量化。同时，将 `use_qtorch` 设置为 `True`，因为 `LLMC` 的浮点量化实现依赖 [QPyTorch](https://github.com/Tiiiger/QPyTorch) 库中的部分功能。
 
 您可以使用以下命令来安装 [QPyTorch](https://github.com/Tiiiger/QPyTorch)：
 
 ```bash
 pip install qtorch
+```
+
+**FP8-Static**
+
+在 FP8 的量化中，**LLMC** 同时也支持权重per-tensor，激活静态per-tensor的量化，在这种情况下，我们建议使用AWQ算法，调整下激活的范围，可以参考AWQ FP8静态量化的[配置文件](https://github.com/ModelTC/llmc/tree/main/configs/quantization/backend/vllm/fp8/awq_fp8_static.yml)。
+
+```yaml
+# configs/quantization/backend/vllm/fp8/awq_fp8_static.yml
+quant:
+    method: Awq
+    quant_type: float-quant
+    weight:
+        # Support ["e4m3", "e5m2"]
+        bit: e4m3
+        symmetric: True
+        granularity: per_tensor
+        use_qtorch: True
+    act:
+        # Support ["e4m3", "e5m2"]
+        bit: e4m3
+        symmetric: True
+        granularity: per_tensor
+        use_qtorch: True
+        static: True
 ```
 
 
