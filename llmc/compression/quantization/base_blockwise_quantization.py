@@ -598,6 +598,7 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
     def scale_fc_fc(self, fc1, fc2, scales):
         scales = scales.to(fc1.weight.device)
         if fc1.out_features == fc2.in_features * 3:
+            logger.info('fc1.out_features == fc2.in_features * 3')
             num_heads = self.model.get_num_attention_heads()
             fc1.weight.t_()
             org_shape = fc1.weight.shape
@@ -616,13 +617,23 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
                     fc1.bias[:, 2, :].shape
                 )
                 fc1.bias.data = fc1.bias.data.reshape(-1)
-        else:
+        elif fc1.out_features == fc2.in_features * 2:
+            logger.info('fc1.out_features == fc2.in_features * 2')
+            fc1.weight.data[fc1.weight.data.shape[0] // 2:].div_(scales.view(-1, 1))
+            if hasattr(fc1, 'bias') and fc1.bias is not None:
+                fc1.bias.data[fc1.bias.data.shape[0] // 2:].div_(scales.view(-1))
+        elif fc1.out_features == fc2.in_features:
+            logger.info('fc1.out_features == fc2.in_features')
             assert fc1.out_features == fc2.in_features
 
             if hasattr(fc1, 'bias') and fc1.bias is not None:
                 fc1.bias.div_(scales.view(-1))
 
             fc1.weight.div_(scales.view(-1, 1))
+        else:
+            logger.error(f'fc1.out_features: {fc1.out_features}')
+            logger.error(f'fc2.in_features: {fc2.in_features}')
+            raise Exception('Can not scale this fc-fc.')
 
         fc2.weight.mul_(scales.view(1, -1))
 
