@@ -171,13 +171,15 @@ class OsPlus(BaseBlockwiseQuantization):
     @torch.no_grad()
     def subset_transform(
         self,
-        layers_dict,
+        subset,
         input_feat,
-        prev_op,
-        input_name,
-        inspect_module,
         subset_kwargs,
     ):
+        layers_dict = subset['layers']
+        prev_op = subset['prev_op']
+        input_name = subset['input'][0]
+        inspect_module = subset['inspect']
+
         assert (
             len(prev_op) == 1
         ), 'Only support single prev_op. If multi prev_ops, code need to be updated.'

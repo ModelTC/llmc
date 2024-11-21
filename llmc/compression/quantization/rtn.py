@@ -19,11 +19,8 @@ class RTN(BaseBlockwiseQuantization):
     @torch.no_grad()
     def subset_transform(
         self,
-        layers_dict,
+        subset,
         input_feat,
-        prev_op,
-        input_name,
-        inspect_module,
         subset_kwargs,
     ):
         pass

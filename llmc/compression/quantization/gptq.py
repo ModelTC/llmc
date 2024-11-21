@@ -89,7 +89,13 @@ class GPTQ(BaseBlockwiseQuantization):
         super().block_transform(block, input_feat, block_kwargs)
 
     @torch.no_grad()
-    def subset_transform(self, layers_dict, *args, **kwargs):
+    def subset_transform(
+        self,
+        subset,
+        input_feat,
+        subset_kwargs,
+    ):
+        layers_dict = subset['layers']
         for name in layers_dict:
             layer = layers_dict[name]
             self.layer_transform(layer, name)
