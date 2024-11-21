@@ -43,6 +43,11 @@ class BaseQuantizer(object):
             raise ValueError(f'Unsupported calibration algorithm: {self.calib_algo}')
 
     def get_running_tensor_range(self, act_tensors, alpha, args):
+        assert len(act_tensors) > 0, (
+            'Calibration data is insufficient. Please provide more data to ensure '
+            'all experts in the MOE receive an adequate number of tokens.'
+        )
+
         runing_min_vals, runing_max_vals = [], []
         if isinstance(act_tensors[0], tuple):
             # Handle multiple inputs by stacking tensors.
