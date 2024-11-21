@@ -50,7 +50,7 @@ docker pull registry.cn-hangzhou.aliyuncs.com/yongyang/llmcompression:pure-lates
 
 - **2024年11月20日:** 🔥 私たちは現在、✨`DeepSeekv2(2.5)`などの`MOE`モデルおよび✨`Qwen2VL`、`Llama3.2`などの`VLM`モデルの量子化を完全にサポートしています。対応する量子化手法には、✅整数量子化、✅浮動小数点量子化、さらに✅AWQ、✅GPTQ、✅SmoothQuant、✅Quarotといった高度なアルゴリズムが含まれます。
 
-- **2024年11月12日:** 🔥 私たちは💥`アクティベーション静的per-tensor`量子化のサポートを、様々なモデルやアルゴリズムに追加しました。これにより、✅整数量子化および✅浮動小数点量子化をカバーし、性能と効率をさらに最適化します。また、✨`真の量子化モデル`のエクスポートをサポートし、[VLLM](https://github.com/vllm-project/vllm)および[SGLang](https://github.com/sgl-project/sglang)バックエンドを使用した推論の高速化も可能です。詳細は[VLLMドキュメント](https://llmc-zhcn.readthedocs.io/en/latest/backend/vllm.html)および[SGLangドキュメント](https://llmc-zhcn.readthedocs.io/en/latest/backend/sglang.html)をご参照ください。
+- **2024年11月12日:** 🔥 私たちは💥`アクティベーション静的per-tensor`量子化のサポートを、様々なモデルやアルゴリズムに追加しました。これにより、✅整数量子化および✅浮動小数点量子化をカバーし、性能と効率をさらに最適化します。また、✨`真の量子化モデル`のエクスポートをサポートし、[VLLM](https://github.com/vllm-project/vllm)および[SGLang](https://github.com/sgl-project/sglang)バックエンドを使用した推論の高速化も可能です。詳細は[VLLMドキュメント](https://llmc-en.readthedocs.io/en/latest/backend/vllm.html)および[SGLangドキュメント](https://llmc-en.readthedocs.io/en/latest/backend/sglang.html)をご参照ください。
 
 - **2024年9月26日:** 🔥 `LLMC`からの✨ `FP8量子化（E4M3、E5M2）`モデルを、VLLMやSGLangのような高度な推理バックエンドにエクスポートできるようになりました。🚀 詳細な使用方法については、[VLLMのドキュメント](https://llmc-en.readthedocs.io/en/latest/backend/vllm.html)と[SGLangのドキュメント](https://llmc-en.readthedocs.io/en/latest/backend/sglang.html)を参照してください。
 
