@@ -276,13 +276,14 @@ class DGQ(BaseBlockwiseQuantization):
     @torch.no_grad()
     def subset_transform(
         self,
-        layers_dict,
+        subset,
         input_feat,
-        prev_op,
-        input_name,
-        inspect_module,
         subset_kwargs,
     ):
+        layers_dict = subset['layers']
+        prev_op = subset['prev_op']
+        input_name = subset['input'][0]
+
         layers = list(layers_dict.values())
         if isinstance(prev_op[0], tuple(_LLMC_LN_TYPES_ + _TRANSFORMERS_LN_TYPES_)):
             self.smoothquant_transform(prev_op, layers, input_feat[input_name])

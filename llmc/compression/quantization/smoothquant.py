@@ -61,13 +61,14 @@ class SmoothQuant(BaseBlockwiseQuantization):
     @torch.no_grad()
     def subset_transform(
         self,
-        layers_dict,
+        subset,
         input_feat,
-        prev_op,
-        input_name,
-        inspect_module,
         subset_kwargs,
     ):
+        layers_dict = subset['layers']
+        prev_op = subset['prev_op']
+        input_name = subset['input'][0]
+
         if not self.filter_subset(prev_op):
             logger.info('Do not transform this subset.')
             return

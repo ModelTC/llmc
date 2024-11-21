@@ -14,13 +14,12 @@ class Magnitude(BaseBlockwiseSparsification):
     @torch.no_grad()
     def subset_transform(
         self,
-        layers_dict,
+        subset,
         input_feat,
-        prev_op,
-        input_name,
-        inspect_module,
-        subset_kwargs
+        subset_kwargs,
     ):
+        layers_dict = subset['layers']
+
         layers = list(layers_dict.values())
         for layer in layers:
             W = layer.weight.data

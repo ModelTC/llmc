@@ -465,10 +465,8 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
 
         for index, subset in enumerate(subsets):
             logger.info(f'subset: {subset}')
-            prev_op = subset['prev_op']
             layers_dict = subset['layers']
             input_name = subset['input'][0]
-            inspect_module = subset['inspect']
             inspect_has_kwargs = subset['has_kwargs']
             if inspect_has_kwargs:
                 if 'sub_keys' in subset:
@@ -478,11 +476,8 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
             else:
                 subset_kwargs = {}
             self.subset_transform(
-                layers_dict,
+                subset,
                 input_feat,
-                prev_op,
-                input_name,
-                inspect_module,
                 subset_kwargs,
             )
             if self.act_static:
