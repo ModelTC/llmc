@@ -106,8 +106,7 @@ class BaseModel(metaclass=ABCMeta):
     def batch_process(self):
         raise Exception('batch_process should not be called here.')
 
-    def get_vision_catcher(self, first_block_input):
-
+    def get_catcher(self, first_block_input):
         class Catcher(nn.Module):
             def __init__(self, module):
                 super().__init__()
@@ -125,24 +124,6 @@ class BaseModel(metaclass=ABCMeta):
                     kwargs.pop('output_router_logits')
                 first_block_input['kwargs'].append(kwargs)
                 raise ValueError
-
-        return Catcher
-
-    def get_language_catcher(self, first_block_input):
-
-        class Catcher(nn.Module):
-            def __init__(self, module):
-                super().__init__()
-                self.module = module
-
-            def forward(self, inp, **kwargs):
-                first_block_input['data'].append(inp)
-                if 'output_router_logits' in kwargs:
-                    assert kwargs['output_router_logits'] is False
-                    kwargs.pop('output_router_logits')
-                first_block_input['kwargs'].append(kwargs)
-                raise ValueError
-
         return Catcher
 
     def __str__(self):
@@ -184,10 +165,7 @@ class BaseModel(metaclass=ABCMeta):
         first_block_input = defaultdict(list)
 
         self.find_blocks(modality)
-        if modality == 'language':
-            Catcher = self.get_language_catcher(first_block_input)
-        elif modality == 'vision':
-            Catcher = self.get_vision_catcher(first_block_input)
+        Catcher = self.get_catcher(first_block_input)
 
         self.move_embed_to_device('cuda')
         if data_type == 'img_txt':

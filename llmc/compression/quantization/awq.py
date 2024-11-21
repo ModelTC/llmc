@@ -203,6 +203,10 @@ class Awq(BaseBlockwiseQuantization):
         prev_op = subset['prev_op']
         input_name = subset['input'][0]
         inspect_module = subset['inspect']
+        do_trans = subset.get('do_trans', True)
+        if not do_trans:
+            logger.info('do_trans is set to False. Do not transform this subset.')
+            return
 
         if not check_do_quant(
             self.block_idx,
@@ -241,6 +245,7 @@ class Awq(BaseBlockwiseQuantization):
             if (
                 isinstance(prev_op[0], (nn.Linear, FakeQuantLinear))
                 and prev_op[0].out_features != layers[0].in_features * 3
+                and prev_op[0].out_features != layers[0].in_features * 2
                 and prev_op[0].out_features != layers[0].in_features
             ):
                 logger.info('Cannot apply scale. Do not transform this subset.')

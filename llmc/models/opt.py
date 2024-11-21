@@ -85,5 +85,6 @@ class Opt(BaseModel):
                 'inspect': block.fc2,
                 'has_kwargs': False,
                 'is_mlp': True,
+                'do_trans': False
             },
         ]
