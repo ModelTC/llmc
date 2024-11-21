@@ -214,3 +214,43 @@ class InternVL2(InternLM2):
             **generation_config
         }
         return inputs
+
+    def find_blocks(self, modality='language'):
+        if modality == 'language':
+            self.blocks = self.model.model.layers
+        elif modality == 'vision':
+            self.blocks = self.vision_model.encoder.layers
+
+    def get_vision_subsets_in_block(self, block):
+        return [
+            {
+                'layers': {'attn.qkv': block.attn.qkv},
+                'prev_op': [block.norm1],
+                'input': ['attn.qkv'],
+                'inspect': block.attn,
+                'has_kwargs': False,
+            },
+            {
+                'layers': {'attn.proj': block.attn.proj},
+                'prev_op': [block.attn.qkv],
+                'input': ['attn.proj'],
+                'inspect': block.attn.proj,
+                'has_kwargs': False,
+            },
+            {
+                'layers': {'mlp.fc1': block.mlp.fc1},
+                'prev_op': [block.norm2],
+                'input': ['mlp.fc1'],
+                'inspect': block.mlp.fc1,
+                'has_kwargs': False,
+                'is_mlp': True,
+            },
+            {
+                'layers': {'mlp.fc2': block.mlp.fc2},
+                'prev_op': [block.mlp.fc1],
+                'input': ['mlp.fc2'],
+                'inspect': block.mlp.fc2,
+                'has_kwargs': False,
+                'is_mlp': True,
+            },
+        ]

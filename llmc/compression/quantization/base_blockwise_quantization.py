@@ -375,7 +375,9 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
                     self.input['kwargs'][i][key] = \
                         self.input['kwargs'][i][key].to(device=next(block.parameters()).device)
             with torch.no_grad():
-                out = block(input_data[i], **self.input['kwargs'][i])[0]
+                out = block(input_data[i], **self.input['kwargs'][i])
+                if isinstance(out, tuple):
+                    out = out[0]
                 output.append(out)
         return output
 
