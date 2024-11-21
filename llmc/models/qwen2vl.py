@@ -1,3 +1,6 @@
+import inspect
+
+import torch.nn as nn
 from loguru import logger
 from transformers import AutoConfig, AutoProcessor
 
@@ -111,3 +114,68 @@ class Qwen2VL(Qwen2):
             return_tensors='pt',
         ).to(next(self.vlm_model.parameters()).dtype)
         return inputs
+
+    def find_blocks(self, modality='language'):
+        if modality == 'language':
+            self.blocks = self.model.model.layers
+        elif modality == 'vision':
+            self.blocks = self.vision_model.blocks
+
+    def get_vision_subsets_in_block(self, block):
+        return [
+            {
+                'layers': {
+                    'attn.qkv': block.attn.qkv,
+                },
+                'prev_op': [block.norm1],
+                'input':['attn.qkv'],
+                'inspect': block.attn,
+                'has_kwargs': True,
+            },
+            {
+                'layers': {'attn.proj': block.attn.proj},
+                'prev_op': [block.attn.qkv],
+                'input': ['attn.proj'],
+                'inspect': block.attn.proj,
+                'has_kwargs': False,
+            },
+            {
+                'layers': {'mlp.fc1': block.mlp.fc1},
+                'prev_op': [block.norm2],
+                'input': ['mlp.fc1'],
+                'inspect': block.mlp.fc1,
+                'has_kwargs': False,
+                'is_mlp': True,
+            },
+            {
+                'layers': {'mlp.fc2': block.mlp.fc2},
+                'prev_op': [block.mlp.fc1],
+                'input': ['mlp.fc2'],
+                'inspect': block.mlp.fc2,
+                'has_kwargs': False,
+                'is_mlp': True,
+            },
+        ]
+
+    def get_vision_catcher(self, first_block_input):
+
+        class Catcher(nn.Module):
+            def __init__(self, module):
+                super().__init__()
+                self.module = module
+                self.mlp = self.module.mlp
+                self.signature = inspect.signature(module.forward)
+
+            def forward(self, *args, **kwargs):
+                params = list(self.signature.parameters.keys())
+                for i, arg in enumerate(args):
+                    if i > 0:
+                        kwargs[params[i]] = arg
+                first_block_input['data'].append(args[0])
+                if 'output_router_logits' in kwargs:
+                    assert kwargs['output_router_logits'] is False
+                    kwargs.pop('output_router_logits')
+                first_block_input['kwargs'].append(kwargs)
+                raise ValueError
+
+        return Catcher
