@@ -448,6 +448,10 @@ class LlmcDeepSeekV2MoEGate(nn.Module):
                                         keep_vars=keep_vars)
         if f'{prefix}fc.weight' in state_dict:
             state_dict[f'{prefix}weight'] = state_dict.pop(f'{prefix}fc.weight')
+        if f'{prefix}fc.weight_scale' in state_dict:
+            state_dict[f'{prefix}weight_scale'] = state_dict.pop(f'{prefix}fc.weight_scale')
+        if f'{prefix}fc.input_scale' in state_dict:
+            state_dict[f'{prefix}input_scale'] = state_dict.pop(f'{prefix}fc.input_scale')
         return state_dict
 
     def _fp32_forward(self, hidden_states):
