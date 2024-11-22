@@ -1205,8 +1205,8 @@ class VllmRealQuantLinear(nn.Module):
 
 
 class SglRealQuantLinear(VllmRealQuantLinear):
-    def __init__(self, weight, bias, scales, need_pack):
-        super().__init__(weight, bias, scales, need_pack)
+    def __init__(self, weight, bias, scales, input_scale, need_pack):
+        super().__init__(weight, bias, scales, input_scale, need_pack)
 
     def __repr__(self):
         return (
