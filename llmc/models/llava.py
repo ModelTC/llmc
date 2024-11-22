@@ -40,18 +40,28 @@ class Llava(Llama):
         answers = []
         for idx in range(len(img_qas)):
             img_path = img_qas[idx]['img']
-            image = Image.open(img_path)
-            message = [
-                {
-                    'role': 'user',
-                    'content': [
-                        {'type': 'image'},
-                        {'type': 'text', 'text': img_qas[idx]['question']}
-                    ]
-                }
-            ]
+            if img_path is not None:
+                image = Image.open(img_path)
+                message = [
+                    {
+                        'role': 'user',
+                        'content': [
+                            {'type': 'image'},
+                            {'type': 'text', 'text': img_qas[idx]['question']}
+                        ]
+                    }
+                ]
+                images.append(image)
+            else:
+                message = [
+                    {
+                        'role': 'user',
+                        'content': [
+                            {'type': 'text', 'text': img_qas[idx]['question']}
+                        ]
+                    }
+                ]
             messages.append(message)
-            images.append(image)
             answers.append(img_qas[idx]['answer'])
         texts = [
             self.processor.apply_chat_template(messages[n], add_generation_prompt=True)
@@ -67,7 +77,7 @@ class Llava(Llama):
 
         inputs = self.processor(
             text=texts,
-            images=images,
+            images=images if len(images) else None,
             padding=True,
             return_tensors='pt'
         ).to(next(self.vlm_model.parameters()).dtype) # noqa

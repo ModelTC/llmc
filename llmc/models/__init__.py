@@ -3,6 +3,7 @@ from .chatglm import ChatGLM
 from .deepseekv2 import DeepseekV2
 from .falcon import Falcon
 from .gemma2 import Gemma2
+from .glm4v import GLM4V
 from .internlm2 import InternLM2
 from .internomni import InternOmni
 from .internvl2 import InternVL2

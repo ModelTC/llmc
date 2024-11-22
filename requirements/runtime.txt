@@ -28,3 +28,4 @@ more_itertools
 qtorch
 einops
 qwen-vl-utils
+tiktoken
