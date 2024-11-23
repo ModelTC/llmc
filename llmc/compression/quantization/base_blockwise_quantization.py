@@ -366,14 +366,11 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
 
         for i in range(len(input_data)):
             input_data[i] = input_data[i].to(device=next(block.parameters()).device)
-            keys_to_device = ['attention_mask', 'cross_attention_mask', 'cross_attention_states']
-            for key in keys_to_device:
-                if (
-                    key in self.input['kwargs'][i]
-                    and self.input['kwargs'][i][key] is not None
-                ):
-                    self.input['kwargs'][i][key] = \
-                        self.input['kwargs'][i][key].to(device=next(block.parameters()).device)
+            for k in self.input['kwargs'][i]:
+                if torch.is_tensor(self.input['kwargs'][i][k]):
+                    self.input['kwargs'][i][k] = self.input['kwargs'][i][k].to(device=next(block.parameters()).device) # noqa
+                if isinstance(self.input['kwargs'][i][k], tuple):
+                    self.input['kwargs'][i][k] = tuple(tmp.to(device=next(block.parameters()).device) for tmp in self.input['kwargs'][i][k]) # noqa
             with torch.no_grad():
                 out = block(input_data[i], **self.input['kwargs'][i])
                 if isinstance(out, tuple):
@@ -452,6 +449,7 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
             )
             self.set_non_linear_mode('fake_quant', block, False)
             self.input['data'] = self.block_forward(block)
+        torch.cuda.empty_cache()
 
     def block_transform(self, block, input_feat, block_kwargs):
         logger.info(f'Start transform the {self.block_idx}-th block')
