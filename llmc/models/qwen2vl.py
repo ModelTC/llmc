@@ -154,6 +154,7 @@ class Qwen2VL(Qwen2):
                 'inspect': block.mlp.fc2,
                 'has_kwargs': False,
                 'is_mlp': True,
+                'do_trans': False
             },
         ]
 
