@@ -25,6 +25,7 @@ class BaseModel(metaclass=ABCMeta):
         self.model_type = self.config.model.type
         self.model_path = self.config.model.path
         self.tokenizer_mode = self.config.model.get('tokenizer_mode', 'fast')
+        self.use_cpu_to_save_cuda_mem_for_catcher = self.config.model.get('use_cpu_to_save_cuda_mem_for_catcher', False) # noqa
         torch_dtype = self.config.model.torch_dtype
         self.torch_dtype = torch_dtype if torch_dtype == 'auto' else eval(torch_dtype)
         self.device_map = device_map
@@ -167,11 +168,12 @@ class BaseModel(metaclass=ABCMeta):
         self.find_blocks(modality)
         Catcher = self.get_catcher(first_block_input)
 
-        self.move_embed_to_device('cuda')
-        if data_type == 'img_txt':
-            self.vision_model = self.vision_model.to('cuda')
-            self.projector = self.projector.to('cuda')
-        self.blocks[0] = self.blocks[0].cuda()
+        if not self.use_cpu_to_save_cuda_mem_for_catcher:
+            self.move_embed_to_device('cuda')
+            if data_type == 'img_txt':
+                self.vision_model = self.vision_model.to('cuda')
+                self.projector = self.projector.to('cuda')
+            self.blocks[0] = self.blocks[0].cuda()
         self.blocks[0] = Catcher(self.blocks[0])
 
         for data in calib_data:
@@ -203,12 +205,13 @@ class BaseModel(metaclass=ABCMeta):
                         value=1
                     )
         self.padding_mask = padding_mask
-        if data_type == 'img_txt':
-            self.vision_model = self.vision_model.cpu()
-            self.projector = self.projector.cpu()
+        if not self.use_cpu_to_save_cuda_mem_for_catcher:
+            if data_type == 'img_txt':
+                self.vision_model = self.vision_model.cpu()
+                self.projector = self.projector.cpu()
+            self.blocks[0] = self.blocks[0].cpu()
+            self.move_embed_to_device('cpu')
         self.blocks[0] = self.blocks[0].module
-        self.blocks[0] = self.blocks[0].cpu()
-        self.move_embed_to_device('cpu')
 
     def get_one_pad_setting(self, padding_side, length):
         if padding_side == 'left':
