@@ -173,6 +173,9 @@ class BaseModel(metaclass=ABCMeta):
             if data_type == 'img_txt':
                 self.vision_model = self.vision_model.to('cuda')
                 self.projector = self.projector.to('cuda')
+            elif data_type == 'audio_txt':
+                self.audio_model = self.audio_model.to('cuda')
+                self.projector = self.projector.to('cuda')
             self.blocks[0] = self.blocks[0].cuda()
         self.blocks[0] = Catcher(self.blocks[0])
 
@@ -189,6 +192,8 @@ class BaseModel(metaclass=ABCMeta):
                     self.model(**data)
                 elif data_type == 'img_txt':
                     self.vlm_model.generate(**data, max_new_tokens=128, do_sample=False)
+                elif data_type == 'audio_txt':
+                    self.alm_model.generate(**data, max_new_tokens=128, do_sample=False)
             except ValueError:
                 pass
         self.first_block_input = first_block_input

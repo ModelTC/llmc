@@ -90,6 +90,9 @@ class BaseDataset(metaclass=ABCMeta):
         elif self.calib_dataset_type == 'img_txt':
             logger.info(f'calib_dataset_path: {self.calib_dataset_path}')
             self.calib_dataset = self.calib_dataset_path
+        elif self.calib_dataset_type == 'audio_txt':
+            logger.info(f'calib_dataset_path: {self.calib_dataset_path}')
+            self.calib_dataset = self.calib_dataset_path
         elif self.calib_dataset_type == 'img':
             self.calib_dataset = []
             logger.info(f'calib_dataset_path: {self.calib_dataset_path}')
@@ -107,7 +110,7 @@ class BaseDataset(metaclass=ABCMeta):
             samples = self.general_preproc(
                 self.calib_dataset, self.tokenizer, self.n_samples, self.seq_len
             )
-        elif self.preproc.startswith(('vlm_', 'img_')):
+        elif self.preproc.startswith(('vlm_', 'alm_', 'img_')):
             preproc = PREPROC_REGISTRY[self.preproc]
             samples = preproc(
                 self.calib_dataset,
@@ -231,6 +234,20 @@ class BaseDataset(metaclass=ABCMeta):
                 calib_samples.append(self.batch_process(batch, calib_or_eval='calib'))
         return calib_samples
 
+    def audio_txt_group_samples_with_mask(self, samples):
+        calib_samples = []
+        if self.calib_bs < 0:
+            calib_samples.append(self.batch_process(samples, calib_or_eval='calib'))
+        elif self.calib_bs == 1:
+            calib_samples = [self.batch_process([sample], calib_or_eval='calib') for sample in samples] # noqa
+        elif self.calib_bs > 1:
+            for i in range(0, len(samples), self.calib_bs):
+                start = i
+                end = min(i + self.calib_bs, len(samples))
+                batch = samples[start:end]
+                calib_samples.append(self.batch_process(batch, calib_or_eval='calib'))
+        return calib_samples
+
     def img_group_samples_wo_mask(self, samples):  # without mask
         calib_samples = []
         if self.calib_bs < 0:
@@ -251,7 +268,7 @@ class BaseDataset(metaclass=ABCMeta):
 
     def get_calib_dataset(self):
         samples = self.get_calib_samples()
-        if self.calib_dataset_type in ['txt', 'img', 'img_txt']:
+        if self.calib_dataset_type in ['txt', 'img', 'img_txt', 'audio_txt']:
             logger.info(f'len(samples) all : {len(samples)}')
             samples = samples[int(os.environ['RANK'])::int(os.environ['WORLD_SIZE'])]
             logger.info(f'len(samples) rank : {len(samples)}')
@@ -265,6 +282,8 @@ class BaseDataset(metaclass=ABCMeta):
             calib_samples = self.img_group_samples_wo_mask(samples)
         elif self.calib_dataset_type == 'img_txt':
             calib_samples = self.img_txt_group_samples_with_mask(samples)
+        elif self.calib_dataset_type == 'audio_txt':
+            calib_samples = self.audio_txt_group_samples_with_mask(samples)
         logger.info(f'len(calib_samples) : {len(calib_samples)}')
         if self.padding:
             padding_mask = [calib_sample['attention_mask'] for calib_sample in calib_samples] # noqa

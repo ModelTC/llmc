@@ -17,6 +17,7 @@ from .opt import Opt
 from .phi import Phi
 from .qwen import Qwen
 from .qwen2 import Qwen2
+from .qwen2audio import Qwen2Audio
 from .qwen2moe import Qwen2Moe
 from .qwen2vl import Qwen2VL
 from .smollm import SmolLM

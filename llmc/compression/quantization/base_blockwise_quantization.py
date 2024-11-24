@@ -396,7 +396,7 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
         input_feat_modules = {
             k: v for d in [named_linears, extra_modules] for k, v in d.items()
         }
-        logger.info(f': {input_feat_modules}')
+        logger.info(f'input_feat_modules: {input_feat_modules}')
         input_feat = defaultdict(list)
 
         handles = self.register_hooks(input_feat_modules, input_feat)

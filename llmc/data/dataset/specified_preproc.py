@@ -122,6 +122,26 @@ def vlm_general(calib_dataset, n_samples):
 
 
 @PREPROC_REGISTRY
+def alm_general(calib_dataset, n_samples):
+    audio_qa_json = os.path.join(calib_dataset, 'audio_qa.json')
+    fp = open(audio_qa_json)
+    audio_qas = json.load(fp)
+    for idx in range(len(audio_qas)):
+        if 'audio' in audio_qas[idx]:
+            if isinstance(audio_qas[idx]['audio'], list):
+                for audio_idx in range(len(audio_qas[idx]['audio'])):
+                    audio_qas[idx]['audio'][audio_idx] = os.path.join(calib_dataset, audio_qas[idx]['audio'][audio_idx]) # noqa
+            else:
+                audio_qas[idx]['audio'] = os.path.join(calib_dataset, audio_qas[idx]['audio'])
+        else:
+            audio_qas[idx]['audio'] = None
+    random.shuffle(audio_qas)
+    if len(audio_qas) > n_samples:
+        audio_qas = audio_qas[:n_samples]
+    return audio_qas
+
+
+@PREPROC_REGISTRY
 def img_general(calib_dataset, tokenizer, batch_process, n_samples):
     random.shuffle(calib_dataset)
     if len(calib_dataset) > n_samples:
