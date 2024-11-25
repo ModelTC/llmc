@@ -10,8 +10,7 @@ def update_vllm_quant_config(
 ):
 
     need_pack = config.quant.weight.get('need_pack', False)
-    if config.quant.quant_type == 'float-quant':
-
+    if config.quant.get('quant_type', 'int-quant') == 'float-quant':
         if 'act' in config.quant and config.quant.act.static:
             quant_config = {
                 'activation_scheme': 'static',

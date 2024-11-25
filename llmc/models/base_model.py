@@ -369,7 +369,13 @@ class BaseModel(metaclass=ABCMeta):
             self.replace_module_subset(module, block, subset, block_idx, params_dict)
 
     def replace_module_subset(self, module, block, subset, block_idx, params_dict):
-        layers_dict = subset['layers']
+        if module in _LLMC_LINEAR_TYPES_ + _TRANSFORMERS_LINEAR_TYPES_:
+            layers_dict = {
+                name: layer for name, layer in subset['layers'].items()
+                if isinstance(layer, tuple(_LLMC_LINEAR_TYPES_ + _TRANSFORMERS_LINEAR_TYPES_))
+            }
+        else:
+            layers_dict = subset['layers']
 
         for name, m in layers_dict.items():
             # mix bits

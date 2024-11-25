@@ -12,18 +12,20 @@ from loguru import logger
 from llmc.utils.registry_factory import ALGO_REGISTRY
 
 from .base_blockwise_quantization import BaseBlockwiseQuantization
-from .module_utils import FakeQuantLinear, RotateLinear
+from .module_utils import (_LLMC_LINEAR_TYPES_, _TRANSFORMERS_LINEAR_TYPES_,
+                           FakeQuantLinear, RotateLinear)
 
 
 @ALGO_REGISTRY
 class GPTQ(BaseBlockwiseQuantization):
-    def __init__(self, model, quant_config, input, padding_mask, config, modality='language'):
+    def __init__(
+        self, model, quant_config, input, padding_mask, config, modality='language'
+    ):
         super().__init__(model, quant_config, input, padding_mask, config, modality)
         self.dev = torch.device('cuda')
         self.model_dtype = next(self.model.model.parameters()).dtype
         self.add_quant_config()
         self.layers_cache = {}
-        self.special_layers = {}
         self.collect_model_qparams()
 
     @torch.no_grad()
@@ -98,6 +100,10 @@ class GPTQ(BaseBlockwiseQuantization):
         layers_dict = subset['layers']
         for name in layers_dict:
             layer = layers_dict[name]
+            if not isinstance(
+                layer, tuple(_LLMC_LINEAR_TYPES_ + _TRANSFORMERS_LINEAR_TYPES_)
+            ):
+                continue
             self.layer_transform(layer, name)
             self.free(name)
 
@@ -206,7 +212,7 @@ class GPTQ(BaseBlockwiseQuantization):
                         if (i1 + i) % self.wquantizer.group_size == 0:
                             column_tensors = W[
                                 :,
-                                (i1 + i):min(
+                                (i1 + i): min(
                                     (i1 + i + self.wquantizer.group_size),
                                     (self.columns - self.n_out),
                                 ),
@@ -235,16 +241,8 @@ class GPTQ(BaseBlockwiseQuantization):
             W[:, i2:] -= Err1.matmul(Hinv[i1:i2, i2:])
 
     @torch.no_grad()
-    def get_special_layers(self, subset):
-        if self.extra_module_name == subset['input'][0]:
-            self.special_layers = subset['layers']
-
-    @torch.no_grad()
     def cache_input_hook(self, m, inp, out, name, feat_dict):
-        if name == self.extra_module_name:
-            for _n, _m in self.special_layers.items():
-                self.add_batch(self.named_layers[_n], _n, inp[0].data, out.data)
-        else:
+        if isinstance(m, tuple(_LLMC_LINEAR_TYPES_ + _TRANSFORMERS_LINEAR_TYPES_)):
             self.add_batch(self.named_layers[name], name, inp[0].data, out.data)
         if self.act_static:
             super().cache_input_hook(m, inp, out, name, feat_dict)
@@ -296,7 +294,6 @@ class GPTQ(BaseBlockwiseQuantization):
 
     @torch.no_grad()
     def subset_init(self, subset):
-        self.get_special_layers(subset)
         self.named_layers = subset['layers']
         for name in self.named_layers:
             self.layers_cache[name] = {}
@@ -314,7 +311,6 @@ class GPTQ(BaseBlockwiseQuantization):
         for i in range(len(self.blocks)):
             block = self.blocks[i]
             block = block.cuda()
-            self.replace_moe_gate(block)
             self.collect_block_qparams(block)
             block = block.cpu()
 

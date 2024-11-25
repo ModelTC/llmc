@@ -135,7 +135,7 @@ class DeepseekV2(BaseModel):
                            for i in range(len(block.mlp.experts))},
                         'mlp.shared_experts.gate_proj': block.mlp.shared_experts.gate_proj, # noqa
                         'mlp.shared_experts.up_proj': block.mlp.shared_experts.up_proj,
-                        'mlp.gate.fc': block.mlp.gate.fc,
+                        'mlp.gate': block.mlp.gate,
                     },
                     'prev_op': [block.post_attention_layernorm],
                     'input': ['mlp'],
