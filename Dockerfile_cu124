@@ -28,15 +28,20 @@ COPY whls/*.whl /app/
 
 RUN pip install --no-cache-dir torch-*.whl torchvision*.whl
 
-COPY requirements/runtime.txt /app/
-
-RUN pip install --no-cache-dir -r runtime.txt
-
 WORKDIR /workspace
+
+# download flash-attention source code
+COPY flash-attention /workspace/flash-attention
+
+RUN cd flash-attention && pip install --no-cache-dir -v -e .
 
 # download fast-hadamard-transform source code
 COPY fast-hadamard-transform /workspace/fast-hadamard-transform
 
 RUN cd fast-hadamard-transform && pip install --no-cache-dir -v -e .
+
+COPY requirements/runtime.txt /app/
+
+RUN pip install --no-cache-dir -r /app/runtime.txt
 
 RUN rm -rf /app
