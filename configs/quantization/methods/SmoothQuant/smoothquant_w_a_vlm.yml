@@ -1,0 +1,43 @@
+base:
+    seed: &seed 42
+model:
+    type: model_type
+    path: model path
+    tokenizer_mode: slow
+    torch_dtype: auto
+calib:
+    name: vlm_datastes
+    type: img_txt
+    download: False
+    path: calib data path
+    n_samples: 128
+    bs: -1
+    seq_len: 512
+    preproc: vlm_general
+    padding: True
+    seed: *seed
+eval:
+    eval_pos: [pretrain, fake_quant]
+    type: img_txt
+    name: MME
+    download: False
+    path: MME dataset path
+    bs: 16
+    inference_per_block: False
+quant:
+    method: SmoothQuant
+    quant_objects: [vision, language]
+    weight:
+        bit: 8
+        symmetric: True
+        granularity: per_channel
+    act:
+        bit: 8
+        symmetric: True
+        granularity: per_token
+    special:
+        alpha: 0.8
+save:
+    save_trans: False
+    save_fake: False
+    save_path: /path/to/save/
