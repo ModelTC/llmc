@@ -141,9 +141,6 @@ class Quarot(BaseBlockwiseQuantization):
                     layers, self.Q, exact_had=True if self.online_rotate else False
                 )
             else:
-                for n, m in layers_dict.items():
-                    logger.info(f'layer: {n} {m.weight.shape}')
-                logger.info(f'{self.Q.shape}')
                 self.rotate_post_layers(layers, self.Q, exact_had=False)
                 if self.online_rotate:
                     if prev_op[0] is not None:
