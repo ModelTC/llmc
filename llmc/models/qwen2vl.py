@@ -158,8 +158,7 @@ class Qwen2VL(Qwen2):
             },
         ]
 
-    def get_vision_catcher(self, first_block_input):
-
+    def get_catcher(self, first_block_input):
         class Catcher(nn.Module):
             def __init__(self, module):
                 super().__init__()
@@ -178,5 +177,4 @@ class Qwen2VL(Qwen2):
                     kwargs.pop('output_router_logits')
                 first_block_input['kwargs'].append(kwargs)
                 raise ValueError
-
         return Catcher
