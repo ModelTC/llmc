@@ -40,7 +40,7 @@ class Qwen2Audio(Qwen2):
         )
 
         self.audio_model = self.alm_model.audio_tower
-        self.projector = self.alm_model.multi_modal_projector
+        self.audio_projector = self.alm_model.multi_modal_projector
         self.model = self.alm_model.language_model
         self.model_config = self.alm_model_config.text_config
 

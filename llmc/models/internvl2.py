@@ -115,7 +115,7 @@ class InternVL2(InternLM2):
         )
         self.model = self.vlm_model.language_model
         self.vision_model = self.vlm_model.vision_model
-        self.projector = self.vlm_model.mlp1
+        self.vision_projector = self.vlm_model.mlp1
         self.model_config = self.vlm_model_config.llm_config
         if not self.use_cache:
             if hasattr(self.model_config, 'use_cache'):
@@ -145,7 +145,7 @@ class InternVL2(InternLM2):
         num_patches_list = []
         for idx in range(len(img_qas)):
             img_path = img_qas[idx]['img']
-            _num_patches_i = []
+            num_patches = []
             if img_path is not None:
                 if not isinstance(img_path, list):
                     img_path = [img_path]
@@ -154,8 +154,8 @@ class InternVL2(InternLM2):
                         next(self.vlm_model.parameters()).dtype
                     )
                     pixel_values_list.append(pixel_values)
-                    _num_patches_i.append(pixel_values.size(0))
-            num_patches_list.append(_num_patches_i)
+                    num_patches.append(pixel_values.size(0))
+            num_patches_list.append(num_patches)
             if img_path is not None:
                 if img_qas[idx]['question'].count('<image>') == 0:
                     prefix = ''

@@ -27,7 +27,7 @@ class GLM4V(ChatGLM):
             trust_remote_code=True,
         )
         self.vision_model = self.vlm_model.transformer.vision
-        self.projector = self.vlm_model.transformer.vision.linear_proj
+        self.vision_projector = self.vlm_model.transformer.vision.linear_proj
         self.model = self.vlm_model
         self.model_config = self.vlm_model_config
 

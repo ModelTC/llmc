@@ -142,6 +142,34 @@ def alm_general(calib_dataset, n_samples):
 
 
 @PREPROC_REGISTRY
+def avlm_general(calib_dataset, n_samples):
+    audio_img_qa_json = os.path.join(calib_dataset, 'audio_img_qa.json')
+    fp = open(audio_img_qa_json)
+    audio_img_qas = json.load(fp)
+    for idx in range(len(audio_img_qas)):
+        if 'audio' in audio_img_qas[idx]:
+            if isinstance(audio_img_qas[idx]['audio'], list):
+                for audio_idx in range(len(audio_img_qas[idx]['audio'])):
+                    audio_img_qas[idx]['audio'][audio_idx] = os.path.join(calib_dataset, audio_img_qas[idx]['audio'][audio_idx]) # noqa
+            else:
+                audio_img_qas[idx]['audio'] = os.path.join(calib_dataset, audio_img_qas[idx]['audio']) # noqa
+        else:
+            audio_img_qas[idx]['audio'] = None
+        if 'img' in audio_img_qas[idx]:
+            if isinstance(audio_img_qas[idx]['img'], list):
+                for img_idx in range(len(audio_img_qas[idx]['img'])):
+                    audio_img_qas[idx]['img'][img_idx] = os.path.join(calib_dataset, audio_img_qas[idx]['img'][img_idx]) # noqa
+            else:
+                audio_img_qas[idx]['img'] = os.path.join(calib_dataset, audio_img_qas[idx]['img'])
+        else:
+            audio_img_qas[idx]['img'] = None
+    random.shuffle(audio_img_qas)
+    if len(audio_img_qas) > n_samples:
+        audio_img_qas = audio_img_qas[:n_samples]
+    return audio_img_qas
+
+
+@PREPROC_REGISTRY
 def img_general(calib_dataset, tokenizer, batch_process, n_samples):
     random.shuffle(calib_dataset)
     if len(calib_dataset) > n_samples:

@@ -172,10 +172,15 @@ class BaseModel(metaclass=ABCMeta):
             self.move_embed_to_device('cuda')
             if data_type == 'img_txt':
                 self.vision_model = self.vision_model.to('cuda')
-                self.projector = self.projector.to('cuda')
+                self.vision_projector = self.vision_projector.to('cuda')
             elif data_type == 'audio_txt':
                 self.audio_model = self.audio_model.to('cuda')
-                self.projector = self.projector.to('cuda')
+                self.audio_projector = self.audio_projector.to('cuda')
+            elif data_type == 'audio_img_txt':
+                self.audio_model = self.audio_model.to('cuda')
+                self.vision_model = self.vision_model.to('cuda')
+                self.audio_projector = self.audio_projector.to('cuda')
+                self.vision_projector = self.vision_projector.to('cuda')
             self.blocks[0] = self.blocks[0].cuda()
         self.blocks[0] = Catcher(self.blocks[0])
 
@@ -194,6 +199,8 @@ class BaseModel(metaclass=ABCMeta):
                     self.vlm_model.generate(**data, max_new_tokens=128, do_sample=False)
                 elif data_type == 'audio_txt':
                     self.alm_model.generate(**data, max_new_tokens=128, do_sample=False)
+                elif data_type == 'audio_img_txt':
+                    self.avlm_model.generate(**data, max_new_tokens=128, do_sample=False)
             except ValueError:
                 pass
         self.first_block_input = first_block_input
@@ -213,7 +220,15 @@ class BaseModel(metaclass=ABCMeta):
         if not self.use_cpu_to_save_cuda_mem_for_catcher:
             if data_type == 'img_txt':
                 self.vision_model = self.vision_model.cpu()
-                self.projector = self.projector.cpu()
+                self.vision_projector = self.vision_projector.cpu()
+            elif data_type == 'audio_txt':
+                self.audio_model = self.audio_model.cpu()
+                self.audio_projector = self.audio_projector.cpu()
+            elif data_type == 'audio_img_txt':
+                self.audio_model = self.audio_model.cpu()
+                self.vision_model = self.vision_model.cpu()
+                self.audio_projector = self.audio_projector.cpu()
+                self.vision_projector = self.vision_projector.cpu()
             self.blocks[0] = self.blocks[0].cpu()
             self.move_embed_to_device('cpu')
         self.blocks[0] = self.blocks[0].module
