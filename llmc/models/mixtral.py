@@ -64,6 +64,7 @@ class Mixtral(BaseModel):
                 'layers': {
                     **{f'block_sparse_moe.experts.{i}.w1': block.block_sparse_moe.experts[i].w1 for i in range(len(block.block_sparse_moe.experts))}, # noqa
                     **{f'block_sparse_moe.experts.{i}.w3': block.block_sparse_moe.experts[i].w3 for i in range(len(block.block_sparse_moe.experts))}, # noqa
+                    'block_sparse_moe.gate': block.block_sparse_moe.gate,
                 },
                 'prev_op': [block.post_attention_layernorm],
                 'input': ['block_sparse_moe'],

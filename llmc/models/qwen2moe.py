@@ -84,6 +84,7 @@ class Qwen2Moe(BaseModel):
                            for i in range(len(block.mlp.experts))},
                         'mlp.shared_expert.gate_proj': block.mlp.shared_expert.gate_proj, # noqa
                         'mlp.shared_expert.up_proj': block.mlp.shared_expert.up_proj, # noqa
+                        'mlp.gate': block.mlp.gate,
                     },
                     'prev_op': [block.post_attention_layernorm],
                     'input': ['mlp'],
