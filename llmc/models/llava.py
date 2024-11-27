@@ -27,7 +27,7 @@ class Llava(Llama):
             low_cpu_mem_usage=True,
         )
         self.vision_model = self.vlm_model.vision_tower
-        self.projector = self.vlm_model.multi_modal_projector
+        self.vision_projector = self.vlm_model.multi_modal_projector
         self.model = self.vlm_model.language_model
         self.model_config = self.vlm_model_config.text_config
 
