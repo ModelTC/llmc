@@ -115,6 +115,8 @@ def vlm_general(calib_dataset, n_samples):
                 img_qas[idx]['img'] = os.path.join(calib_dataset, img_qas[idx]['img'])
         else:
             img_qas[idx]['img'] = None
+        if 'answer' not in img_qas[idx]:
+            img_qas[idx]['answer'] = ''
     random.shuffle(img_qas)
     if len(img_qas) > n_samples:
         img_qas = img_qas[:n_samples]
@@ -135,6 +137,8 @@ def alm_general(calib_dataset, n_samples):
                 audio_qas[idx]['audio'] = os.path.join(calib_dataset, audio_qas[idx]['audio'])
         else:
             audio_qas[idx]['audio'] = None
+        if 'answer' not in audio_qas[idx]:
+            audio_qas[idx]['answer'] = ''
     random.shuffle(audio_qas)
     if len(audio_qas) > n_samples:
         audio_qas = audio_qas[:n_samples]
@@ -163,6 +167,10 @@ def avlm_general(calib_dataset, n_samples):
                 audio_img_qas[idx]['img'] = os.path.join(calib_dataset, audio_img_qas[idx]['img'])
         else:
             audio_img_qas[idx]['img'] = None
+        if 'question' not in audio_img_qas[idx]:
+            audio_img_qas[idx]['question'] = ''
+        if 'answer' not in audio_img_qas[idx]:
+            audio_img_qas[idx]['answer'] = ''
     random.shuffle(audio_img_qas)
     if len(audio_img_qas) > n_samples:
         audio_img_qas = audio_img_qas[:n_samples]
