@@ -12,6 +12,7 @@ import torch.nn as nn
 from loguru import logger
 
 from llmc.utils import copy_files
+from llmc.utils.registry_factory import KV_REGISTRY
 
 from ..blockwise_optimization import BlockwiseOpt
 from .auto_clip import AutoClipper
@@ -227,6 +228,19 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
                 f'{json.dumps(self.mix_bits_map, ensure_ascii=False, indent=4)}'
             )
 
+        # set kv cache quant config
+        if 'kvcache' in self.quant_config:
+            self.quant_config['kvcache']['static'] = self.act_static
+            self.kv_module = KV_REGISTRY[self.quant_config['kvcache']['method']](
+                self.quant_type, self.quant_config['kvcache'],
+                self.model.model_config.num_hidden_layers, self.config.calib.n_samples,
+                self.config.calib.bs
+            )
+            self.quant_kvcache = True
+            self.model.kvcache_buffer.append(self.kv_module)
+        else:
+            self.quant_kvcache = False
+
         # set special quant config
         special_config = self.quant_config.get('special', {})
         self.true_sequential = special_config.get('true_sequential', False)
@@ -372,6 +386,10 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
         return output
 
     def block_opt(self, block):
+
+        if self.quant_kvcache:
+            self.register_kv_cache(block)
+
         block = block.cuda()
         named_linears = self.model.get_block_linears(block)
         extra_modules = self.model.get_extra_modules(block)
@@ -511,6 +529,15 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
         for _m in layers:
             weights.append(_m.weight)
         return weights
+
+    @torch.no_grad()
+    def register_kv_cache(self, block):
+        attn_layers_dict = self.model.get_attn_in_block(block)
+        attn_layer = attn_layers_dict[list(attn_layers_dict.keys())[0]]
+        setattr(attn_layer, 'kvcache', self.kv_module)
+        attn_layer.register_forward_pre_hook(
+            self.kv_cache_input_hook(), with_kwargs=True
+        )
 
     @torch.no_grad()
     def register_non_linear_qparams(self, block, input_feat):
@@ -780,6 +807,8 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
         if quant_format != 'fake_quant':
             return
         for name, m in module.named_modules():
+            if 'kvcache' in name:
+                continue
             if getattr(m, 'calib', None) is not None:
                 m.calib = mode
 
@@ -813,6 +842,14 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
                 keep_device=keep_device,
             )
         self.set_non_linear_mode(quant_format, self.model.model, False)
+
+        if self.quant_kvcache:
+            if quant_format == 'transformed':
+                self.kv_module.transformed = True
+            elif quant_format == 'fake_quant':
+                self.kv_module.transformed = False
+                if self.act_static:
+                    self.kv_module.calib = False
 
         if self.model.vlm_model is not None:
             logger.info(f'Now, the vlm_model is: {self.model.vlm_model}')

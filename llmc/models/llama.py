@@ -25,6 +25,9 @@ class Llama(BaseModel):
     def get_attention_rotary_layers(self):
         return [self.rotary_emb]
 
+    def get_attn_in_block(self, block):
+        return {'self_attn': block.self_attn}
+
     def get_head_layers(self):
         return [self.model.lm_head]
 

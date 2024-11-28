@@ -38,6 +38,11 @@ class BaseModel(metaclass=ABCMeta):
         self.find_embed_layers()
         self.find_block_name()
         self.add_layernorms_class()
+        self.kvcache_buffer = []
+
+    def reset_kv(self):
+        for kvcache in self.kvcache_buffer:
+            kvcache._reset_states()
 
     @abstractmethod
     def find_blocks(self, modality='language'):

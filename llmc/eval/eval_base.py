@@ -103,33 +103,29 @@ class BaseEval:
 
     @torch.no_grad()
     def eval(self, model_llmc, model_org=None):
-        model = model_llmc.get_model()
         handles, handles_org = [], []
         if self.inference_per_block:
             handles = self.register_hooks(model_llmc)
         else:
-            model.cuda()
-        model.eval()
+            model_llmc.model.cuda()
+        model_llmc.model.eval()
 
         if model_org is not None:
-            model_fp = model_org.get_model()
             if self.inference_per_block:
                 handles_org = self.register_hooks(model_org)
             else:
-                model_fp.cuda()
+                model_org.model.cuda()
 
-            model_fp.eval()
-        else:
-            model_fp = None
+            model_org.model.eval()
 
-        eval_res = self.eval_func(model_fp, model, self.testenc, self.seq_len, self.bs)
+        eval_res = self.eval_func(model_org, model_llmc, self.testenc, self.seq_len, self.bs)
         if self.inference_per_block:
             for h in handles + handles_org:
                 h.remove()
 
-        model.cpu()
+        model_llmc.model.cpu()
         if model_org is not None:
-            model_fp.cpu()
+            model_org.model.cpu()
 
         gc.collect()
         torch.cuda.empty_cache()

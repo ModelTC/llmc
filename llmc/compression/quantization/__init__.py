@@ -4,6 +4,7 @@ from .base_blockwise_quantization import BaseBlockwiseQuantization
 from .dgq import DGQ
 from .gptq import GPTQ
 from .hqq import HQQ
+from .kvquant import NaiveQuantKVCache
 from .llmint8 import LlmInt8
 from .module_utils import FakeQuantLinear
 from .ntweak import NormTweaking
