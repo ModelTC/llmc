@@ -185,7 +185,7 @@ class LlmcDeepseekAttention(nn.Module):
         softmax_scale,
         matmul_a1_qdq,
         matmul_a2_qdq,
-        softmax_a_qdq
+        softmax_a_qdq,
     ):
         super().__init__()
         self.config = config
@@ -390,9 +390,9 @@ class LlmcDeepseekAttention(nn.Module):
             attn_weights = attn_weights + attention_mask
 
         # upcast attention to fp32
-        attn_weights = self.softmax(
-            attn_weights, dim=-1, dtype=torch.float32
-        ).to(query_states.dtype)
+        attn_weights = self.softmax(attn_weights, dim=-1, dtype=torch.float32).to(
+            query_states.dtype
+        )
         attn_weights = nn.functional.dropout(
             attn_weights, p=self.attention_dropout, training=self.training
         )
@@ -1148,11 +1148,13 @@ class AutoawqRealQuantLinear(nn.Module):
         weight, scales, zeros = w_q(module)
         pack_version = quant_config['weight']['pack_version']
         if pack_version == 'gemm_pack':
-            int_weight, scales, int_zeros = \
-                cls.gemm_pack(weight, scales, zeros, quant_config)
+            int_weight, scales, int_zeros = cls.gemm_pack(
+                weight, scales, zeros, quant_config
+            )
         elif pack_version == 'gemv_pack':
-            int_weight, scales, int_zeros = \
-                cls.gemv_pack(module, weight, scales, zeros, quant_config)
+            int_weight, scales, int_zeros = cls.gemv_pack(
+                module, weight, scales, zeros, quant_config
+            )
         return int_weight, scales, int_zeros
 
     @classmethod
@@ -1330,17 +1332,14 @@ _LLMC_LINEAR_TYPES_ = [
     VllmRealQuantLinear,
     SglRealQuantLinear,
     AutoawqRealQuantLinear,
-    MlcllmRealQuantLinear
+    MlcllmRealQuantLinear,
 ]
 
-_LLMC_ATTN_MAP_ = {
-    'Vit': LlmcViTSelfAttention,
-    'DeepseekV2': LlmcDeepseekAttention
-}
+_LLMC_ATTN_MAP_ = {'Vit': LlmcViTSelfAttention, 'DeepseekV2': LlmcDeepseekAttention}
 
 _REALQUANT_LINEAR_MAP_ = {
     'vllm_quant': VllmRealQuantLinear,
     'sgl_quant': SglRealQuantLinear,
     'autoawq_quant': AutoawqRealQuantLinear,
-    'mlcllm_quant': MlcllmRealQuantLinear
+    'mlcllm_quant': MlcllmRealQuantLinear,
 }

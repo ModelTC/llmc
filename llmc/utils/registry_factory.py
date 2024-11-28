@@ -45,3 +45,4 @@ class Register(dict):
 PREPROC_REGISTRY = Register()
 ALGO_REGISTRY = Register()
 MODEL_REGISTRY = Register()
+KV_REGISTRY = Register()

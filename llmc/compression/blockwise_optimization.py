@@ -59,6 +59,15 @@ class BlockwiseOpt(metaclass=ABCMeta):
         else:
             feat_dict[name].append(tuple(inputs))
 
+    def kv_cache_input_hook(self):
+        def hook_fn(module, args, kwargs):
+            kvcache = getattr(module, 'kvcache')
+            kwargs['past_key_value'] = kvcache
+            kwargs['use_cache'] = False
+            return args, kwargs
+
+        return hook_fn
+
     @abstractmethod
     def block_opt(self, block):
         pass

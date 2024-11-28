@@ -30,8 +30,9 @@ class TokenConsistencyEval(BaseEval):
             inputs = inputs.reshape(j - i, seq_len)
 
             # Forward pass through the models
-            logits1 = org_model(inputs).logits
-            logits2 = model(inputs).logits
+            logits1 = org_model.model(inputs).logits
+            logits2 = model.model(inputs).logits
+            model.reset_kv()
 
             # Get predicted tokens
             preds1 = torch.argmax(logits1, dim=-1)

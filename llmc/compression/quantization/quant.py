@@ -210,8 +210,8 @@ class BaseQuantizer(object):
 
     def reshape_tensor(self, tensor, allow_padding=False):
         if self.granularity == 'per_group':
-            if tensor.shape[1] >= self.group_size:
-                if tensor.shape[1] % self.group_size == 0:
+            if tensor.shape[-1] >= self.group_size:
+                if tensor.shape[-1] % self.group_size == 0:
                     t = tensor.reshape(-1, self.group_size)
                 elif allow_padding:
                     deficiency = self.group_size - tensor.shape[1] % self.group_size
