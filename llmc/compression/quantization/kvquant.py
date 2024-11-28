@@ -134,17 +134,6 @@ class NaiveQuantKVCache(DynamicCache):
             self.calib_key_cache[layer_idx].clear()
             self.calib_value_cache[layer_idx].clear()
 
-    # def _reshape_states(self, tensor):
-    #     batch_size, num_heads, seq_len, head_dim = tensor.shape
-    #     if self.kvquant_cfg.granularity == "per_group":
-    #         group_size = self.kvquant_cfg.group_size
-    #         assert head_dim % group_size == 0
-    #         tensor = tensor.reshape(batch_size, -1, group_size)
-    #     return tensor
-
-    # def _restore_states(self, tensor, org_shape):
-    #     return tensor.view(org_shape)
-
     def _quantize(self, tensor, layer_idx, is_key):
         org_shape = tensor.shape
         tensor = self.kvquantizer.reshape_tensor(tensor)

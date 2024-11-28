@@ -178,11 +178,12 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
         self.quant_config['weight']['tp'] = self.tp
 
         # set model config
-        self.hidden_size = self.model.model_config.hidden_size
-        self.num_heads = self.model.model_config.num_attention_heads
-        self.head_dim = self.hidden_size // self.num_heads
-        self.intermediate_size = self.model.model_config.intermediate_size
-        self.num_hidden_layers = self.model.model_config.num_hidden_layers
+        self.hidden_size = self.model.model_config.get('hidden_size')
+        self.num_heads = self.model.model_config.get('num_attention_heads')
+        self.head_dim = self.hidden_size // self.num_heads \
+            if self.hidden_size and self.num_heads else None
+        self.intermediate_size = self.model.model_config.get('intermediate_size')
+        self.num_hidden_layers = self.model.model_config.get('num_hidden_layers')
 
         # select quant module
         self.quant_type = self.quant_config.get('quant_type', 'int-quant')
