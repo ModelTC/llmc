@@ -177,14 +177,6 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
         self.tp = self.quant_config.get('tp', 1)
         self.quant_config['weight']['tp'] = self.tp
 
-        # set model config
-        self.hidden_size = self.model.model_config.get('hidden_size')
-        self.num_heads = self.model.model_config.get('num_attention_heads')
-        self.head_dim = self.hidden_size // self.num_heads \
-            if self.hidden_size and self.num_heads else None
-        self.intermediate_size = self.model.model_config.get('intermediate_size')
-        self.num_hidden_layers = self.model.model_config.get('num_hidden_layers')
-
         # select quant module
         self.quant_type = self.quant_config.get('quant_type', 'int-quant')
         if self.quant_type == 'int-quant':
@@ -241,7 +233,7 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
             self.quant_config['kvcache']['static'] = self.act_static
             self.kv_module = KV_REGISTRY[self.quant_config['kvcache']['method']](
                 self.quant_type, self.quant_config['kvcache'],
-                self.num_hidden_layers, self.config.calib.n_samples,
+                self.model.model_config.num_hidden_layers, self.config.calib.n_samples,
                 self.config.calib.bs
             )
             self.quant_kvcache = True
@@ -285,6 +277,12 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
         self.online_rotate = special_config.get('online_rotate', False)
         if self.online_rotate:
             assert self.config['model']['type'] in ['Opt', 'Llama']
+
+        self.hidden_size = self.model.model_config.hidden_size
+        if self.online_rotate:
+            self.num_heads = self.model.model_config.num_attention_heads
+            self.head_dim = self.hidden_size // self.num_heads
+            self.intermediate_size = self.model.model_config.intermediate_size
             self.fp32_had = special_config.get('fp32_had', False)
 
         self.quant_objects = self.quant_config.get('quant_objects', ['language'])
