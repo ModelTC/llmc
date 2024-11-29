@@ -34,7 +34,7 @@ class BaseEval:
         self.res_path = eval_cfg.get('res_path', None)
         if self.dataset in ['human_eval']:
             assert self.res_path is not None
-        os.makedirs(self.res_path, exist_ok=True)
+            os.makedirs(self.res_path, exist_ok=True)
         self.format_tabs = eval_cfg.get('format_tabs', False)
 
     @torch.no_grad()
