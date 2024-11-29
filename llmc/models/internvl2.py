@@ -1,13 +1,13 @@
+from typing import Optional
+
 import torch
 import torchvision.transforms as T
 from loguru import logger
 from PIL import Image
 from torchvision.transforms.functional import InterpolationMode
-from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
+from transformers import AutoConfig, AutoModelForCausalLM, GenerationConfig
 
 from llmc.utils.registry_factory import MODEL_REGISTRY
-
-from .internlm2 import InternLM2
 
 try:
     from .conversation import get_conv_template
@@ -96,11 +96,93 @@ def load_image(image_file, input_size=448, max_num=12):
     return pixel_values
 
 
-@MODEL_REGISTRY
-class InternVL2(InternLM2):
-    def __init__(self, config, device_map=None, use_cache=False):
-        super().__init__(config, device_map, use_cache)
+@torch.no_grad()
+def generate_patch_for_internvl_qwen2(
+        self,
+        pixel_values: Optional[torch.FloatTensor] = None,
+        input_ids: Optional[torch.FloatTensor] = None,
+        attention_mask: Optional[torch.LongTensor] = None,
+        visual_features: Optional[torch.FloatTensor] = None,
+        generation_config: Optional[GenerationConfig] = None,
+        output_hidden_states: Optional[bool] = None,
+        return_dict: Optional[bool] = None,
+        **generate_kwargs,
+) -> torch.LongTensor:
 
+    assert self.img_context_token_id is not None
+    if pixel_values is not None:
+        if visual_features is not None:
+            vit_embeds = visual_features
+        else:
+            vit_embeds = self.extract_feature(pixel_values)
+        input_embeds = self.language_model.get_input_embeddings()(input_ids)
+        B, N, C = input_embeds.shape
+        input_embeds = input_embeds.reshape(B * N, C)
+
+        input_ids = input_ids.reshape(B * N)
+        selected = (input_ids == self.img_context_token_id)
+        assert selected.sum() != 0
+        input_embeds[selected] = vit_embeds.reshape(-1, C).to(input_embeds.device)
+
+        input_embeds = input_embeds.reshape(B, N, C)
+    else:
+        input_embeds = self.language_model.get_input_embeddings()(input_ids)
+
+    outputs = self.language_model.generate(
+        inputs_embeds=input_embeds,
+        attention_mask=attention_mask,
+        generation_config=generation_config,
+        output_hidden_states=output_hidden_states,
+        use_cache=True,
+        **generate_kwargs,
+    )
+
+    return outputs
+
+
+@MODEL_REGISTRY
+class InternVL2():
+    def __new__(cls, config, device_map=None, use_cache=False):
+        vlm_model_config = AutoConfig.from_pretrained(
+            config.model.path, trust_remote_code=True
+        )
+        language_part = vlm_model_config.llm_config.model_type
+        logger.warning(f'InternVL2 language_part: {language_part}')
+        if language_part == 'internlm2':
+            from .internlm2 import InternLM2
+
+            class NewClass(InternVL2SharedBehavior, InternLM2):
+                def __init__(self, config, device_map=None, use_cache=False):
+                    super().__init__(config, device_map, use_cache)
+        elif language_part == 'qwen2':
+            from .qwen2 import Qwen2
+
+            class NewClass(InternVL2SharedBehavior, Qwen2):
+                def __init__(self, config, device_map=None, use_cache=False):
+                    super().__init__(config, device_map, use_cache)
+                    setattr(
+                        self.vlm_model,
+                        'generate',
+                        generate_patch_for_internvl_qwen2.__get__(self.vlm_model),
+                    )
+        elif language_part == 'phi3':
+            from .phi3 import Phi3
+
+            class NewClass(InternVL2SharedBehavior, Phi3):
+                def __init__(self, config, device_map=None, use_cache=False):
+                    super().__init__(config, device_map, use_cache)
+        elif language_part == 'llama':
+            from .llama import Llama
+
+            class NewClass(InternVL2SharedBehavior, Llama):
+                def __init__(self, config, device_map=None, use_cache=False):
+                    super().__init__(config, device_map, use_cache)
+        else:
+            raise Exception(f'Not support for language_part: {language_part}')
+        return NewClass(config, device_map, use_cache)
+
+
+class InternVL2SharedBehavior():
     def build_model(self):
         self.vlm_model_config = AutoConfig.from_pretrained(
             self.model_path, trust_remote_code=True
@@ -113,6 +195,7 @@ class InternVL2(InternLM2):
             torch_dtype=self.torch_dtype,
             low_cpu_mem_usage=True,
         )
+        logger.info(f'self.vlm_model : {self.vlm_model}')
         self.model = self.vlm_model.language_model
         self.vision_model = self.vlm_model.vision_model
         self.vision_projector = self.vlm_model.mlp1

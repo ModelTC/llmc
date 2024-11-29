@@ -154,6 +154,7 @@ class BaseModel(metaclass=ABCMeta):
             torch_dtype=self.torch_dtype,
             low_cpu_mem_usage=True,
         )
+        logger.info(f'self.model : {self.model}')
 
     def add_layernorms_class(self):
         ln_class_list = []

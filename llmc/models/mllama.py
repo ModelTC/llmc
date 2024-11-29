@@ -33,6 +33,7 @@ class Mllama(Llama):
             torch_dtype=self.torch_dtype,
             low_cpu_mem_usage=True,
         )
+        logger.info(f'self.vlm_model : {self.vlm_model}')
         self.vision_model = self.vlm_model.vision_model
         self.vision_projector = self.vlm_model.multi_modal_projector
         self.model = self.vlm_model.language_model

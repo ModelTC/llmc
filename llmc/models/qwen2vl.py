@@ -45,6 +45,7 @@ class Qwen2VL(Qwen2):
             torch_dtype=self.torch_dtype,
             low_cpu_mem_usage=True,
         )
+        logger.info(f'self.vlm_model : {self.vlm_model}')
 
         self.vision_model = self.vlm_model.visual
         self.vision_projector = self.vision_model.merger
