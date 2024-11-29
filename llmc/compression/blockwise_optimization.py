@@ -59,17 +59,17 @@ class BlockwiseOpt(metaclass=ABCMeta):
         else:
             feat_dict[name].append(tuple(inputs))
 
-    def kv_cache_input_hook():
+    def kv_cache_input_hook(self):
         def hook_fn(module, args, kwargs):
             kvcache = getattr(module, 'kvcache')
             kwargs['past_key_value'] = kvcache
             kwargs['use_cache'] = True
-            if kwargs["hidden_states"].shape[1] == 1:
-                kwargs["position_ids"] = kwargs["position_ids"][:, -1].unsqueeze(0).unsqueeze(0)
-                cos = kwargs["position_embeddings"][0][:, -1, :].unsqueeze(1) 
-                sin = kwargs["position_embeddings"][1][:, -1, :].unsqueeze(1) 
-                kwargs["position_embeddings"] = (cos, sin)
-            
+            if kwargs['hidden_states'].shape[1] == 1:
+                kwargs['position_ids'] = kwargs['position_ids'][:, -1].unsqueeze(0).unsqueeze(0)
+                cos = kwargs['position_embeddings'][0][:, -1, :].unsqueeze(1)
+                sin = kwargs['position_embeddings'][1][:, -1, :].unsqueeze(1)
+                kwargs['position_embeddings'] = (cos, sin)
+
             return args, kwargs
 
         return hook_fn
