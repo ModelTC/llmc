@@ -9,7 +9,7 @@ from .quant import FloatQuantizer, IntegerQuantizer
 
 @KV_REGISTRY.register('Naive')
 class NaiveQuantKVCache(DynamicCache):
-    def __init__(self, quant_type, kvquant_cfg, num_hidden_layers, num_samples, bsz):
+    def __init__(self, quant_type, kvquant_cfg, num_hidden_layers, num_samples=128, bsz=1):
         super().__init__()
 
         assert kvquant_cfg.granularity in ['per_token', 'per_tensor', 'per_group']
@@ -216,7 +216,7 @@ class NaiveQuantKVCache(DynamicCache):
         )
         return scales, zeros, qmin, qmax
 
-    def get_seq_length(self, layer_idx):
+    def get_seq_length(self, layer_idx=0):
         if len(self._quantized_key_cache) <= layer_idx:
             return 0
         return self._seen_tokens if layer_idx == 0 else self._seen_tokens - 1

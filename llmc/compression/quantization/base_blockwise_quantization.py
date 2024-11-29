@@ -231,11 +231,17 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
         # set kv cache quant config
         if 'kvcache' in self.quant_config:
             self.quant_config['kvcache']['static'] = self.act_static
-            self.kv_module = KV_REGISTRY[self.quant_config['kvcache']['method']](
-                self.quant_type, self.quant_config['kvcache'],
-                self.model.model_config.num_hidden_layers, self.config.calib.n_samples,
-                self.config.calib.bs
-            )
+            if self.act_static:
+                self.kv_module = KV_REGISTRY[self.quant_config['kvcache']['method']](
+                    self.quant_type, self.quant_config['kvcache'],
+                    self.model.model_config.num_hidden_layers, self.config.calib.n_samples,
+                    self.config.calib.bs
+                )
+            else:
+                self.kv_module = KV_REGISTRY[self.quant_config['kvcache']['method']](
+                    self.quant_type, self.quant_config['kvcache'],
+                    self.model.model_config.num_hidden_layers
+                )
             self.quant_kvcache = True
             self.model.kvcache_buffer.append(self.kv_module)
         else:

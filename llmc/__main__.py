@@ -15,8 +15,8 @@ from torch.distributed import destroy_process_group, init_process_group
 from llmc.compression.quantization import *
 from llmc.compression.sparsification import *
 from llmc.data import BaseDataset
-from llmc.eval import (AccuracyEval, PerplexityEval, TokenConsistencyEval,
-                       VLMEval)
+from llmc.eval import (AccuracyEval, HumanEval, PerplexityEval,
+                       TokenConsistencyEval, VLMEval)
 from llmc.models import *
 from llmc.utils import (check_config, mkdirs, print_important_package_version,
                         seed_all, update_autoawq_quant_config,
@@ -49,6 +49,9 @@ def main(config):
                 elif config.eval.type == 'img_txt':
                     acc_eval = VLMEval(config_for_eval)
                     eval_list.append(acc_eval)
+                elif config.eval.type == 'code' and config.eval.name == 'human_eval':
+                    human_eval = HumanEval(model.get_tokenizer(), config_for_eval)
+                    eval_list.append(human_eval)
                 else:
                     ppl_eval = PerplexityEval(model.get_tokenizer(), config_for_eval)
                     eval_list.append(ppl_eval)
@@ -61,6 +64,10 @@ def main(config):
             elif config.eval.type == 'img_txt':
                 for vlm_eval in eval_list:
                     results = vlm_eval.eval(model)
+                    logger.info(f'{config.eval.name} results : {results}')
+            elif config.eval.type == 'code' and config.eval.name == 'human_eval':
+                for human_eval in eval_list:
+                    results = human_eval.eval(model, eval_pos='pretrain')
                     logger.info(f'{config.eval.name} results : {results}')
             else:
                 for ppl_eval in eval_list:
@@ -122,6 +129,10 @@ def main(config):
                 for vlm_eval in eval_list:
                     results = vlm_eval.eval(model)
                     logger.info(f'{config.eval.name} results : {results}')
+            elif config.eval.type == 'code' and config.eval.name == 'human_eval':
+                for human_eval in eval_list:
+                    results = human_eval.eval(model, eval_pos='transformed')
+                    logger.info(f'{config.eval.name} results : {results}')
             else:
                 for ppl_eval in eval_list:
                     ppl = ppl_eval.eval(model)
@@ -149,6 +160,10 @@ def main(config):
             elif config.eval.type == 'img_txt':
                 for vlm_eval in eval_list:
                     results = vlm_eval.eval(model)
+                    logger.info(f'{config.eval.name} results : {results}')
+            elif config.eval.type == 'code' and config.eval.name == 'human_eval':
+                for human_eval in eval_list:
+                    results = human_eval.eval(model, eval_pos='fake_quant')
                     logger.info(f'{config.eval.name} results : {results}')
             else:
                 for ppl_eval in eval_list:
