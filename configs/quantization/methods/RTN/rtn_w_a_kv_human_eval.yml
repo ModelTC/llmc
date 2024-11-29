@@ -1,0 +1,35 @@
+base:
+    seed: &seed 42
+model:
+    type: model_type
+    path: model path
+    torch_dtype: auto
+eval:
+    eval_pos: [pretrain, fake_quant]
+    type: code
+    name: human_eval
+    res_path: ./human_eval/
+    # For 7B / 13B model eval, bs can be set to "1", and inference_per_block can be set to "False".
+    # For 70B model eval, bs can be set to "20", and inference_per_block can be set to "True".
+    bs: 1
+    format_tabs: True
+    inference_per_block: False
+quant:
+    method: RTN
+    weight:
+        bit: 8
+        symmetric: True
+        granularity: per_channel
+        group_size: -1
+    act:
+        bit: 8
+        symmetric: True
+        granularity: per_token
+    kvcache:
+        method: Naive
+        bit: 8
+        symmetric: True
+        granularity: per_token
+save:
+    save_fake: False
+    save_path: /path/to/save/
