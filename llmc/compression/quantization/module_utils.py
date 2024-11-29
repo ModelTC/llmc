@@ -634,22 +634,12 @@ class OriginFloatLinear(nn.Module):
             self.rotater = ori_module.rotater
 
     @torch.no_grad()
-    def forward(self, x, dtype=None):
+    def forward(self, x):
         if hasattr(self, 'buf_rotate') and self.buf_rotate:
             x = self.rotater.rotate(x)
 
-        org_dtype = self.weight.data.dtype
-        if dtype is not None:
-            self.convert_dtype(dtype)
-
         x = torch.functional.F.linear(x, self.weight, self.bias)
-        self.convert_dtype(org_dtype)
         return x
-
-    def convert_dtype(self, dtype):
-        self.weight.data = self.weight.data.to(dtype)
-        if self.bias is not None:
-            self.bias.data = self.bias.data.to(dtype)
 
     @classmethod
     @torch.no_grad()
@@ -829,7 +819,7 @@ class FakeQuantLinear(nn.Module):
         self.dynamic_quant_weight = False
         self.dynamic_quant_tmp_weight = False
 
-    def forward(self, x, dtype=None):
+    def forward(self, x):
         if hasattr(self, 'buf_rotate') and self.buf_rotate:
             x = self.rotater.rotate(x)
 
@@ -848,19 +838,8 @@ class FakeQuantLinear(nn.Module):
         elif self.dynamic_quant_tmp_weight:
             self.tmp_weight = self.w_qdq(self)
 
-        org_dtype = self.tmp_weight.data.dtype
-        if dtype is not None:
-            self.convert_dtype(dtype)
-
         x = torch.functional.F.linear(x, self.tmp_weight, self.tmp_bias)
-
-        self.convert_dtype(org_dtype)
         return x
-
-    def convert_dtype(self, dtype):
-        self.tmp_weight.data = self.tmp_weight.data.to(dtype)
-        if self.tmp_bias is not None:
-            self.tmp_bias.data = self.tmp_bias.data.to(dtype)
 
     @classmethod
     @torch.no_grad()
@@ -924,18 +903,8 @@ class EffcientFakeQuantLinear(nn.Module):
         if self.a_qdq is not None:
             x = self.a_qdq(x, self)
 
-        org_dtype = self.weight.data.dtype
-        if dtype is not None:
-            self.convert_dtype(dtype)
-
         x = torch.functional.F.linear(x, self.weight, self.bias)
-        self.convert_dtype(org_dtype)
         return x
-
-    def convert_dtype(self, dtype):
-        self.weight.data = self.weight.data.to(dtype)
-        if self.bias is not None:
-            self.bias.data = self.bias.data.to(dtype)
 
     @classmethod
     @torch.no_grad()
