@@ -298,9 +298,9 @@ class InternOmniSharedBehavior():
         attention_mask = model_inputs['attention_mask']
         eos_token_id = [self.tokenizer.eos_token_id, self.tokenizer.convert_tokens_to_ids(['<|im_end|>'])[0]] # noqa
         generation_config['eos_token_id'] = eos_token_id
-        generation_config['temperature'] = 0
-        generation_config['top_p'] = 0.1
-        generation_config['top_k'] = 1
+        generation_config['temperature'] = 1.0
+        generation_config['top_p'] = 0.7
+        generation_config['top_k'] = 20
         generation_config['repetition_penalty'] = 1
 
         inputs = {

@@ -86,11 +86,68 @@ def dynamic_preprocess(image, min_num=1, max_num=12, image_size=448, use_thumbna
         processed_images.append(thumbnail_img)
     return processed_images
 
+import math
+def find_closest_aspect_ratio_v3(image, min_num=1, max_num=6, image_size=448, use_thumbnail=False):
+    # llava like, from https://huggingface.co/openbmb/MiniCPM-V-2_6/blob/3f7a8da1b7a8b928b5ee229fae33cf43fd64cf31/image_processing_minicpmv.py#L257 with modification 
+    assert min_num == 1
+    original_width, original_height = image.size
+    log_ratio = math.log(original_width / original_height)
+    ratio = original_width * original_height / (image_size * image_size)
+    multiple = min(math.ceil(ratio), max_num)
+    if multiple <= 1:
+        return [1, 1]
+    candidate_split_grids_nums = []
+    for i in [multiple - 1, multiple, multiple + 1]:
+        if i > max_num:
+            continue
+        candidate_split_grids_nums.append(i)
+    
+    candidate_grids = []
+    for split_grids_nums in candidate_split_grids_nums:
+        m = 1
+        while m <= split_grids_nums:
+            if split_grids_nums % m == 0:
+                candidate_grids.append([m, split_grids_nums // m])
+            m += 1
+    best_grid = [1, 1]
+    min_error = float("inf")
+    for grid in candidate_grids:
+        error = abs(log_ratio - math.log(grid[0] / grid[1]))
+        if error < min_error:
+            best_grid = grid
+            min_error = error
+
+    return best_grid
+
+def dynamic_preprocess_v3(image, min_num=1, max_num=6, image_size=448, use_thumbnail=False):
+    target_aspect_ratio = find_closest_aspect_ratio_v3(image, min_num, max_num, image_size, use_thumbnail)
+    target_width = image_size * target_aspect_ratio[0]
+    target_height = image_size * target_aspect_ratio[1]
+    blocks = target_aspect_ratio[0] * target_aspect_ratio[1]
+    # resize the image
+    resized_img = image.resize((target_width, target_height))
+    processed_images = []
+    for i in range(blocks):
+        box = (
+            (i % (target_width // image_size)) * image_size,
+            (i // (target_width // image_size)) * image_size,
+            ((i % (target_width // image_size)) + 1) * image_size,
+            ((i // (target_width // image_size)) + 1) * image_size
+        )
+        # split the image
+        split_img = resized_img.crop(box)
+        processed_images.append(split_img)
+    assert len(processed_images) == blocks
+    if use_thumbnail and len(processed_images) != 1:
+        thumbnail_img = image.resize((image_size, image_size))
+        processed_images.append(thumbnail_img)
+    return processed_images
 
 def load_image(image_file, input_size=448, max_num=12):
     image = Image.open(image_file).convert('RGB')
     transform = build_transform(input_size=input_size)
-    images = dynamic_preprocess(image, image_size=input_size, use_thumbnail=True, max_num=max_num) # noqa
+    print(f"--- dynamic_preprocess_v3 ---")
+    images = dynamic_preprocess_v3(image, image_size=input_size, use_thumbnail=True, max_num=max_num) # noqa
     pixel_values = [transform(image) for image in images]
     pixel_values = torch.stack(pixel_values)
     return pixel_values
