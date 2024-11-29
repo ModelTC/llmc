@@ -54,6 +54,7 @@ class InternOmni(InternLM2):
             torch_dtype=self.torch_dtype,
             low_cpu_mem_usage=True,
         )
+        logger.info(f'self.avlm_model : {self.avlm_model}')
         self.model = self.avlm_model.language_model
         self.model_config = self.avlm_model_config.llm_config
         if not self.use_cache:

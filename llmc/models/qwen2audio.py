@@ -35,6 +35,7 @@ class Qwen2Audio(Qwen2):
             torch_dtype=self.torch_dtype,
             low_cpu_mem_usage=True,
         )
+        logger.info(f'self.alm_model : {self.alm_model}')
         self.processor = AutoProcessor.from_pretrained(
             self.model_path, trust_remote_code=True
         )

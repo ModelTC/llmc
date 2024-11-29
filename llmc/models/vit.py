@@ -1,6 +1,7 @@
 import inspect
 
 import torch.nn as nn
+from loguru import logger
 from transformers import (AutoConfig, AutoProcessor, ViTForImageClassification,
                           ViTImageProcessor)
 
@@ -21,6 +22,7 @@ class Vit(BaseModel):
         )
         self.processor = ViTImageProcessor.from_pretrained(self.model_path)
         self.model = ViTForImageClassification.from_pretrained(self.model_path)
+        logger.info(f'self.model : {self.model}')
 
     def find_blocks(self, modality='vision'):
         self.blocks = self.model.vit.encoder.layer

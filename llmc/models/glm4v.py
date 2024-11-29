@@ -26,6 +26,7 @@ class GLM4V(ChatGLM):
             low_cpu_mem_usage=True,
             trust_remote_code=True,
         )
+        logger.info(f'self.vlm_model : {self.vlm_model}')
         self.vision_model = self.vlm_model.transformer.vision
         self.vision_projector = self.vlm_model.transformer.vision.linear_proj
         self.model = self.vlm_model
