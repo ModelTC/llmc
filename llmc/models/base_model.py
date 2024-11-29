@@ -109,6 +109,9 @@ class BaseModel(metaclass=ABCMeta):
     def get_attention_rotary_layers(self):
         return []
 
+    def get_num_attention_heads(self):
+        return self.model_config.num_attention_heads
+
     def batch_process(self):
         raise Exception('batch_process should not be called here.')
 

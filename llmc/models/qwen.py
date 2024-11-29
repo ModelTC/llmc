@@ -45,9 +45,6 @@ class Qwen(BaseModel):
             'ln_2': block.ln_2,
         }
 
-    def get_num_attention_heads(self):
-        return self.model_config.num_attention_heads
-
     def get_subsets_in_block(self, block):
         return [
             {
