@@ -12,6 +12,7 @@ class NaiveQuantKVCache(DynamicCache):
     def __init__(self, quant_type, kvquant_cfg, num_hidden_layers, num_samples, bsz):
         super().__init__()
 
+        assert kvquant_cfg.granularity in ['per_token', 'per_tensor', 'per_group']
         self.num_hidden_layers, self.num_samples, self.bsz = (
             num_hidden_layers,
             num_samples,
@@ -23,7 +24,6 @@ class NaiveQuantKVCache(DynamicCache):
             self.kvquantizer = FloatQuantizer(**kvquant_cfg)
 
         self.kvquant_cfg = kvquant_cfg
-        assert self.kvquant_cfg.granularity in ['per_token', 'per_tensor', 'per_group']
         self.static = kvquant_cfg.get('static', False)
         self._quantized_key_cache = []
         self._quantized_value_cache = []
