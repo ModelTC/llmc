@@ -42,8 +42,7 @@ class Phi(BaseModel):
 
     def get_layernorms_in_block(self, block):
         return {
-            'input_layernorm': block.input_layernorm,
-            'post_attention_layernorm': block.input_layernorm,
+            'input_layernorm': block.input_layernorm
         }
 
     def get_subsets_in_block(self, block):
@@ -66,5 +65,13 @@ class Phi(BaseModel):
                 'input': ['self_attn.dense'],
                 'inspect': block.self_attn.dense,
                 'has_kwargs': False,
+            },
+            {
+                'layers': {'mlp.fc2': block.mlp.fc2},
+                'prev_op': [block.mlp.fc1],
+                'input': ['mlp.fc2'],
+                'inspect': block.mlp,
+                'has_kwargs': False,
+                'do_trans': False,
             },
         ]
