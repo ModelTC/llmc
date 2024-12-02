@@ -65,10 +65,14 @@ class BlockwiseOpt(metaclass=ABCMeta):
             kwargs['past_key_value'] = kvcache
             kwargs['use_cache'] = True
             if kwargs['hidden_states'].shape[1] == 1:
-                kwargs['position_ids'] = kwargs['position_ids'][:, -1].unsqueeze(0).unsqueeze(0)
-                cos = kwargs['position_embeddings'][0][:, -1, :].unsqueeze(1)
-                sin = kwargs['position_embeddings'][1][:, -1, :].unsqueeze(1)
-                kwargs['position_embeddings'] = (cos, sin)
+                if self.config['model']['type'] in ['DeepseekV2']:
+                    kwargs['position_ids'] = kwargs['position_ids'][:, -1].unsqueeze(1)
+                else:
+                    kwargs['position_ids'] = kwargs['position_ids'][:, -1].unsqueeze(0).unsqueeze(0)
+                if 'position_embeddings' in kwargs:
+                    cos = kwargs['position_embeddings'][0][:, -1, :].unsqueeze(1)
+                    sin = kwargs['position_embeddings'][1][:, -1, :].unsqueeze(1)
+                    kwargs['position_embeddings'] = (cos, sin)
 
             return args, kwargs
 
