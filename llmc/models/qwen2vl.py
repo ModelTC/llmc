@@ -64,6 +64,9 @@ class Qwen2VL(Qwen2):
             max_pixels=self.max_pixels
         )
 
+    def get_extra_rot_module_besides_embed_layers(self):
+        return [self.vision_projector.mlp[-1]]
+
     def batch_process(self, img_qas, calib_or_eval='eval'):
         assert calib_or_eval == 'calib' or calib_or_eval == 'eval'
         messages = []

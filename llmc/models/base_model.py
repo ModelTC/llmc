@@ -54,6 +54,9 @@ class BaseModel(metaclass=ABCMeta):
     def get_model(self):
         return self.model
 
+    def get_extra_rot_module_besides_embed_layers(self):
+        return []
+
     def get_blocks(self):
         return self.blocks
 

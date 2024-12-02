@@ -220,6 +220,9 @@ class InternVL2SharedBehavior():
             'Besides, you can also put the <image> into your calib dataset.'
         )
 
+    def get_extra_rot_module_besides_embed_layers(self):
+        return [self.vision_projector[-1]]
+
     def batch_process(self, img_qas, calib_or_eval='eval'):
         assert calib_or_eval == 'calib' or calib_or_eval == 'eval'
         questions = []

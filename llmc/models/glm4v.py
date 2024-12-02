@@ -32,6 +32,9 @@ class GLM4V(ChatGLM):
         self.model = self.vlm_model
         self.model_config = self.vlm_model_config
 
+    def get_extra_rot_module_besides_embed_layers(self):
+        return [self.vision_projector.dense_4h_to_h]
+
     def batch_process(self, img_qas, calib_or_eval='eval'):
         assert calib_or_eval == 'calib' or calib_or_eval == 'eval'
         messages = []
