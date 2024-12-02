@@ -50,9 +50,9 @@ class Quarot(BaseBlockwiseQuantization):
 
         self.rotate_head(self.Q)
 
-        # for vlm model
-        if self.model.vlm_model is not None:
-            logger.info('For vlm model, quarot need rotate last layer in vision_projector.')
+        for rot_layer in self.model.get_extra_rot_module_besides_embed_layers():
+            logger.info('For multimodal model, quarot need rotate last layer in projector.')
+            logger.info(f'rot_layer : {rot_layer}')
             """
             txt_input     img_input
                 |             |
@@ -66,11 +66,10 @@ class Quarot(BaseBlockwiseQuantization):
             X_txt ~ W_embeding * Q = X_txt ~ (W_embeding * Q)
             X_proj * W_proj.t() * Q = X_proj * (Q.t() * W_proj).t()
             """
-            assert hasattr(self.model, 'vision_projector')
-            dtype = self.model.vision_projector[-1].weight.dtype
+            dtype = rot_layer.weight.dtype
             device = self.Q.device
-            W = self.model.vision_projector[-1].weight.data.to(device=device, dtype=torch.float64)
-            self.model.vision_projector[-1].weight.data = torch.matmul(self.Q.T, W).to(device='cpu', dtype=dtype) # noqa
+            W = rot_layer.weight.data.to(device=device, dtype=torch.float64)
+            rot_layer.weight.data = torch.matmul(self.Q.T, W).to(device='cpu', dtype=dtype) # noqa
 
         gc.collect()
         torch.cuda.empty_cache()

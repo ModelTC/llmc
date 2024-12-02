@@ -45,6 +45,9 @@ class Qwen2Audio(Qwen2):
         self.model = self.alm_model.language_model
         self.model_config = self.alm_model_config.text_config
 
+    def get_extra_rot_module_besides_embed_layers(self):
+        return [self.audio_projector.linear]
+
     def batch_process(self, audio_qas, calib_or_eval='eval'):
         assert calib_or_eval == 'calib' or calib_or_eval == 'eval'
         messages = []

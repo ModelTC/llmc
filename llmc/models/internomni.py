@@ -190,6 +190,9 @@ class InternOmniSharedBehavior():
             'multiple': 'Audio-<|idx|>: <audio>\n'
         }
 
+    def get_extra_rot_module_besides_embed_layers(self):
+        return [self.audio_projector[-1], self.vision_projector[-1]]
+
     def batch_process(self, audio_img_qas, calib_or_eval='eval'):
         assert calib_or_eval == 'calib' or calib_or_eval == 'eval'
         questions = []
