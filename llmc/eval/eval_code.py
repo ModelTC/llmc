@@ -66,7 +66,6 @@ class HumanEval(BaseEval):
             chat_prompt = self.tokenizer.apply_chat_template(
                 chat_prompt,
                 tokenize=False,
-                add_generation_prompt=True
             )
             return chat_prompt
 
