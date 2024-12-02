@@ -13,29 +13,24 @@ class BaseEval:
     def __init__(self, tokenizer, config):
         self.tokenizer = tokenizer
         # eval_cfg
-        eval_cfg = config.eval
+        self.eval_cfg = config.eval
         self.model_type = config.model.type
-        logger.info(f'eval_cfg : {eval_cfg}')
-        self.dataset = eval_cfg['name']
+        logger.info(f'eval_cfg : {self.eval_cfg}')
+        self.dataset = self.eval_cfg['name']
         assert self.dataset in [
             'wikitext2',
             'c4',
             'ptb',
             'custom',
             'human_eval'
-        ], 'Ppl eval only support wikitext2, c4, ptb, human_eval dataset now.'
-        self.seq_len = eval_cfg.get('seq_len', None)
-        self.bs = eval_cfg['bs']
-        self.path = eval_cfg.get('path', None)
-        self.download = eval_cfg.get('download', False)
-        self.load_from_txt = eval_cfg.get('load_from_txt', False)
-        self.inference_per_block = eval_cfg.get('inference_per_block', False)
+        ], 'Eval only support wikitext2, c4, ptb, custom, human_eval dataset now.'
+        self.seq_len = self.eval_cfg.get('seq_len', None)
+        self.bs = self.eval_cfg['bs']
+        self.path = self.eval_cfg.get('path', None)
+        self.download = self.eval_cfg.get('download', False)
+        self.load_from_txt = self.eval_cfg.get('load_from_txt', False)
+        self.inference_per_block = self.eval_cfg.get('inference_per_block', False)
         self.testenc = self.build_data()
-        self.res_path = eval_cfg.get('res_path', None)
-        if self.dataset in ['human_eval']:
-            assert self.res_path is not None
-            os.makedirs(self.res_path, exist_ok=True)
-        self.format_tabs = eval_cfg.get('format_tabs', False)
 
     @torch.no_grad()
     def build_data(self):

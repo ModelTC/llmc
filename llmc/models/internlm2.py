@@ -32,6 +32,9 @@ class InternLM2(BaseModel):
     def get_layers_except_blocks(self):
         return [self.tok_embeddings, self.model.model.norm, self.model.output]
 
+    def get_attn_in_block(self, block):
+        return {'attention': block.attention}
+
     def skip_layer_name(self):
         return ['lm_head']
 
