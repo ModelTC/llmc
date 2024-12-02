@@ -11,6 +11,15 @@ from .eval_base import BaseEval
 
 
 class HumanEval(BaseEval):
+    def __init__(self, tokenizer, config):
+        super().__init__(tokenizer, config)
+        self.res_path = self.eval_cfg.get('res_path', None)
+        assert self.res_path is not None
+        os.makedirs(self.res_path, exist_ok=True)
+        self.format_tabs = self.eval_cfg.get('format_tabs', False)
+        self.instruction = self.eval_cfg.get('instruction',
+                                             'Complete the following Python code:')
+        self.add_chat_temp = self.eval_cfg.get('add_chat_temp', False)
 
     @torch.no_grad()
     def eval_func(self, org_model, model, testenc, seq_len, bs, eval_pos):
@@ -22,6 +31,7 @@ class HumanEval(BaseEval):
                 prompt = testenc[task_id]['prompt'].replace('    ', '\t')
             else:
                 prompt = testenc[task_id]['prompt']
+            prompt = self.gen_prompt(prompt)
             batch_completions = self.generate_batch_completion(
                 model, prompt, bs
             )
@@ -46,8 +56,24 @@ class HumanEval(BaseEval):
         res = self.post_process(testenc)
         return res
 
+    def gen_prompt(self, prompt):
+        prompt = self.instruction + '\n' + prompt
+        if self.model_type in ['Starcoder']:
+            prompt = '<fim_prefix>' + prompt + '<fim_suffix><fim_middle>'
+
+        if self.add_chat_temp:
+            chat_prompt = [{'role': 'user', 'content': prompt}]
+            chat_prompt = self.tokenizer.apply_chat_template(
+                chat_prompt,
+                tokenize=False,
+                add_generation_prompt=True
+            )
+            return chat_prompt
+
+        return prompt
+
     @torch.no_grad()
-    def generated_llama(
+    def generated(
         self,
         model,
         inputs,
@@ -56,6 +82,12 @@ class HumanEval(BaseEval):
         top_p=0.95,
         do_sample=True,
     ):
+
+        if hasattr(self.tokenizer, 'pad_token_id'):
+            pad_token_id = self.tokenizer.pad_token_id
+        else:
+            pad_token_id = self.tokenizer.eos_token_id
+
         generated_ids = model.model.generate(
             **inputs,
             max_new_tokens=max_new_tokens,
@@ -63,7 +95,7 @@ class HumanEval(BaseEval):
             top_p=top_p,
             do_sample=do_sample,
             eos_token_id=self.tokenizer.eos_token_id,
-            pad_token_id=self.tokenizer.eos_token_id,
+            pad_token_id=pad_token_id,
             use_cache=True,
         )
         return generated_ids
@@ -74,11 +106,8 @@ class HumanEval(BaseEval):
         inputs = self.tokenizer(input_batch, return_tensors='pt').to(model.model.device)
         input_ids_cutoff = inputs.input_ids.size(dim=1)
 
-        if self.model_type in ['Llama']:
-            generated_ids = self.generated_llama(model, inputs)
-            model.reset_kv()
-        else:
-            raise NotImplementedError('This model is not support yet.')
+        generated_ids = self.generated(model, inputs)
+        model.reset_kv()
 
         batch_completions = self.tokenizer.batch_decode(
             [ids[input_ids_cutoff:] for ids in generated_ids],
