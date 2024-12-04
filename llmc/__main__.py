@@ -3,12 +3,14 @@ import copy
 import gc
 import json
 import os
+import sys
 import time
 
 import torch
 import torch.distributed as dist
 import yaml
 from easydict import EasyDict
+from lmms_eval.utils import make_table
 from loguru import logger
 from torch.distributed import destroy_process_group, init_process_group
 
@@ -16,7 +18,7 @@ from llmc.compression.quantization import *
 from llmc.compression.sparsification import *
 from llmc.data import BaseDataset
 from llmc.eval import (AccuracyEval, HumanEval, PerplexityEval,
-                       TokenConsistencyEval, VLMEval)
+                       TokenConsistencyEval, VQAEval)
 from llmc.models import *
 from llmc.utils import (check_config, mkdirs, print_important_package_version,
                         seed_all, update_autoawq_quant_config,
@@ -46,9 +48,9 @@ def main(config):
                 if config.eval.type == 'acc':
                     acc_eval = AccuracyEval(config_for_eval)
                     eval_list.append(acc_eval)
-                elif config.eval.type == 'img_txt':
-                    acc_eval = VLMEval(config_for_eval)
-                    eval_list.append(acc_eval)
+                elif config.eval.type == 'vqa':
+                    vqa_eval = VQAEval(config_for_eval)
+                    eval_list.append(vqa_eval)
                 elif config.eval.type == 'code' and config.eval.name == 'human_eval':
                     human_eval = HumanEval(model.get_tokenizer(), config_for_eval)
                     eval_list.append(human_eval)
@@ -61,10 +63,11 @@ def main(config):
                 for acc_eval in eval_list:
                     acc = acc_eval.eval(model)
                     logger.info(f'{config.eval.name} acc : {acc}')
-            elif config.eval.type == 'img_txt':
-                for vlm_eval in eval_list:
-                    results = vlm_eval.eval(model)
-                    logger.info(f'{config.eval.name} results : {results}')
+            elif config.eval.type == 'vqa':
+                for vqa_eval in eval_list:
+                    results = vqa_eval.eval(model)
+                    logger.info(f'{config.eval.name} results :')
+                    print(make_table(results))
             elif config.eval.type == 'code' and config.eval.name == 'human_eval':
                 for human_eval in eval_list:
                     results = human_eval.eval(model, eval_pos='pretrain')
@@ -125,10 +128,6 @@ def main(config):
                 for acc_eval in eval_list:
                     acc = acc_eval.eval(model)
                     logger.info(f'{config.eval.name} acc : {acc}')
-            elif config.eval.type == 'img_txt':
-                for vlm_eval in eval_list:
-                    results = vlm_eval.eval(model)
-                    logger.info(f'{config.eval.name} results : {results}')
             elif config.eval.type == 'code' and config.eval.name == 'human_eval':
                 for human_eval in eval_list:
                     results = human_eval.eval(model, eval_pos='transformed')
@@ -157,10 +156,12 @@ def main(config):
                 for acc_eval in eval_list:
                     acc = acc_eval.eval(model)
                     logger.info(f'{config.eval.name} acc : {acc}')
-            elif config.eval.type == 'img_txt':
-                for vlm_eval in eval_list:
-                    results = vlm_eval.eval(model)
-                    logger.info(f'{config.eval.name} results : {results}')
+
+            elif config.eval.type == 'vqa':
+                for vqa_eval in eval_list:
+                    results = vqa_eval.eval(model)
+                    logger.info(f'{config.eval.name} results :')
+                    print(make_table(results))
             elif config.eval.type == 'code' and config.eval.name == 'human_eval':
                 for human_eval in eval_list:
                     results = human_eval.eval(model, eval_pos='fake_quant')
@@ -251,6 +252,7 @@ def main(config):
 
 
 if __name__ == '__main__':
+    logger.add(sys.stdout, level='INFO')
     llmc_start_time = time.time()
     parser = argparse.ArgumentParser()
     parser.add_argument('--config', type=str, required=True)
