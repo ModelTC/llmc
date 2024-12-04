@@ -1,3 +1,10 @@
+from typing import List, Optional, Tuple, Union
+
+import torch
+from accelerate import Accelerator, DistributedType
+from accelerate.state import AcceleratorState
+from lmms_eval.api.model import CacheHook
+from lmms_eval.models.llava_hf import LlavaHf
 from loguru import logger
 from PIL import Image
 from transformers import (AutoConfig, AutoProcessor,
@@ -12,6 +19,7 @@ from .llama import Llama
 class Llava(Llama):
     def __init__(self, config, device_map=None, use_cache=False):
         super().__init__(config, device_map, use_cache)
+        self.eval_name = 'LlavaHfEval'
 
     def build_model(self):
         self.vlm_model_config = AutoConfig.from_pretrained(
@@ -131,3 +139,83 @@ class Llava(Llama):
                 'do_trans': False
             },
         ]
+
+
+@MODEL_REGISTRY
+class LlavaHfEval(LlavaHf):
+    def __init__(
+        self,
+        llmc_model,
+        pretrained: str = 'llava-hf/llava-1.5-7b-hf',
+        revision: str = 'main',
+        device: str = 'cuda',
+        dtype: Optional[Union[str, torch.dtype]] = 'auto',
+        batch_size: int = 1,
+        trust_remote_code: Optional[bool] = False,
+        attn_implementation: Optional[str] = None,
+        device_map: str = '',
+        chat_template: Optional[str] = None,
+        use_cache: bool = True,
+        max_frames_num: Optional[int] = 32,
+        **kwargs,
+    ) -> None:
+
+        self._rank = 0
+        self._world_size = 1
+        self.cache_hook = CacheHook(None)
+        self.task_dict = {}
+        # Do not use kwargs for now
+        assert kwargs == {}, f'Unexpected kwargs: {kwargs}'
+
+        accelerator = Accelerator()
+        if accelerator.num_processes > 1 and device_map == '':
+            self._device = torch.device(f'cuda:{accelerator.local_process_index}')
+            self.device_map = f'cuda:{accelerator.local_process_index}'
+        else:
+            self._device = torch.device(device)
+            self.device_map = device_map
+        if isinstance(dtype, str) and dtype != 'auto':
+            dtype = getattr(torch, dtype)
+
+        self._model = llmc_model.cuda()
+        self.pretrained = pretrained
+        self._image_processor = AutoProcessor.from_pretrained(pretrained, revision=revision,
+                                                              trust_remote_code=trust_remote_code)
+        # Pad from left for batched generation:
+        # https://huggingface.co/docs/transformers/v4.39.3/en/model_doc/llava#usage-tips
+        self._image_processor.tokenizer.padding_side = 'left'
+        self._tokenizer = self._image_processor.tokenizer
+        self._config = self._model.config
+        self.batch_size_per_gpu = int(batch_size)
+        self.chat_template = chat_template
+        self.use_cache = use_cache
+        if accelerator.num_processes > 1 and device_map == '':
+            if accelerator.distributed_type == DistributedType.DEEPSPEED:
+                kwargs = {
+                    'train_micro_batch_size_per_gpu': self.batch_size_per_gpu,
+                    'train_batch_size': self.batch_size_per_gpu * accelerator.num_processes,
+                }
+                AcceleratorState().deepspeed_plugin.deepspeed_config_process(
+                    must_match=True, **kwargs)
+                logger.info('Detected that you are using DistributedType.DEEPSPEED. \
+                            Make sure you run `accelerate config` and set zero stage to 0')
+            if accelerator.distributed_type == DistributedType.FSDP or \
+                    accelerator.distributed_type == DistributedType.DEEPSPEED:
+                self._model = accelerator.prepare(self.model)
+            else:
+                self._model = accelerator.prepare_model(self.model, evaluation_mode=True)
+            self.accelerator = accelerator
+            if self.accelerator.is_local_main_process:
+                logger.info(f'Using {accelerator.num_processes} devices with data parallelism')
+            self._rank = self.accelerator.local_process_index
+            self._world_size = self.accelerator.num_processes
+        elif accelerator.num_processes == 1 and device_map == 'auto':
+            logger.info(f'Using {accelerator.num_processes} devices with pipeline parallelism')
+            self._rank = 0
+            self._word_size = 1
+        else:
+            logger.info(f'Using single device: {self._device}')
+            self.model.to(self._device)
+            self._rank = 0
+            self._word_size = 1
+        self.accelerator = accelerator

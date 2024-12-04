@@ -18,11 +18,11 @@ calib:
     seed: *seed
 eval:
     eval_pos: [pretrain, fake_quant]
-    type: img_txt
-    name: MME
+    type: vqa
+    name: mme
     download: False
     path: MME dataset path
-    bs: 16
+    bs: 1
     inference_per_block: False
 quant:
     method: Awq

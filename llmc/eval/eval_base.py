@@ -22,7 +22,8 @@ class BaseEval:
             'c4',
             'ptb',
             'custom',
-            'human_eval'
+            'human_eval',
+            'mme',
         ], 'Eval only support wikitext2, c4, ptb, custom, human_eval dataset now.'
         self.seq_len = self.eval_cfg.get('seq_len', None)
         self.bs = self.eval_cfg['bs']
