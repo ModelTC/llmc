@@ -1,10 +1,12 @@
 import copy
 import functools
 import math
+import os
 from abc import ABCMeta, abstractmethod
 from collections import defaultdict
 
 import torch
+import torch.distributed as dist
 import torch.nn as nn
 import transformers
 from loguru import logger
@@ -249,6 +251,7 @@ class GPTQ(BaseBlockwiseQuantization):
 
     @torch.no_grad()
     def add_batch(self, layer, name, inp, out):
+        world_size = int(os.environ['WORLD_SIZE'])
         if len(inp.shape) == 2:
             inp = inp.unsqueeze(0)
         tmp = inp.shape[0]
@@ -278,6 +281,11 @@ class GPTQ(BaseBlockwiseQuantization):
         self.layers_cache[name]['nsamples'] += tmp
         inp = math.sqrt(2 / self.layers_cache[name]['nsamples']) * inp.float()
         self.layers_cache[name]['H'] += inp.matmul(inp.t())
+
+        dist.all_reduce(self.layers_cache[name]['H'], op=dist.ReduceOp.SUM)
+        dist.all_reduce(torch.tensor(self.layers_cache[name]['nsamples']).cuda(),
+                        op=dist.ReduceOp.SUM)
+        self.layers_cache[name]['H'] /= world_size
 
     @torch.no_grad()
     def layer_init(self, layer, name):
