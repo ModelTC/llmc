@@ -61,3 +61,13 @@ Example format of img_qa.json:
 ```
 The "answer" field is optional.
 The img-txt dataset can include calibration data that contains only text (except for llama3.2).
+
+## VLM Evaluation
+
+LLMC integrates [lmms-eval](https://github.com/EvolvingLMMs-Lab/lmms-eval) for evaluations on various downstream datasets. In the config's eval section, the type should be specified as "vqa", and the downstream evaluation datasets in the name should follow the standards set by lmms-eval.
+
+```
+eval:
+    type: vqa
+    name: [mme] # vqav2, gqa, vizwiz_vqa, scienceqa, textvqa
+```
