@@ -65,3 +65,13 @@ img_qa.json 格式示例：
 "answer" 可以不需要
 
 img-txt数据集中可以存在仅有文本的校准数据（当前llama3.2除外）
+
+## VLM 测评
+
+llmc接入了[lmms-eval](https://github.com/EvolvingLMMs-Lab/lmms-eval)进行各种下游数据集测评，在config的eval中需要指定type为vqa，name中的下游测评数据集参考lmms-eval的标准。
+
+```
+eval:
+    type: vqa
+    name: [mme] # vqav2, gqa, vizwiz_vqa, scienceqa, textvqa
+```
