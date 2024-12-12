@@ -528,6 +528,12 @@ class OmniQuant(BaseBlockwiseQuantization):
     def truncate(self, num, threshold=1e-2):
         return TruncateFunction.apply(num, threshold)
 
+    def clear_let_parameters(self, block):
+        template = 'smooth' if self.use_shift else 'smooth_scale'
+        for n, _ in list(block.named_parameters()):
+            if template in n:
+                delattr(block, n)
+
     def clear_tmp(self, block):
         for n, m in block.named_modules():
             if isinstance(m, FakeQuantLinear):
@@ -539,6 +545,9 @@ class OmniQuant(BaseBlockwiseQuantization):
                     if m.buf_lowbound_factor is not None:
                         m.buf_upbound_factor.requires_grad = False
                         m.buf_lowbound_factor.requires_grad = False
+
+        if self.let:
+            self.clear_let_parameters(block)
 
     def smooth_tmp_weight(self, block):
         subsets = self.model.get_subsets_in_block(block)
