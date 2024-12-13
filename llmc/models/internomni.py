@@ -158,6 +158,7 @@ class InternOmniSharedBehavior():
             torch_dtype=self.torch_dtype,
             low_cpu_mem_usage=True,
         )
+        self.mm_model = self.avlm_model
         logger.info(f'self.avlm_model : {self.avlm_model}')
         self.model = self.avlm_model.language_model
         self.model_config = self.avlm_model_config.llm_config
@@ -193,8 +194,9 @@ class InternOmniSharedBehavior():
     def get_extra_rot_module_besides_embed_layers(self):
         return [self.audio_projector[-1], self.vision_projector[-1]]
 
-    def batch_process(self, audio_img_qas, calib_or_eval='eval'):
+    def batch_process(self, audio_img_qas, calib_or_eval='eval', apply_chat_template=True, return_inputs=True): # noqa
         assert calib_or_eval == 'calib' or calib_or_eval == 'eval'
+        assert apply_chat_template
         questions = []
         answers = []
         pixel_values_list = []
@@ -204,7 +206,7 @@ class InternOmniSharedBehavior():
         audio_token_nums_list = []
 
         for idx in range(len(audio_img_qas)):
-            img_path = audio_img_qas[idx]['img']
+            img_path = audio_img_qas[idx]['image']
             audio_path = audio_img_qas[idx]['audio']
             num_patches = []
             num_audios = []
@@ -248,7 +250,7 @@ class InternOmniSharedBehavior():
                             prefix = prefix + self.default_image_prompt_template['multiple'].replace('<|idx|>', f'{n+1}') # noqa
                     audio_img_qas[idx]['question'] = prefix + audio_img_qas[idx]['question']
                 else:
-                    assert audio_img_qas[idx]['question'].count('<image>') == len(img_path), f"{audio_img_qas[idx]['img']} this data prompt is wrong." # noqa
+                    assert audio_img_qas[idx]['question'].count('<image>') == len(img_path), f"{audio_img_qas[idx]['image']} this data prompt is wrong." # noqa
             num_audios_patches_list.append((num_audios, num_patches))
 
             questions.append(audio_img_qas[idx]['question'])
@@ -296,6 +298,8 @@ class InternOmniSharedBehavior():
 
             queries.append(query)
         assert self.tokenizer.padding_side == 'left'
+        if not return_inputs:
+            return queries
         model_inputs = self.tokenizer(queries, return_tensors='pt', padding=True)
         input_ids = model_inputs['input_ids']
         attention_mask = model_inputs['attention_mask']

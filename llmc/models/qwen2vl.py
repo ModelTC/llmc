@@ -45,6 +45,7 @@ class Qwen2VL(Qwen2):
             torch_dtype=self.torch_dtype,
             low_cpu_mem_usage=True,
         )
+        self.mm_model = self.vlm_model
         logger.info(f'self.vlm_model : {self.vlm_model}')
 
         self.vision_model = self.vlm_model.visual
@@ -67,12 +68,13 @@ class Qwen2VL(Qwen2):
     def get_extra_rot_module_besides_embed_layers(self):
         return [self.vision_projector.mlp[-1]]
 
-    def batch_process(self, img_qas, calib_or_eval='eval'):
+    def batch_process(self, img_qas, calib_or_eval='eval', apply_chat_template=True, return_inputs=True): # noqa
         assert calib_or_eval == 'calib' or calib_or_eval == 'eval'
+        assert apply_chat_template
         messages = []
         answers = []
         for idx in range(len(img_qas)):
-            img_path = img_qas[idx]['img']
+            img_path = img_qas[idx]['image']
             if img_path is not None:
                 content = []
                 if not isinstance(img_path, list):
@@ -108,7 +110,8 @@ class Qwen2VL(Qwen2):
             ]
         if calib_or_eval == 'calib':
             logger.info(f'Calib data is:\n{texts}')
-
+        if not return_inputs:
+            return texts
         image_inputs, video_inputs = process_vision_info(messages)
         inputs = self.processor(
             text=texts,

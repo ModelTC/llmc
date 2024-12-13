@@ -26,6 +26,7 @@ class GLM4V(ChatGLM):
             low_cpu_mem_usage=True,
             trust_remote_code=True,
         )
+        self.mm_model = self.vlm_model
         logger.info(f'self.vlm_model : {self.vlm_model}')
         self.vision_model = self.vlm_model.transformer.vision
         self.vision_projector = self.vlm_model.transformer.vision.linear_proj
@@ -35,12 +36,14 @@ class GLM4V(ChatGLM):
     def get_extra_rot_module_besides_embed_layers(self):
         return [self.vision_projector.dense_4h_to_h]
 
-    def batch_process(self, img_qas, calib_or_eval='eval'):
+    def batch_process(self, img_qas, calib_or_eval='eval', apply_chat_template=True, return_inputs=True): # noqa
         assert calib_or_eval == 'calib' or calib_or_eval == 'eval'
+        assert apply_chat_template
+        assert return_inputs, 'return_inputs should be True for GLM4V.'
         messages = []
         answers = []
         for idx in range(len(img_qas)):
-            img_path = img_qas[idx]['img']
+            img_path = img_qas[idx]['image']
             if img_path is not None:
                 image = Image.open(img_path).convert('RGB')
                 message = [

@@ -195,6 +195,7 @@ class InternVL2SharedBehavior():
             torch_dtype=self.torch_dtype,
             low_cpu_mem_usage=True,
         )
+        self.mm_model = self.vlm_model
         logger.info(f'self.vlm_model : {self.vlm_model}')
         self.model = self.vlm_model.language_model
         self.vision_model = self.vlm_model.vision_model
@@ -223,14 +224,15 @@ class InternVL2SharedBehavior():
     def get_extra_rot_module_besides_embed_layers(self):
         return [self.vision_projector[-1]]
 
-    def batch_process(self, img_qas, calib_or_eval='eval'):
+    def batch_process(self, img_qas, calib_or_eval='eval', apply_chat_template=True, return_inputs=True): # noqa
         assert calib_or_eval == 'calib' or calib_or_eval == 'eval'
+        assert apply_chat_template
         questions = []
         answers = []
         pixel_values_list = []
         num_patches_list = []
         for idx in range(len(img_qas)):
-            img_path = img_qas[idx]['img']
+            img_path = img_qas[idx]['image']
             num_patches = []
             if img_path is not None:
                 if not isinstance(img_path, list):
@@ -252,7 +254,7 @@ class InternVL2SharedBehavior():
                             prefix = prefix + self.default_image_prompt_template['multiple'].replace('<|idx|>', f'{n+1}') # noqa
                     img_qas[idx]['question'] = prefix + img_qas[idx]['question']
                 else:
-                    assert img_qas[idx]['question'].count('<image>') == len(img_path), f"{img_qas[idx]['img']} this data prompt is wrong." # noqa
+                    assert img_qas[idx]['question'].count('<image>') == len(img_path), f"{img_qas[idx]['image']} this data prompt is wrong." # noqa
             questions.append(img_qas[idx]['question'])
             answers.append(img_qas[idx]['answer'] + '<|im_end|>')
 
@@ -287,6 +289,8 @@ class InternVL2SharedBehavior():
                 query = query.replace('<image>', image_tokens, 1)
             queries.append(query)
         assert self.tokenizer.padding_side == 'left'
+        if not return_inputs:
+            return queries
         model_inputs = self.tokenizer(queries, return_tensors='pt', padding=True)
         input_ids = model_inputs['input_ids']
         attention_mask = model_inputs['attention_mask']

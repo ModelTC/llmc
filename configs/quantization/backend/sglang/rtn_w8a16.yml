@@ -20,7 +20,6 @@ eval:
     bs: 1
     seq_len: 2048
     inference_per_block: False
-    eval_token_consist: True
 save:
     save_sgl: True
     save_path: /path/to/save_for_sgl_rtn_w8a16/

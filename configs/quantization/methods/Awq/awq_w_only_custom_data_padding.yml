@@ -6,13 +6,12 @@ model:
     tokenizer_mode: slow
     torch_dtype: auto
 calib:
-    name: custom
+    name: custom_txt
     download: False
-    load_from_txt: True
-    path: ./inputs.txt
-    n_samples: 128
+    path: calib data path
+    apply_chat_template: True
+    n_samples: 8
     bs: -1
-    preproc: original_txt
     padding: True
     seed: *seed
 eval:
@@ -25,8 +24,6 @@ eval:
     # For 70B model eval, bs can be set to "20", and inference_per_block can be set to "True".
     bs: 1
     inference_per_block: False
-    # Consistency of tokens between original and fake-quantized model output.
-    eval_token_consist: False
 quant:
     method: Awq
     weight:

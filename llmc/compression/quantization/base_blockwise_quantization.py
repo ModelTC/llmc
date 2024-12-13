@@ -857,8 +857,8 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
                 if self.act_static:
                     self.kv_module.calib = False
 
-        if self.model.vlm_model is not None:
-            logger.info(f'Now, the vlm_model is: {self.model.vlm_model}')
+        if self.model.mm_model is not None:
+            logger.info(f'Now, the mm_model is: {self.model.mm_model}')
 
         logger.info(f'-- deploy_{quant_format}_model done --')
 

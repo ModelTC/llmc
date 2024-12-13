@@ -6,27 +6,44 @@ model:
     tokenizer_mode: slow
     torch_dtype: auto
 calib:
-    name: custom
+    name: custom_txt
     download: False
-    load_from_txt: True
-    path: ./inputs.txt
+    path: calib data path
+    apply_chat_template: True
     n_samples: 128
-    bs: -1
     seq_len: 512
+    bs: -1
     preproc: random_truncate_txt
     seed: *seed
 eval:
-    eval_pos: [pretrain, transformed, fake_quant]
-    name: wikitext2
-    download: False
-    path: eval data path
-    seq_len: 2048
-    # For 7B / 13B model eval, bs can be set to "1", and inference_per_block can be set to "False".
-    # For 70B model eval, bs can be set to "20", and inference_per_block can be set to "True".
-    bs: 1
-    inference_per_block: False
-    # Consistency of tokens between original and fake-quantized model output.
-    eval_token_consist: True
+    - eval_pos: [pretrain, transformed, fake_quant]
+      name: custom_gen
+      type: generate_only
+      max_new_tokens: 32
+      bs: 1
+      download: False
+      path: /data/yongyang/datasets/general_custom_data
+      apply_chat_template: True
+      inference_per_block: False
+    - eval_pos: [pretrain, transformed, fake_quant]
+      name: wikitext2
+      type: token_acc
+      download: False
+      path: /data/yongyang/datasets/llmc/eval/wikitext2
+      seq_len: 2048
+      # For 7B / 13B model eval, bs can be set to "1", and inference_per_block can be set to "False".
+      # For 70B model eval, bs can be set to "20", and inference_per_block can be set to "True".
+      bs: 1
+      inference_per_block: False
+    - eval_pos: [pretrain, transformed, fake_quant]
+      name: wikitext2
+      download: False
+      path: /data/yongyang/datasets/llmc/eval/wikitext2
+      seq_len: 2048
+      # For 7B / 13B model eval, bs can be set to "1", and inference_per_block can be set to "False".
+      # For 70B model eval, bs can be set to "20", and inference_per_block can be set to "True".
+      bs: 1
+      inference_per_block: False
 quant:
     method: Awq
     weight:

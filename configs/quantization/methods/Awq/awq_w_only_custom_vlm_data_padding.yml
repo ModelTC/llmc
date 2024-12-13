@@ -6,15 +6,14 @@ model:
     tokenizer_mode: slow
     torch_dtype: auto
 calib:
-    name: vlm_datastes
-    type: img_txt
+    name: custom_mm
     download: False
     path: calib data path
-    add_answer: False # Defalut is False. If set it to Ture, calib data will add answers.
-    n_samples: 3
+    apply_chat_template: True
+    add_answer: True # Defalut is False. If set it to Ture, calib data will add answers.
+    n_samples: 8
     bs: -1
     seq_len: 512
-    preproc: vlm_general
     padding: True
     seed: *seed
 eval:
@@ -27,8 +26,6 @@ eval:
     # For 70B model eval, bs can be set to "20", and inference_per_block can be set to "True".
     bs: 1
     inference_per_block: False
-    # Consistency of tokens between original and fake-quantized model output.
-    eval_token_consist: False
 quant:
     method: Awq
     weight:

@@ -38,15 +38,6 @@ def check_config(config):
         if config.quant.weight.get('w_2', False):
             weight_setting = config.quant.weight.w_2
             check_weight_setting(weight_setting)
-    if 'eval' in config and 'fake_quant' in config.eval.eval_pos:
-        if 'save' in config:
-            assert not config.save.get(
-                'save_quant', False
-            ), 'Fake_quant—eval and save_quant conflict now.'
-            assert not (
-                config.save.get('save_fake', False)
-                and config.save.get('save_quant', False)
-            ), 'Saving fake quant and saving real quant conflict now.'
     if config.model.get('tokenizer_mode', False):
         assert (
             config.model.tokenizer_mode == 'slow'
@@ -56,11 +47,6 @@ def check_config(config):
     else:
         config.model.tokenizer_mode = 'slow'
         logger.info('Tokenizer_mode is set to slow.')
-
-    if 'calib' in config and not config.calib.get('type', False):
-        config.calib.type = 'txt'
-    if 'eval' in config and not config.eval.get('type', False):
-        config.eval.type = 'ppl'
 
 
 def mkdirs(path):

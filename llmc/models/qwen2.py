@@ -57,6 +57,19 @@ class Qwen2(BaseModel):
             'post_attention_layernorm': block.post_attention_layernorm,
         }
 
+    # flake8: noqa
+    def apply_chat_template(self, prompt):
+        messages = [
+            {'role': 'system', 'content': 'You are Qwen, created by Alibaba Cloud. You are a helpful assistant.'},
+            {'role': 'user', 'content': prompt}
+        ]
+        text = self.tokenizer.apply_chat_template(
+            messages,
+            tokenize=False,
+            add_generation_prompt=True
+        )
+        return text
+
     def get_subsets_in_block(self, block):
         return [
             {
