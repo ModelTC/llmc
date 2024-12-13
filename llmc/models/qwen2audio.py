@@ -35,6 +35,7 @@ class Qwen2Audio(Qwen2):
             torch_dtype=self.torch_dtype,
             low_cpu_mem_usage=True,
         )
+        self.mm_model = self.alm_model
         logger.info(f'self.alm_model : {self.alm_model}')
         self.processor = AutoProcessor.from_pretrained(
             self.model_path, trust_remote_code=True
@@ -48,8 +49,9 @@ class Qwen2Audio(Qwen2):
     def get_extra_rot_module_besides_embed_layers(self):
         return [self.audio_projector.linear]
 
-    def batch_process(self, audio_qas, calib_or_eval='eval'):
+    def batch_process(self, audio_qas, calib_or_eval='eval', apply_chat_template=True, return_inputs=True): # noqa
         assert calib_or_eval == 'calib' or calib_or_eval == 'eval'
+        assert apply_chat_template
         messages = []
         answers = []
         for idx in range(len(audio_qas)):
@@ -84,7 +86,8 @@ class Qwen2Audio(Qwen2):
             texts = [texts[n] + answers[n] for n in range(len(texts))]
         if calib_or_eval == 'calib':
             logger.info(f'Calib data is:\n{texts}')
-
+        if not return_inputs:
+            return texts
         audios = []
         for conversation in messages:
             for message in conversation:

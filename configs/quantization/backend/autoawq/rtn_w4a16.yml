@@ -22,7 +22,6 @@ eval:
     bs: 1
     seq_len: 2048
     inference_per_block: False
-    eval_token_consist: True
 save:
     save_autoawq: True
     save_path: /path/to/save_for_autoawq_rtn_w4/

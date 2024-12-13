@@ -22,7 +22,6 @@ eval:
     bs: 1
     seq_len: 2048
     inference_per_block: False
-    eval_token_consist: True
 quant:
     method: GPTQ
     weight:

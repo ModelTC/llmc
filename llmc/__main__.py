@@ -1,5 +1,4 @@
 import argparse
-import copy
 import gc
 import json
 import os
@@ -17,8 +16,7 @@ from torch.distributed import destroy_process_group, init_process_group
 from llmc.compression.quantization import *
 from llmc.compression.sparsification import *
 from llmc.data import BaseDataset
-from llmc.eval import (AccuracyEval, HumanEval, PerplexityEval,
-                       TokenConsistencyEval, VQAEval)
+from llmc.eval.utils import eval_model, get_eval_list
 from llmc.models import *
 from llmc.utils import (check_config, mkdirs, print_important_package_version,
                         seed_all, update_autoawq_quant_config,
@@ -32,50 +30,9 @@ def main(config):
     logger.info(f'model: {model}')
     logger.info(f'tokenizer: {model.get_tokenizer()}')
 
-    if int(os.environ['RANK']) == 0:
-        if 'eval' in config and len(config.eval.eval_pos):
-            eval_list = []
-            name_list = (
-                config.eval.name
-                if not isinstance(config.eval.name, str)
-                else [config.eval.name]
-            )
-            for name in name_list:
-                config_for_eval = copy.deepcopy(config)
-                config_for_eval.eval.name = name
-                if len(name_list) != 1:  # eval multi datasets
-                    config_for_eval.eval.path = os.path.join(config.eval.path, name)
-                if config.eval.type == 'acc':
-                    acc_eval = AccuracyEval(config_for_eval)
-                    eval_list.append(acc_eval)
-                elif config.eval.type == 'vqa':
-                    vqa_eval = VQAEval(config_for_eval)
-                    eval_list.append(vqa_eval)
-                elif config.eval.type == 'code' and config.eval.name == 'human_eval':
-                    human_eval = HumanEval(model.get_tokenizer(), config_for_eval)
-                    eval_list.append(human_eval)
-                else:
-                    ppl_eval = PerplexityEval(model.get_tokenizer(), config_for_eval)
-                    eval_list.append(ppl_eval)
+    eval_list = get_eval_list(model, config)
+    eval_model(model, None, eval_list, eval_pos='pretrain')
 
-        if 'eval' in config and 'pretrain' in config.eval.eval_pos:
-            if config.eval.type == 'acc':
-                for acc_eval in eval_list:
-                    acc = acc_eval.eval(model)
-                    logger.info(f'{config.eval.name} acc : {acc}')
-            elif config.eval.type == 'vqa':
-                for vqa_eval in eval_list:
-                    results = vqa_eval.eval(model)
-                    logger.info(f'{config.eval.name} results :')
-                    print(make_table(results))
-            elif config.eval.type == 'code' and config.eval.name == 'human_eval':
-                for human_eval in eval_list:
-                    results = human_eval.eval(model, eval_pos='pretrain')
-                    logger.info(f'{config.eval.name} results : {results}')
-            else:
-                for ppl_eval in eval_list:
-                    ppl = ppl_eval.eval(model)
-                    logger.info(f'{ppl_eval.dataset} ppl : {ppl}')
     for modality in config.quant.get('quant_objects', ['language']):
         if not config.get('calib', False):
             blockwise_opt = ALGO_REGISTRY[config.quant.method](
@@ -91,12 +48,7 @@ def main(config):
         else:
             dataset = BaseDataset(model.get_tokenizer(), config.calib, model.batch_process)
             calib_data, padding_mask = dataset.get_calib_dataset()
-            padding_side = getattr(model.get_tokenizer(), 'padding_side', None)
-            model.collect_first_block_input(calib_data,
-                                            padding_mask,
-                                            padding_side,
-                                            config.calib.type,
-                                            modality)
+            model.collect_first_block_input(calib_data, padding_mask, modality)
             del calib_data
             gc.collect()
             torch.cuda.empty_cache()
@@ -121,22 +73,8 @@ def main(config):
             blockwise_opt.run_block_loop()
             dist.barrier()
 
+    eval_model(model, blockwise_opt, eval_list, eval_pos='transformed')
     if int(os.environ['RANK']) == 0:
-        if 'eval' in config and 'transformed' in config.eval.eval_pos:
-            blockwise_opt.deploy('origin_float')
-            if config.eval.type == 'acc':
-                for acc_eval in eval_list:
-                    acc = acc_eval.eval(model)
-                    logger.info(f'{config.eval.name} acc : {acc}')
-            elif config.eval.type == 'code' and config.eval.name == 'human_eval':
-                for human_eval in eval_list:
-                    results = human_eval.eval(model, eval_pos='transformed')
-                    logger.info(f'{config.eval.name} results : {results}')
-            else:
-                for ppl_eval in eval_list:
-                    ppl = ppl_eval.eval(model)
-                    logger.info(f'{ppl_eval.dataset} ppl : {ppl}')
-
         if 'save' in config and config.save.get('save_trans', False):
             blockwise_opt.save_model(save_trans_path)
 
@@ -150,34 +88,7 @@ def main(config):
                 config.save.get('trtllm_cfg'),
             )
 
-        if 'eval' in config and 'fake_quant' in config.eval.eval_pos:
-            blockwise_opt.deploy('fake_quant')
-            if config.eval.type == 'acc':
-                for acc_eval in eval_list:
-                    acc = acc_eval.eval(model)
-                    logger.info(f'{config.eval.name} acc : {acc}')
-
-            elif config.eval.type == 'vqa':
-                for vqa_eval in eval_list:
-                    results = vqa_eval.eval(model)
-                    logger.info(f'{config.eval.name} results :')
-                    print(make_table(results))
-            elif config.eval.type == 'code' and config.eval.name == 'human_eval':
-                for human_eval in eval_list:
-                    results = human_eval.eval(model, eval_pos='fake_quant')
-                    logger.info(f'{config.eval.name} results : {results}')
-            else:
-                for ppl_eval in eval_list:
-                    ppl = ppl_eval.eval(model)
-                    logger.info(f'{ppl_eval.dataset} ppl : {ppl}')
-
-            if 'eval_token_consist' in config.eval and config.eval.eval_token_consist:
-                org_model = MODEL_REGISTRY[config.model.type](config)
-                token_consist_eval = TokenConsistencyEval(model.get_tokenizer(),
-                                                          config_for_eval)
-                consistency_ratio = token_consist_eval.eval(model, org_model)
-                logger.info(f'Token consistency ratio: {consistency_ratio}')
-                del org_model
+        eval_model(model, blockwise_opt, eval_list, eval_pos='fake_quant')
 
         if 'save' in config and config.save.get('save_fake', False):
             blockwise_opt.deploy('fake_quant')

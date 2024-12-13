@@ -1,0 +1,75 @@
+import copy
+import os
+
+from loguru import logger
+
+from llmc.eval import (AccuracyEval, CustomGenerate, HumanEval, PerplexityEval,
+                       TokenConsistencyEval, VQAEval)
+
+
+def get_eval_list(model, config):
+    eval_list = []
+    if int(os.environ['RANK']) == 0:
+        if 'eval' in config:
+            if not isinstance(config.eval, list):
+                eval_config_list = [config.eval]
+            else:
+                eval_config_list = config.eval
+            for eval_config in eval_config_list:
+                config_tmp = copy.deepcopy(config)
+                config_tmp.eval = eval_config
+                if 'type' not in config_tmp.eval:
+                    config_tmp.eval['type'] = 'ppl'
+                if 'eval' in config_tmp and len(config_tmp.eval.eval_pos):
+                    name_list = (
+                        config_tmp.eval.name
+                        if not isinstance(config_tmp.eval.name, str)
+                        else [config_tmp.eval.name]
+                    )
+                    for name in name_list:
+                        config_for_eval = copy.deepcopy(config_tmp)
+                        config_for_eval.eval.name = name
+                        if len(name_list) != 1:  # eval multi datasets
+                            config_for_eval.eval.path = os.path.join(
+                                config_tmp.eval.path, name
+                            )
+                        if 'type' not in config_tmp.eval:
+                            config_tmp.eval.type == 'ppl'
+                        if config_tmp.eval.type == 'acc':
+                            eval_class = AccuracyEval(config_for_eval)
+                        elif config_tmp.eval.type == 'vqa':
+                            eval_class = VQAEval(config_for_eval)
+                        elif (
+                            config_tmp.eval.type == 'code'
+                            and config_tmp.eval.name == 'human_eval'
+                        ):
+                            eval_class = HumanEval(model, config_for_eval)
+                        elif config_tmp.eval.type == 'generate_only':
+                            eval_class = CustomGenerate(model, config_for_eval)
+                        elif config_tmp.eval.type == 'token_acc':
+                            eval_class = TokenConsistencyEval(model, config_for_eval)
+                        elif config_tmp.eval.type == 'ppl':
+                            eval_class = PerplexityEval(model, config_for_eval)
+                        else:
+                            raise ValueError(f'Unsupported eval type: {config_tmp.eval.type}')
+                        eval_list.append((eval_class, config_for_eval))
+    return eval_list
+
+
+def eval_model(model, blockwise_opt, eval_list, eval_pos):
+    if int(os.environ['RANK']) == 0:
+        do_eval = False
+        for _, config_for_eval in eval_list:
+            if eval_pos in config_for_eval.eval.eval_pos:
+                do_eval = True
+        if do_eval:
+            if eval_pos == 'transformed':
+                blockwise_opt.deploy('origin_float')
+            elif eval_pos == 'fake_quant':
+                blockwise_opt.deploy('fake_quant')
+            for eval_class, config_for_eval in eval_list:
+                if eval_pos in config_for_eval.eval.eval_pos:
+                    res = eval_class.eval(model)
+                    eval_name = config_for_eval.eval.type
+                    dataset_name = config_for_eval.eval.name
+                    logger.info(f'EVAL: {eval_name} on {dataset_name} is {res}')

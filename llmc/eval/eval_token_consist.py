@@ -1,10 +1,7 @@
-import gc
-from concurrent.futures import ThreadPoolExecutor
-
 import torch
-import torch.nn as nn
-from datasets import load_dataset, load_from_disk
 from loguru import logger
+
+from llmc.utils.registry_factory import MODEL_REGISTRY
 
 from .eval_base import BaseEval
 
@@ -12,7 +9,22 @@ from .eval_base import BaseEval
 class TokenConsistencyEval(BaseEval):
 
     @torch.no_grad()
-    def eval_func(self, org_model, model, testenc, seq_len, bs, eval_pos):
+    def eval_func(self, model, testenc, seq_len, bs, eval_pos):
+        handles_origin = []
+        model_origin = MODEL_REGISTRY[self.config.model.type](self.config)
+        if self.inference_per_block:
+            handles_origin = self.register_hooks(model_origin)
+        else:
+            if model_origin.mm_model:
+                model_origin.mm_model.cuda()
+            else:
+                model_origin.model.cuda()
+
+        if model_origin.mm_model:
+            model_origin.mm_model.eval()
+        else:
+            model_origin.model.eval()
+
         testenc = testenc.input_ids
         nsamples = testenc.numel() // seq_len
 
@@ -30,7 +42,7 @@ class TokenConsistencyEval(BaseEval):
             inputs = inputs.reshape(j - i, seq_len)
 
             # Forward pass through the models
-            logits1 = org_model.model(inputs).logits
+            logits1 = model_origin.model(inputs).logits
             logits2 = model.model(inputs).logits
             model.reset_kv()
 
@@ -47,5 +59,14 @@ class TokenConsistencyEval(BaseEval):
         # Empty CUDA cache to save memory
         testenc.cpu()
         torch.cuda.empty_cache()
+
+        if model_origin.mm_model:
+            model_origin.mm_model.cpu()
+        else:
+            model_origin.model.cpu()
+
+        if self.inference_per_block:
+            for h in handles_origin:
+                h.remove()
 
         return consistency_ratio

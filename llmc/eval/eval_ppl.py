@@ -12,7 +12,7 @@ from .eval_base import BaseEval
 class PerplexityEval(BaseEval):
 
     @torch.no_grad()
-    def eval_func(self, org_model, model, testenc, seq_len, bs, eval_pos):
+    def eval_func(self, model, testenc, seq_len, bs, eval_pos):
         testenc = testenc.input_ids
         nsamples = testenc.numel() // seq_len
 

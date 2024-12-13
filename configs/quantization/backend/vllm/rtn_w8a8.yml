@@ -23,7 +23,6 @@ eval:
     bs: 1
     seq_len: 2048
     inference_per_block: False
-    eval_token_consist: True
 save:
     save_vllm: True
     save_path: /path/to/save_for_vllm_rtn_w8a8/

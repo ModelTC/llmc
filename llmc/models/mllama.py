@@ -33,21 +33,23 @@ class Mllama(Llama):
             torch_dtype=self.torch_dtype,
             low_cpu_mem_usage=True,
         )
+        self.mm_model = self.vlm_model
         logger.info(f'self.vlm_model : {self.vlm_model}')
         self.vision_model = self.vlm_model.vision_model
         self.vision_projector = self.vlm_model.multi_modal_projector
         self.model = self.vlm_model.language_model
         self.model_config = self.vlm_model_config.text_config
 
-    def batch_process(self, img_qas, calib_or_eval='eval'):
+    def batch_process(self, img_qas, calib_or_eval='eval', apply_chat_template=True, return_inputs=True): # noqa
         assert calib_or_eval == 'calib' or calib_or_eval == 'eval'
+        assert apply_chat_template
         if len(img_qas) == 1:
             return self.single_process(img_qas[0])
         processor = AutoProcessor.from_pretrained(self.model_path)
         messages = []
         images = []
         for idx in range(len(img_qas)):
-            img_path = img_qas[idx]['img']
+            img_path = img_qas[idx]['image']
             image = [Image.open(img_path)]
             message = [
                 {
@@ -64,6 +66,8 @@ class Mllama(Llama):
             processor.apply_chat_template(msg, add_generation_prompt=True)
             for msg in messages
         ]
+        if not return_inputs:
+            return texts
         inputs = processor(
             text=texts,
             images=images,
@@ -74,7 +78,7 @@ class Mllama(Llama):
 
     def single_process(self, img_qas):
         processor = AutoProcessor.from_pretrained(self.model_path)
-        img_path = img_qas['img']
+        img_path = img_qas['image']
         message = [
             {
                 'role': 'user',

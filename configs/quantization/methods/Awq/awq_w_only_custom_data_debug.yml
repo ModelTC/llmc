@@ -1,0 +1,110 @@
+base:
+    seed: &seed 42
+model:
+    # type: Qwen2
+    # path: /data/yongyang/models/qwen25/Qwen2.5-0.5B-Instruct
+    type: Qwen2VL
+    path: /data/yongyang/models/Qwen2-VL-2B-Instruct
+    # type: Llava
+    # path: /data/yongyang/models/llava-1.5-7b-hf
+    # type: InternVL2
+    # path: /data/yongyang/models/InternVL2-2B
+    # type: Qwen2Audio
+    # path: /data/yongyang/models/Qwen2-Audio-7B-Instruct
+    # type: InternOmni
+    # path: /data/yongyang/models/InternOmni
+    # type: Llama
+    # path: /data/yongyang/models/Meta-Llama-3.1-8B-Instruct
+    # type: InternLM2
+    # path: /data/yongyang/models/internlm2-chat-1_8b
+    # type: DeepseekV2
+    # path: /data/yongyang/models/DeepSeek-V2-Lite-Chat
+    tokenizer_mode: fast
+    torch_dtype: auto
+# calib:
+#     name: pileval
+#     download: False
+#     path: /data/yongyang/datasets/llmc/calib/pileval
+#     n_samples: 2
+#     bs: -1
+#     seq_len: 512
+#     preproc: txt_general_preproc
+#     seed: *seed
+# calib:
+#     name: custom_txt
+#     download: False
+#     path: /data/yongyang/datasets/general_custom_data
+#     apply_chat_template: True
+#     n_samples: 8
+#     bs: -1
+#     padding: True
+#     seed: *seed
+# calib:
+#     name: custom_txt
+#     download: False
+#     path: /data/yongyang/datasets/general_custom_data
+#     apply_chat_template: True
+#     n_samples: 8
+#     seq_len: 3
+#     bs: -1
+#     preproc: random_truncate_txt
+#     seed: *seed
+calib:
+    name: custom_mm
+    download: False
+    path: /data/yongyang/datasets/general_custom_data
+    apply_chat_template: True
+    add_answer: True # Defalut is False. If set it to Ture, calib data will add answers.
+    n_samples: 8
+    bs: -1
+    seq_len: 512
+    padding: True
+    seed: *seed
+eval:
+    - eval_pos: [pretrain, transformed, fake_quant]
+      name: custom_gen
+      type: generate_only
+      max_new_tokens: 32
+      bs: 1
+      download: False
+      path: /data/yongyang/datasets/general_custom_data
+      apply_chat_template: True
+      inference_per_block: False
+    - eval_pos: [pretrain, transformed, fake_quant]
+      name: wikitext2
+      type: token_acc
+      download: False
+      path: /data/yongyang/datasets/llmc/eval/wikitext2
+      seq_len: 2048
+      # For 7B / 13B model eval, bs can be set to "1", and inference_per_block can be set to "False".
+      # For 70B model eval, bs can be set to "20", and inference_per_block can be set to "True".
+      bs: 1
+      inference_per_block: False
+    - eval_pos: [pretrain, transformed, fake_quant]
+      name: wikitext2
+      download: False
+      path: /data/yongyang/datasets/llmc/eval/wikitext2
+      seq_len: 2048
+      # For 7B / 13B model eval, bs can be set to "1", and inference_per_block can be set to "False".
+      # For 70B model eval, bs can be set to "20", and inference_per_block can be set to "True".
+      bs: 1
+      inference_per_block: False
+quant:
+    method: Awq
+    weight:
+        bit: 4
+        symmetric: False
+        granularity: per_group
+        group_size: 128
+    special:
+        trans: True
+        # The options for "trans_version" include "v1" and "v2".
+        # But their results don't differ significantly.
+        trans_version: v2
+        weight_clip: False
+        # For 2-bit quantization, setting "clip_sym: False" will yield better results.
+        clip_sym: True
+save:
+    save_trans: False
+    save_fake: False
+    save_path: /path/to/save/

@@ -9,7 +9,6 @@ import torch.nn as nn
 from loguru import logger
 from torch.nn import functional as F
 from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
-from transformers.feature_extraction_utils import BatchFeature
 
 from llmc.compression.quantization.module_utils import (
     _LLMC_LINEAR_TYPES_, _LLMC_LN_TYPES_, _TRANSFORMERS_LINEAR_TYPES_,
@@ -30,7 +29,11 @@ class BaseModel(metaclass=ABCMeta):
         self.torch_dtype = torch_dtype if torch_dtype == 'auto' else eval(torch_dtype)
         self.device_map = device_map
         self.use_cache = use_cache
-        self.vlm_model = None
+        self.mm_model = None
+        self.vision_model = None
+        self.vision_projector = None
+        self.audio_model = None
+        self.audio_projector = None
         self.build_tokenizer()
         self.build_model()
         self.model.eval()
@@ -115,8 +118,36 @@ class BaseModel(metaclass=ABCMeta):
     def get_num_attention_heads(self):
         return self.model_config.num_attention_heads
 
-    def batch_process(self):
-        raise Exception('batch_process should not be called here.')
+    def apply_chat_template(self, prompt):
+        messages = [
+            {'role': 'system', 'content': 'You are a helpful assistant.'},
+            {'role': 'user', 'content': prompt}
+        ]
+        text = self.tokenizer.apply_chat_template(
+            messages,
+            tokenize=False,
+            add_generation_prompt=True
+        )
+        return text
+
+    def batch_process(self, samples, calib_or_eval='eval', apply_chat_template=False, return_inputs=True): # noqa
+        assert calib_or_eval == 'calib' or calib_or_eval == 'eval'
+        texts = []
+        for idx in range(len(samples)):
+            question = samples[idx]['question']
+            if apply_chat_template:
+                question = self.apply_chat_template(question)
+            texts.append(question)
+        if not return_inputs:
+            return texts
+        model_inputs = self.tokenizer(texts, return_tensors='pt', padding=True)
+        input_ids = model_inputs['input_ids']
+        attention_mask = model_inputs['attention_mask']
+        inputs = {
+            'input_ids': input_ids,
+            'attention_mask': attention_mask,
+        }
+        return inputs
 
     def get_catcher(self, first_block_input):
         class Catcher(nn.Module):
@@ -173,8 +204,7 @@ class BaseModel(metaclass=ABCMeta):
         logger.info(f'_TRANSFORMERS_LN_TYPES_ : {_TRANSFORMERS_LN_TYPES_}')
 
     @torch.no_grad()
-    def collect_first_block_input(self, calib_data, padding_mask=None,
-                                  padding_side=None, data_type='txt', modality='language'):
+    def collect_first_block_input(self, calib_data, padding_mask=None, modality='language'):
         first_block_input = defaultdict(list)
 
         self.find_blocks(modality)
@@ -182,40 +212,31 @@ class BaseModel(metaclass=ABCMeta):
 
         if not self.use_cpu_to_save_cuda_mem_for_catcher:
             self.move_embed_to_device('cuda')
-            if data_type == 'img_txt':
-                self.vision_model = self.vision_model.to('cuda')
-                self.vision_projector = self.vision_projector.to('cuda')
-            elif data_type == 'audio_txt':
-                self.audio_model = self.audio_model.to('cuda')
-                self.audio_projector = self.audio_projector.to('cuda')
-            elif data_type == 'audio_img_txt':
-                self.audio_model = self.audio_model.to('cuda')
-                self.vision_model = self.vision_model.to('cuda')
-                self.audio_projector = self.audio_projector.to('cuda')
-                self.vision_projector = self.vision_projector.to('cuda')
+            if self.vision_model:
+                self.vision_model.cuda()
+            if self.vision_projector:
+                self.vision_projector.cuda()
+            if self.audio_model:
+                self.audio_model.cuda()
+            if self.audio_projector:
+                self.audio_projector.cuda()
             self.blocks[0] = self.blocks[0].cuda()
         self.blocks[0] = Catcher(self.blocks[0])
 
         for data in calib_data:
-            if isinstance(data, BatchFeature):
-                data = data.to(next(self.model.parameters()).device)
-            else:
-                data = {
-                    k: (v.to(next(self.model.parameters()).device) if torch.is_tensor(v) else v)
-                    for k, v in data.items()
-                }
+            data = {
+                k: (v.cuda() if torch.is_tensor(v) else v)
+                for k, v in data.items()
+            }
             try:
-                if data_type in ['txt', 'img']:
+                if not self.mm_model:
                     self.model(**data)
-                elif data_type == 'img_txt':
-                    self.vlm_model.generate(**data, max_new_tokens=128, do_sample=False)
-                elif data_type == 'audio_txt':
-                    self.alm_model.generate(**data, max_new_tokens=128, do_sample=False)
-                elif data_type == 'audio_img_txt':
-                    self.avlm_model.generate(**data, max_new_tokens=128, do_sample=False)
+                else:
+                    self.mm_model.generate(**data, max_new_tokens=128, do_sample=False)
             except ValueError:
                 pass
         self.first_block_input = first_block_input
+        assert len(self.first_block_input) > 0, 'Catch input data failed.'
         if padding_mask:
             for idx in range(len(self.first_block_input['data'])):
                 token_num = self.first_block_input['data'][idx].shape[1]
@@ -223,24 +244,21 @@ class BaseModel(metaclass=ABCMeta):
                     padding_mask[idx] = F.pad(
                         padding_mask[idx],
                         self.get_one_pad_setting(
-                            padding_side,
+                            self.tokenizer.padding_side,
                             token_num - padding_mask[idx].shape[1]
                         ),
                         value=1
                     )
         self.padding_mask = padding_mask
         if not self.use_cpu_to_save_cuda_mem_for_catcher:
-            if data_type == 'img_txt':
-                self.vision_model = self.vision_model.cpu()
-                self.vision_projector = self.vision_projector.cpu()
-            elif data_type == 'audio_txt':
-                self.audio_model = self.audio_model.cpu()
-                self.audio_projector = self.audio_projector.cpu()
-            elif data_type == 'audio_img_txt':
-                self.audio_model = self.audio_model.cpu()
-                self.vision_model = self.vision_model.cpu()
-                self.audio_projector = self.audio_projector.cpu()
-                self.vision_projector = self.vision_projector.cpu()
+            if self.vision_model:
+                self.vision_model.cpu()
+            if self.vision_projector:
+                self.vision_projector.cpu()
+            if self.audio_model:
+                self.audio_model.cpu()
+            if self.audio_projector:
+                self.audio_projector.cpu()
             self.blocks[0] = self.blocks[0].cpu()
             self.move_embed_to_device('cpu')
         self.blocks[0] = self.blocks[0].module

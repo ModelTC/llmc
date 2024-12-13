@@ -11,8 +11,8 @@ from .eval_base import BaseEval
 
 
 class HumanEval(BaseEval):
-    def __init__(self, tokenizer, config):
-        super().__init__(tokenizer, config)
+    def __init__(self, model, config):
+        super().__init__(model, config)
         self.res_path = self.eval_cfg.get('res_path', None)
         assert self.res_path is not None
         os.makedirs(self.res_path, exist_ok=True)
@@ -22,7 +22,7 @@ class HumanEval(BaseEval):
         self.add_chat_temp = self.eval_cfg.get('add_chat_temp', False)
 
     @torch.no_grad()
-    def eval_func(self, org_model, model, testenc, seq_len, bs, eval_pos):
+    def eval_func(self, model, testenc, seq_len, bs, eval_pos):
         samples = []
         pbar = tqdm(total=len(testenc) * bs, dynamic_ncols=True, position=0, desc='Evaluating')
 

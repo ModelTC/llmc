@@ -23,8 +23,6 @@ eval:
     # For 70B model eval, bs can be set to "20", and inference_per_block can be set to "True".
     bs: 1
     inference_per_block: False
-    # Consistency of tokens between original and fake-quantized model output.
-    eval_token_consist: True
 quant:
     method: DGQ
     weight:

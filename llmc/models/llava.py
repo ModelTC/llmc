@@ -34,6 +34,7 @@ class Llava(Llama):
             torch_dtype=self.torch_dtype,
             low_cpu_mem_usage=True,
         )
+        self.mm_model = self.vlm_model
         logger.info(f'self.vlm_model : {self.vlm_model}')
         self.vision_model = self.vlm_model.vision_tower
         self.vision_projector = self.vlm_model.multi_modal_projector
@@ -45,13 +46,14 @@ class Llava(Llama):
     def get_extra_rot_module_besides_embed_layers(self):
         return [self.vision_projector.linear_2]
 
-    def batch_process(self, img_qas, calib_or_eval='eval'):
+    def batch_process(self, img_qas, calib_or_eval='eval', apply_chat_template=True, return_inputs=True): # noqa
         assert calib_or_eval == 'calib' or calib_or_eval == 'eval'
+        assert apply_chat_template
         messages = []
         images = []
         answers = []
         for idx in range(len(img_qas)):
-            img_path = img_qas[idx]['img']
+            img_path = img_qas[idx]['image']
             if img_path is not None:
                 image = Image.open(img_path)
                 message = [
@@ -86,7 +88,8 @@ class Llava(Llama):
             ]
         if calib_or_eval == 'calib':
             logger.info(f'Calib data is:\n{texts}')
-
+        if not return_inputs:
+            return texts
         inputs = self.processor(
             text=texts,
             images=images if len(images) else None,

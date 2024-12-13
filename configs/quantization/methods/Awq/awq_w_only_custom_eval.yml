@@ -16,17 +16,14 @@ calib:
     seed: *seed
 eval:
     eval_pos: [pretrain, transformed, fake_quant]
-    name: custom
-    download: False
-    load_from_txt: True
-    path: ./eval_data.txt
-    seq_len: 512
-    # For 7B / 13B model eval, bs can be set to "1", and inference_per_block can be set to "False".
-    # For 70B model eval, bs can be set to "20", and inference_per_block can be set to "True".
+    name: custom_gen
+    type: generate_only
+    max_new_tokens: 32
     bs: 1
+    download: False
+    path: /data/yongyang/datasets/general_custom_data
+    apply_chat_template: True
     inference_per_block: False
-    # Consistency of tokens between original and fake-quantized model output.
-    eval_token_consist: True
 quant:
     method: Awq
     weight:
