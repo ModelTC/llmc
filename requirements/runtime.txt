@@ -32,3 +32,4 @@ tiktoken
 librosa
 human_eval
 lmms-eval
+imageio
