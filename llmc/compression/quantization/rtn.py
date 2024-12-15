@@ -8,8 +8,8 @@ from .base_blockwise_quantization import BaseBlockwiseQuantization
 
 @ALGO_REGISTRY
 class RTN(BaseBlockwiseQuantization):
-    def __init__(self, model, quant_config, input, padding_mask, config, modality='language'):
-        super().__init__(model, quant_config, input, padding_mask, config, modality)
+    def __init__(self, model, quant_config, input, padding_mask, config):
+        super().__init__(model, quant_config, input, padding_mask, config)
 
     @torch.no_grad()
     def block_opt(self, block, *opt_kwargs):

@@ -8,7 +8,7 @@ class Bloom(BaseModel):
     def __init__(self, config, device_map=None, use_cache=False):
         super().__init__(config, device_map, use_cache)
 
-    def find_blocks(self, modality='language'):
+    def find_blocks(self):
         self.blocks = self.model.transformer.h
 
     def find_embed_layers(self):
@@ -37,7 +37,7 @@ class Bloom(BaseModel):
     def has_bias(self):
         return True
 
-    def get_layernorms_in_block(self, block, modality='language'):
+    def get_layernorms_in_block(self, block):
         return {
             'input_layernorm': block.input_layernorm,
             'post_attention_layernorm': block.post_attention_layernorm,

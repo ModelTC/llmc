@@ -34,24 +34,35 @@ class BaseModel(metaclass=ABCMeta):
         self.vision_projector = None
         self.audio_model = None
         self.audio_projector = None
+        self.modality = None
+        self.kvcache_buffer = []
         self.build_tokenizer()
         self.build_model()
         self.model.eval()
-        self.kvcache_buffer = []
-        self.get_key_info(modality='language')
+        if self.mm_model:
+            self.mm_model.eval()
 
-    def get_key_info(self, modality='language'):
-        self.find_blocks(modality=modality)
+    def set_modality(self, modality='language'):
+        assert modality in ['audio', 'vision', 'language']
+        self.modality = modality
+        self.update_key_info()
+
+    def get_modality(self):
+        assert self.modality in ['audio', 'vision', 'language']
+        return self.modality
+
+    def update_key_info(self):
+        self.find_blocks()
         self.find_embed_layers()
         self.find_block_name()
-        self.add_layernorms_class(modality=modality)
+        self.add_layernorms_class()
 
     def reset_kv(self):
         for kvcache in self.kvcache_buffer:
             kvcache._reset_states()
 
     @abstractmethod
-    def find_blocks(self, modality='language'):
+    def find_blocks(self):
         pass
 
     def find_block_name(self):
@@ -193,10 +204,10 @@ class BaseModel(metaclass=ABCMeta):
         )
         logger.info(f'self.model : {self.model}')
 
-    def add_layernorms_class(self, modality='language'):
+    def add_layernorms_class(self):
         ln_class_list = []
         single_block = self.blocks[0]
-        ln_dict = self.get_layernorms_in_block(single_block, modality=modality)
+        ln_dict = self.get_layernorms_in_block(single_block)
         for ln_name in ln_dict:
             ln_class = ln_dict[ln_name].__class__
             if ln_class not in ln_class_list:
@@ -207,7 +218,7 @@ class BaseModel(metaclass=ABCMeta):
         logger.info(f'_TRANSFORMERS_LN_TYPES_ : {_TRANSFORMERS_LN_TYPES_}')
 
     @torch.no_grad()
-    def collect_first_block_input(self, calib_data, padding_mask=None, modality='language'):
+    def collect_first_block_input(self, calib_data, padding_mask=None):
         first_block_input = defaultdict(list)
 
         Catcher = self.get_catcher(first_block_input)

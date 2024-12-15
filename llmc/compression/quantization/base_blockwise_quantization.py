@@ -28,10 +28,8 @@ from .utils import check_do_quant, check_w_only, get_aquantizer, get_wquantizer
 
 
 class BaseBlockwiseQuantization(BlockwiseOpt):
-    def __init__(
-        self, model, quant_config, input, padding_mask, config, modality='language'
-    ):
-        super().__init__(model, quant_config, input, padding_mask, config, modality)
+    def __init__(self, model, quant_config, input, padding_mask, config):
+        super().__init__(model, quant_config, input, padding_mask, config)
         self.set_quant_config()
 
     def w_qdq(self, module, wquantizer):
@@ -465,11 +463,7 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
 
     def block_transform(self, block, input_feat, block_kwargs):
         logger.info(f'Start transform the {self.block_idx}-th block')
-        subsets = (
-            self.model.get_subsets_in_block(block)
-            if self.modality == 'language'
-            else self.model.get_vision_subsets_in_block(block)
-        )
+        subsets = self.model.get_subsets_in_block(block)
 
         if self.act_static:
             self.register_non_linear_qparams(block, input_feat)

@@ -7,7 +7,8 @@ from lmms_eval.evaluator import evaluate
 from lmms_eval.evaluator_utils import run_task_tests
 from lmms_eval.loggers.evaluation_tracker import EvaluationTracker
 from lmms_eval.tasks import TaskManager, get_task_dict
-from lmms_eval.utils import get_datetime_str, simple_parse_args_string
+from lmms_eval.utils import (get_datetime_str, make_table,
+                             simple_parse_args_string)
 from loguru import logger
 
 from llmc.utils.registry_factory import MODEL_REGISTRY
@@ -231,6 +232,6 @@ class VQAEval:
             results['date'] = datetime_str
             # add_env_info(results)  # additional environment info to results
             # add_tokenizer_info(results, lm)  # additional info about tokenizer
-            return results
+            return make_table(results)
         else:
             return None

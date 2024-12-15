@@ -9,7 +9,6 @@ import torch
 import torch.distributed as dist
 import yaml
 from easydict import EasyDict
-from lmms_eval.utils import make_table
 from loguru import logger
 from torch.distributed import destroy_process_group, init_process_group
 
@@ -34,7 +33,7 @@ def main(config):
     eval_model(model, None, eval_list, eval_pos='pretrain')
 
     for modality in config.quant.get('quant_objects', ['language']):
-        model.get_key_info(modality)
+        model.set_modality(modality)
         if not config.get('calib', False):
             blockwise_opt = ALGO_REGISTRY[config.quant.method](
                 model,
@@ -42,14 +41,13 @@ def main(config):
                 input=None,
                 padding_mask=None,
                 config=config,
-                modality=modality,
             )
             blockwise_opt.run_block_loop()
             dist.barrier()
         else:
             dataset = BaseDataset(model.get_tokenizer(), config.calib, model.batch_process)
             calib_data, padding_mask = dataset.get_calib_dataset()
-            model.collect_first_block_input(calib_data, padding_mask, modality)
+            model.collect_first_block_input(calib_data, padding_mask)
             del calib_data
             gc.collect()
             torch.cuda.empty_cache()
@@ -60,7 +58,6 @@ def main(config):
                     model.get_first_block_input(),
                     model.get_padding_mask(),
                     config,
-                    modality
                 )
             else:
                 blockwise_opt = ALGO_REGISTRY[config.sparse.method](
@@ -69,7 +66,6 @@ def main(config):
                     model.get_first_block_input(),
                     model.get_padding_mask(),
                     config,
-                    modality
                 )
             blockwise_opt.run_block_loop()
             dist.barrier()

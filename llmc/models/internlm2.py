@@ -13,7 +13,7 @@ class InternLM2(BaseModel):
         global _TRANSFORMERS_LN_TYPES_
         _TRANSFORMERS_LN_TYPES_ += [type(self.model.model.norm)]
 
-    def find_blocks(self, modality='language'):
+    def find_blocks(self):
         self.blocks = self.model.model.layers
 
     def find_embed_layers(self):
@@ -43,7 +43,7 @@ class InternLM2(BaseModel):
     def has_bias(self):
         return False
 
-    def get_layernorms_in_block(self, block, modality='language'):
+    def get_layernorms_in_block(self, block):
         return {
             'attention_norm': block.attention_norm,
             'ffn_norm': block.ffn_norm,

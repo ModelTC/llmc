@@ -23,7 +23,7 @@ class GPTQ(BaseBlockwiseQuantization):
     def __init__(
         self, model, quant_config, input, padding_mask, config, modality='language'
     ):
-        super().__init__(model, quant_config, input, padding_mask, config, modality)
+        super().__init__(model, quant_config, input, padding_mask, config)
         self.dev = torch.device('cuda')
         self.model_dtype = next(self.model.model.parameters()).dtype
         self.add_quant_config()

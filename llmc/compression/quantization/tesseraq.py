@@ -23,8 +23,8 @@ from .train_utils import AvgMeter, LossFunction, NativeScalerWithGradNormCount
 
 @ALGO_REGISTRY
 class TesseraQ(BaseBlockwiseQuantization):
-    def __init__(self, model, quant_config, input, padding_mask, config, modality='language'):
-        super().__init__(model, quant_config, input, padding_mask, config, modality)
+    def __init__(self, model, quant_config, input, padding_mask, config):
+        super().__init__(model, quant_config, input, padding_mask, config)
         self.add_quant_config()
 
         self.attention_mask = self.input['kwargs'][0].get('attention_mask')
