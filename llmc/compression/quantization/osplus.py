@@ -17,9 +17,9 @@ from .module_utils import (_LLMC_LINEAR_TYPES_, _LLMC_LN_TYPES_,
 
 @ALGO_REGISTRY
 class OsPlus(BaseBlockwiseQuantization):
-    def __init__(self, model, quant_config, input, padding_mask, config, modality='language'):
+    def __init__(self, model, quant_config, input, padding_mask, config):
         torch.set_grad_enabled(False)
-        super().__init__(model, quant_config, input, padding_mask, config, modality)
+        super().__init__(model, quant_config, input, padding_mask, config)
 
     @torch.no_grad()
     def filter_subset(self, prev_op):

@@ -98,62 +98,68 @@ class Llava(Llama):
         ).to(next(self.vlm_model.parameters()).dtype) # noqa
         return inputs
 
-    def find_blocks(self, modality='language'):
-        if modality == 'language':
-            self.blocks = self.model.model.layers
-        elif modality == 'vision':
+    def find_blocks(self):
+        if self.get_modality() == 'language':
+            super().find_blocks()
+        elif self.get_modality() == 'vision':
             self.blocks = self.vision_model.vision_model.encoder.layers
+        else:
+            raise Exception(f'Llava do not support {self.get_modality()} modality.')
 
-    def get_layernorms_in_block(self, block, modality='language'):
-        if modality == 'language':
-            return {
-                'input_layernorm': block.input_layernorm,
-                'post_attention_layernorm': block.post_attention_layernorm,
-            }
-        elif modality == 'vision':
+    def get_layernorms_in_block(self, block):
+        if self.get_modality() == 'language':
+            return super().get_layernorms_in_block(block)
+        elif self.get_modality() == 'vision':
             return {
                 'layer_norm1': block.layer_norm1,
                 'layer_norm2': block.layer_norm2,
             }
+        else:
+            raise Exception(f'Llava do not support {self.get_modality()} modality.')
 
-    def get_vision_subsets_in_block(self, block):
-        return [
-            {
-                'layers': {
-                    'self_attn.q_proj': block.self_attn.q_proj,
-                    'self_attn.k_proj': block.self_attn.k_proj,
-                    'self_attn.v_proj': block.self_attn.v_proj,
+    def get_subsets_in_block(self, block):
+        if self.get_modality() == 'language':
+            return super().get_subsets_in_block(block)
+        elif self.get_modality() == 'vision':
+            return [
+                {
+                    'layers': {
+                        'self_attn.q_proj': block.self_attn.q_proj,
+                        'self_attn.k_proj': block.self_attn.k_proj,
+                        'self_attn.v_proj': block.self_attn.v_proj,
+                    },
+                    'prev_op': [block.layer_norm1],
+                    'input': ['self_attn.q_proj'],
+                    'inspect': block.self_attn,
+                    'has_kwargs': True,
                 },
-                'prev_op': [block.layer_norm1],
-                'input': ['self_attn.q_proj'],
-                'inspect': block.self_attn,
-                'has_kwargs': True,
-            },
-            {
-                'layers': {'self_attn.out_proj': block.self_attn.out_proj},
-                'prev_op': [block.self_attn.v_proj],
-                'input': ['self_attn.out_proj'],
-                'inspect': block.self_attn.out_proj,
-                'has_kwargs': False,
-            },
-            {
-                'layers': {'mlp.fc1': block.mlp.fc1},
-                'prev_op': [block.layer_norm2],
-                'input': ['mlp.fc1'],
-                'inspect': block.mlp.fc1,
-                'has_kwargs': False,
-                'is_mlp': True,
-            },
-            {
-                'layers': {'mlp.fc2': block.mlp.fc2},
-                'prev_op': [block.mlp.fc1],
-                'input': ['mlp.fc2'],
-                'inspect': block.mlp.fc2,
-                'has_kwargs': False,
-                'is_mlp': True,
-                'do_trans': False
-            },
-        ]
+                {
+                    'layers': {'self_attn.out_proj': block.self_attn.out_proj},
+                    'prev_op': [block.self_attn.v_proj],
+                    'input': ['self_attn.out_proj'],
+                    'inspect': block.self_attn.out_proj,
+                    'has_kwargs': False,
+                },
+                {
+                    'layers': {'mlp.fc1': block.mlp.fc1},
+                    'prev_op': [block.layer_norm2],
+                    'input': ['mlp.fc1'],
+                    'inspect': block.mlp.fc1,
+                    'has_kwargs': False,
+                    'is_mlp': True,
+                },
+                {
+                    'layers': {'mlp.fc2': block.mlp.fc2},
+                    'prev_op': [block.mlp.fc1],
+                    'input': ['mlp.fc2'],
+                    'inspect': block.mlp.fc2,
+                    'has_kwargs': False,
+                    'is_mlp': True,
+                    'do_trans': False
+                },
+            ]
+        else:
+            raise Exception(f'Llava do not support {self.get_modality()} modality.')
 
 
 @MODEL_REGISTRY

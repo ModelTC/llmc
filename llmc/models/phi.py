@@ -8,7 +8,7 @@ class Phi(BaseModel):
     def __init__(self, config, device_map=None, use_cache=False):
         super().__init__(config, device_map, use_cache)
 
-    def find_blocks(self, modality='language'):
+    def find_blocks(self):
         self.blocks = self.model.model.layers
 
     def find_embed_layers(self):
@@ -40,7 +40,7 @@ class Phi(BaseModel):
     def has_bias(self):
         return False
 
-    def get_layernorms_in_block(self, block, modality='language'):
+    def get_layernorms_in_block(self, block):
         return {
             'input_layernorm': block.input_layernorm
         }

@@ -122,48 +122,66 @@ class Qwen2VL(Qwen2):
         ).to(next(self.vlm_model.parameters()).dtype)
         return inputs
 
-    def find_blocks(self, modality='language'):
-        if modality == 'language':
-            self.blocks = self.model.model.layers
-        elif modality == 'vision':
+    def find_blocks(self):
+        if self.get_modality() == 'language':
+            super().find_blocks()
+        elif self.get_modality() == 'vision':
             self.blocks = self.vision_model.blocks
+        else:
+            raise Exception(f'Qwen2VL do not support {self.get_modality()} modality.')
 
-    def get_vision_subsets_in_block(self, block):
-        return [
-            {
-                'layers': {
-                    'attn.qkv': block.attn.qkv,
+    def get_layernorms_in_block(self, block):
+        if self.get_modality() == 'language':
+            return super().get_layernorms_in_block(block)
+        elif self.get_modality() == 'vision':
+            return {
+                'norm1': block.norm1,
+                'norm2': block.norm2,
+            }
+        else:
+            raise Exception(f'Qwen2VL do not support {self.get_modality()} modality.')
+
+    def get_subsets_in_block(self, block):
+        if self.get_modality() == 'language':
+            return super().get_subsets_in_block(block)
+        elif self.get_modality() == 'vision':
+            return [
+                {
+                    'layers': {
+                        'attn.qkv': block.attn.qkv,
+                    },
+                    'prev_op': [block.norm1],
+                    'input':['attn.qkv'],
+                    'inspect': block.attn,
+                    'has_kwargs': True,
                 },
-                'prev_op': [block.norm1],
-                'input':['attn.qkv'],
-                'inspect': block.attn,
-                'has_kwargs': True,
-            },
-            {
-                'layers': {'attn.proj': block.attn.proj},
-                'prev_op': [block.attn.qkv],
-                'input': ['attn.proj'],
-                'inspect': block.attn.proj,
-                'has_kwargs': False,
-            },
-            {
-                'layers': {'mlp.fc1': block.mlp.fc1},
-                'prev_op': [block.norm2],
-                'input': ['mlp.fc1'],
-                'inspect': block.mlp.fc1,
-                'has_kwargs': False,
-                'is_mlp': True,
-            },
-            {
-                'layers': {'mlp.fc2': block.mlp.fc2},
-                'prev_op': [block.mlp.fc1],
-                'input': ['mlp.fc2'],
-                'inspect': block.mlp.fc2,
-                'has_kwargs': False,
-                'is_mlp': True,
-                'do_trans': False
-            },
-        ]
+                {
+                    'layers': {'attn.proj': block.attn.proj},
+                    'prev_op': [block.attn.qkv],
+                    'input': ['attn.proj'],
+                    'inspect': block.attn.proj,
+                    'has_kwargs': False,
+                },
+                {
+                    'layers': {'mlp.fc1': block.mlp.fc1},
+                    'prev_op': [block.norm2],
+                    'input': ['mlp.fc1'],
+                    'inspect': block.mlp.fc1,
+                    'has_kwargs': False,
+                    'is_mlp': True,
+                },
+                {
+                    'layers': {'mlp.fc2': block.mlp.fc2},
+                    'prev_op': [block.mlp.fc1],
+                    'input': ['mlp.fc2'],
+                    'inspect': block.mlp.fc2,
+                    'has_kwargs': False,
+                    'is_mlp': True,
+                    'do_trans': False
+                },
+            ]
+        else:
+            raise Exception(f'Qwen2VL do not support {self.get_modality()} modality.')
 
     def get_catcher(self, first_block_input):
         class Catcher(nn.Module):

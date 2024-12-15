@@ -26,7 +26,7 @@ class Gemma2(BaseModel):
                 m.weight = nn.Parameter(w + 1.0)
                 m.forward = MethodType(gemma2_rms_norm_forward, m)
 
-    def find_blocks(self, modality='language'):
+    def find_blocks(self):
         self.blocks = self.model.model.layers
 
     def find_embed_layers(self):
@@ -54,7 +54,7 @@ class Gemma2(BaseModel):
     def has_bias(self):
         return False
 
-    def get_layernorms_in_block(self, block, modality='language'):
+    def get_layernorms_in_block(self, block):
         return {
             'input_layernorm': block.input_layernorm,
             'pre_feedforward_layernorm': block.pre_feedforward_layernorm,
