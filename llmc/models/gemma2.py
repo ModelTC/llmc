@@ -54,7 +54,7 @@ class Gemma2(BaseModel):
     def has_bias(self):
         return False
 
-    def get_layernorms_in_block(self, block):
+    def get_layernorms_in_block(self, block, modality='language'):
         return {
             'input_layernorm': block.input_layernorm,
             'pre_feedforward_layernorm': block.pre_feedforward_layernorm,

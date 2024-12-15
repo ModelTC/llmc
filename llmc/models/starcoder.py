@@ -35,7 +35,7 @@ class Starcoder(BaseModel):
     def has_bias(self):
         return True
 
-    def get_layernorms_in_block(self, block):
+    def get_layernorms_in_block(self, block, modality='language'):
         return {
             'ln_1': block.ln_1,
             'ln_2': block.ln_2,

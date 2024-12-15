@@ -104,6 +104,18 @@ class Llava(Llama):
         elif modality == 'vision':
             self.blocks = self.vision_model.vision_model.encoder.layers
 
+    def get_layernorms_in_block(self, block, modality='language'):
+        if modality == 'language':
+            return {
+                'input_layernorm': block.input_layernorm,
+                'post_attention_layernorm': block.post_attention_layernorm,
+            }
+        elif modality == 'vision':
+            return {
+                'layer_norm1': block.layer_norm1,
+                'layer_norm2': block.layer_norm2,
+            }
+
     def get_vision_subsets_in_block(self, block):
         return [
             {

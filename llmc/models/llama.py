@@ -43,7 +43,7 @@ class Llama(BaseModel):
     def has_bias(self):
         return False
 
-    def get_layernorms_in_block(self, block):
+    def get_layernorms_in_block(self, block, modality='language'):
         return {
             'input_layernorm': block.input_layernorm,
             'post_attention_layernorm': block.post_attention_layernorm,
