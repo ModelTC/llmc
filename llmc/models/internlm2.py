@@ -43,7 +43,7 @@ class InternLM2(BaseModel):
     def has_bias(self):
         return False
 
-    def get_layernorms_in_block(self, block):
+    def get_layernorms_in_block(self, block, modality='language'):
         return {
             'attention_norm': block.attention_norm,
             'ffn_norm': block.ffn_norm,

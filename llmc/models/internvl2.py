@@ -184,6 +184,7 @@ class InternVL2():
 
 class InternVL2SharedBehavior():
     def build_model(self):
+        self.eval_name = 'InternVL2'
         self.vlm_model_config = AutoConfig.from_pretrained(
             self.model_path, trust_remote_code=True
         )
@@ -310,6 +311,18 @@ class InternVL2SharedBehavior():
             self.blocks = self.model.model.layers
         elif modality == 'vision':
             self.blocks = self.vision_model.encoder.layers
+
+    def get_layernorms_in_block(self, block, modality='language'):
+        if modality == 'language':
+            return {
+                'attention_norm': block.attention_norm,
+                'ffn_norm': block.ffn_norm,
+            }
+        elif modality == 'vision':
+            return {
+                'norm1': block.norm1,
+                'norm2': block.norm2,
+            }
 
     def get_vision_subsets_in_block(self, block):
         return [

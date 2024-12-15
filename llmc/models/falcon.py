@@ -30,7 +30,7 @@ class Falcon(BaseModel):
     def has_bias(self):
         return False
 
-    def get_layernorms_in_block(self, block):
+    def get_layernorms_in_block(self, block, modality='language'):
         if block.config.architectures[0] == 'RWForCausalLM':
             new_decoder_architecture = False
         elif block.config.architectures[0] == 'FalconForCausalLM':

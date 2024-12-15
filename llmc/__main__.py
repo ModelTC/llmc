@@ -34,6 +34,7 @@ def main(config):
     eval_model(model, None, eval_list, eval_pos='pretrain')
 
     for modality in config.quant.get('quant_objects', ['language']):
+        model.get_key_info(modality)
         if not config.get('calib', False):
             blockwise_opt = ALGO_REGISTRY[config.quant.method](
                 model,

@@ -37,11 +37,14 @@ class BaseModel(metaclass=ABCMeta):
         self.build_tokenizer()
         self.build_model()
         self.model.eval()
-        self.find_blocks()
+        self.kvcache_buffer = []
+        self.get_key_info(modality='language')
+
+    def get_key_info(self, modality='language'):
+        self.find_blocks(modality=modality)
         self.find_embed_layers()
         self.find_block_name()
-        self.add_layernorms_class()
-        self.kvcache_buffer = []
+        self.add_layernorms_class(modality=modality)
 
     def reset_kv(self):
         for kvcache in self.kvcache_buffer:
@@ -190,10 +193,10 @@ class BaseModel(metaclass=ABCMeta):
         )
         logger.info(f'self.model : {self.model}')
 
-    def add_layernorms_class(self):
+    def add_layernorms_class(self, modality='language'):
         ln_class_list = []
-        single_block = self.get_blocks()[0]
-        ln_dict = self.get_layernorms_in_block(single_block)
+        single_block = self.blocks[0]
+        ln_dict = self.get_layernorms_in_block(single_block, modality=modality)
         for ln_name in ln_dict:
             ln_class = ln_dict[ln_name].__class__
             if ln_class not in ln_class_list:
@@ -207,7 +210,6 @@ class BaseModel(metaclass=ABCMeta):
     def collect_first_block_input(self, calib_data, padding_mask=None, modality='language'):
         first_block_input = defaultdict(list)
 
-        self.find_blocks(modality)
         Catcher = self.get_catcher(first_block_input)
 
         if not self.use_cpu_to_save_cuda_mem_for_catcher:
