@@ -85,7 +85,7 @@ class BaseEval:
                 )
             elif self.dataset == 'custom_ppl':
                 testenc = self.tokenizer(
-                    '\n'.join([data['question'] for data in testdata]),
+                    '\n'.join([data['question'] + data['answer'] if 'answer' in data else data['question'] for data in testdata]), # noqa
                     return_tensors='pt',
                 )
             elif self.dataset == 'custom_gen':
