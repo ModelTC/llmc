@@ -1051,7 +1051,7 @@ class VllmRealQuantLinear(nn.Module):
 
 class LightllmRealQuantLinear(VllmRealQuantLinear):
     def __init__(self, weight, bias, scales, input_scale, need_pack):
-        super().__init__(weight, bias, scales, need_pack)
+        super().__init__(weight, bias, scales, input_scale, need_pack)
 
     def __repr__(self):
         return (
@@ -1070,7 +1070,7 @@ class LightllmRealQuantLinear(VllmRealQuantLinear):
 
 class SglRealQuantLinear(VllmRealQuantLinear):
     def __init__(self, weight, bias, scales, input_scale, need_pack):
-        super().__init__(weight, bias, scales, need_pack)
+        super().__init__(weight, bias, scales, input_scale, need_pack)
 
     def __repr__(self):
         return (
