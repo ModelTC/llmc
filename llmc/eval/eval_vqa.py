@@ -232,6 +232,6 @@ class VQAEval:
             results['date'] = datetime_str
             # add_env_info(results)  # additional environment info to results
             # add_tokenizer_info(results, lm)  # additional info about tokenizer
-            return make_table(results)
+            return '\n' + make_table(results)
         else:
             return None
