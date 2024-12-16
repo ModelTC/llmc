@@ -3,7 +3,7 @@ from typing import List, Optional, Tuple, Union
 import torch
 from accelerate import Accelerator, DistributedType
 from accelerate.state import AcceleratorState
-from lmms_eval.api.model import CacheHook
+from lmms_eval.api.model import lmms
 from lmms_eval.models.llava_hf import LlavaHf
 from loguru import logger
 from PIL import Image
@@ -19,7 +19,6 @@ from .llama import Llama
 class Llava(Llama):
     def __init__(self, config, device_map=None, use_cache=False):
         super().__init__(config, device_map, use_cache)
-        self.eval_name = 'LlavaHfEval'
 
     def build_model(self):
         self.vlm_model_config = AutoConfig.from_pretrained(
@@ -34,6 +33,7 @@ class Llava(Llama):
             torch_dtype=self.torch_dtype,
             low_cpu_mem_usage=True,
         )
+        self.eval_name = 'LlavaHfEval'
         self.mm_model = self.vlm_model
         logger.info(f'self.vlm_model : {self.vlm_model}')
         self.vision_model = self.vlm_model.vision_tower
@@ -181,10 +181,7 @@ class LlavaHfEval(LlavaHf):
         **kwargs,
     ) -> None:
 
-        self._rank = 0
-        self._world_size = 1
-        self.cache_hook = CacheHook(None)
-        self.task_dict = {}
+        lmms.__init__(self)
         # Do not use kwargs for now
         assert kwargs == {}, f'Unexpected kwargs: {kwargs}'
 

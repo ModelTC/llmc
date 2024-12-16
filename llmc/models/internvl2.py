@@ -1,11 +1,18 @@
+from datetime import timedelta
 from typing import Optional
 
 import torch
 import torchvision.transforms as T
+from accelerate import Accelerator, DistributedType
+from accelerate.state import AcceleratorState
+from accelerate.utils import InitProcessGroupKwargs
+from lmms_eval.api.model import lmms
+from lmms_eval.models.internvl2 import InternVL2 as LMMS_InternVL2
 from loguru import logger
 from PIL import Image
 from torchvision.transforms.functional import InterpolationMode
-from transformers import AutoConfig, AutoModelForCausalLM, GenerationConfig
+from transformers import (AutoConfig, AutoModelForCausalLM, AutoTokenizer,
+                          GenerationConfig)
 
 from llmc.utils.registry_factory import MODEL_REGISTRY
 
@@ -184,7 +191,7 @@ class InternVL2():
 
 class InternVL2SharedBehavior():
     def build_model(self):
-        self.eval_name = 'InternVL2'
+        self.eval_name = 'InternVL2Eval'
         self.vlm_model_config = AutoConfig.from_pretrained(
             self.model_path, trust_remote_code=True
         )
@@ -364,3 +371,75 @@ class InternVL2SharedBehavior():
             ]
         else:
             raise Exception(f'InternVL2 do not support {self.get_modality()} modality.')
+
+
+@MODEL_REGISTRY
+class InternVL2Eval(LMMS_InternVL2):
+    def __init__(
+        self,
+        llmc_model,
+        pretrained: str = 'OpenGVLab/InternVL2-2B',
+        modality: str = 'image',
+        device: str = 'cuda:0',
+        device_map: str = 'cuda:0',
+        batch_size: str = '1',
+        **kwargs,
+    ):
+        lmms.__init__(self)
+
+        self.path = pretrained
+        self._model = llmc_model.cuda()
+        self._tokenizer = AutoTokenizer.from_pretrained(self.path, trust_remote_code=True)
+
+        batch_size = int(batch_size)
+        assert batch_size == 1, f'Batch size should be 1 for InternVL2, but got {batch_size}.'
+        self.batch_size_per_gpu = batch_size
+
+        accelerator_kwargs = InitProcessGroupKwargs(timeout=timedelta(weeks=52))
+        accelerator = Accelerator(kwargs_handlers=[accelerator_kwargs])
+        self.accelerator = accelerator
+        if accelerator.num_processes > 1:
+            self._device = torch.device(f'cuda:{accelerator.local_process_index}')
+            self.device_map = f'cuda:{accelerator.local_process_index}'
+        elif accelerator.num_processes == 1 and device_map == 'auto':
+            self._device = torch.device(device)
+            self.device_map = device_map
+        else:
+            self._device = torch.device(f'cuda:{accelerator.local_process_index}')
+            self.device_map = f'cuda:{accelerator.local_process_index}'
+
+        if accelerator.num_processes > 1:
+            assert accelerator.distributed_type in \
+                [DistributedType.FSDP, DistributedType.MULTI_GPU, DistributedType.DEEPSPEED], \
+                'Unsupported distributed type provided. Only DDP and FSDP are supported.'
+
+            if accelerator.distributed_type == DistributedType.DEEPSPEED:
+                kwargs = {
+                    'train_micro_batch_size_per_gpu': self.batch_size_per_gpu,
+                    'train_batch_size': self.batch_size_per_gpu * accelerator.num_processes,
+                }
+                AcceleratorState().deepspeed_plugin.deepspeed_config_process(
+                    must_match=True, **kwargs)
+                logger.info('Detected that you are using DistributedType.DEEPSPEED.')
+
+            if accelerator.distributed_type == DistributedType.FSDP or \
+                    accelerator.distributed_type == DistributedType.DEEPSPEED:
+                self._model = accelerator.prepare(self.model)
+            else:
+                self._model = accelerator.prepare_model(self.model, evaluation_mode=True)
+            self.accelerator = accelerator
+            if self.accelerator.is_local_main_process:
+                logger.info(f'Using {accelerator.num_processes} devices with data parallelism')
+            self._rank = self.accelerator.local_process_index
+            self._world_size = self.accelerator.num_processes
+        elif accelerator.num_processes == 1 and device_map == 'auto':
+            logger.info(f'Using {accelerator.num_processes} devices with tensor parallelism')
+            self._rank = 0
+            self._word_size = 1
+        else:
+            logger.info(f'Using single device: {self._device}')
+            self.model.to(self._device)
+            self._rank = 0
+            self._world_size = 1
+
+        self.modality = modality
