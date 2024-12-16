@@ -45,7 +45,9 @@ def main(config):
             blockwise_opt.run_block_loop()
             dist.barrier()
         else:
-            dataset = BaseDataset(model.get_tokenizer(), config.calib, model.batch_process)
+            dataset = BaseDataset(
+                model.get_tokenizer(), config.calib, model.batch_process
+            )
             calib_data, padding_mask = dataset.get_calib_dataset()
             model.collect_first_block_input(calib_data, padding_mask)
             del calib_data
@@ -91,53 +93,60 @@ def main(config):
             blockwise_opt.deploy('fake_quant')
             blockwise_opt.save_model(save_fake_path)
 
-        if 'save' in config and config.save.get('save_vllm', False):
-            w, a = config.quant.weight, config.quant.get('act')
-            if isinstance(w.bit, str):
-                assert a, 'Only WA float quant is supported.'
-                assert w.symmetric and a.symmetric, 'Only symmetric quant is supported.'
-                assert w.bit == a.bit and w.bit in ['e4m3', 'e5m2'] and \
-                    a.bit in ['e4m3', 'e5m2'], 'Only WA FP8 quant is supported'
-            else:
-                assert w.symmetric, 'Only symmetric quant is supported.'
-                assert w.bit in [4, 8], 'Supported quant: w4a16, w8a16, w8a8.'
-                if a:
-                    assert a.symmetric, 'Only symmetric quant is supported.'
-                    assert a.bit == 8, 'Supported quant: w4a16, w8a16, w8a8.'
-            blockwise_opt.deploy('vllm_quant')
-            blockwise_opt.save_model(save_quant_path)
-            update_vllm_quant_config(blockwise_opt.model, config, save_quant_path)
+        if 'save' in config:
+            if (
+                config.save.get('save_vllm', False)
+                or config.save.get('save_sgl', False)
+                or config.save.get('save_lightllm', False)
+            ):
+                w, a = config.quant.weight, config.quant.get('act')
 
-        if 'save' in config and config.save.get('save_sgl', False):
-            w, a = config.quant.weight, config.quant.get('act')
-            if isinstance(w.bit, str):
-                assert a, 'Only WA float quant is supported.'
-                assert w.symmetric and a.symmetric, 'Only symmetric quant is supported.'
-                assert w.bit == a.bit and w.bit in ['e4m3', 'e5m2'] and \
-                    a.bit in ['e4m3', 'e5m2'], 'Only WA FP8 quant is supported'
-            else:
-                assert w.symmetric, 'Only symmetric quant is supported.'
-                assert w.bit in [4, 8], 'Supported quant: w4a16, w8a16, w8a8.'
-                if a:
-                    assert a.symmetric, 'Only symmetric quant is supported.'
-                    assert a.bit == 8, 'Supported quant: w4a16, w8a16, w8a8.'
-            blockwise_opt.deploy('sgl_quant')
-            blockwise_opt.save_model(save_quant_path)
-            update_vllm_quant_config(blockwise_opt.model, config, save_quant_path)
+                if isinstance(w.bit, str):
+                    assert a, 'Only WA float quant is supported.'
+                    assert (
+                        w.symmetric and a.symmetric
+                    ), 'Only symmetric quant is supported.'
+                    assert (
+                        w.bit == a.bit
+                        and w.bit in ['e4m3', 'e5m2']
+                        and a.bit in ['e4m3', 'e5m2']
+                    ), 'Only WA FP8 quant is supported'
+                else:
+                    assert w.symmetric, 'Only symmetric quant is supported.'
+                    assert w.bit in [4, 8], 'Supported quant: w4a16, w8a16, w8a8.'
+                    if a:
+                        assert a.symmetric, 'Only symmetric quant is supported.'
+                        assert a.bit == 8, 'Supported quant: w4a16, w8a16, w8a8.'
+
+                if config.save.get('save_vllm', False):
+                    blockwise_opt.deploy('vllm_quant')
+                if config.save.get('save_lightllm', False):
+                    blockwise_opt.deploy('lightllm_quant')
+                if config.save.get('save_sgl', False):
+                    blockwise_opt.deploy('sgl_quant')
+
+                blockwise_opt.save_model(save_quant_path)
+                update_vllm_quant_config(blockwise_opt.model, config, save_quant_path)
 
         if 'save' in config and config.save.get('save_autoawq', False):
-            assert config.quant.weight.bit in [4] and 'act' not in config.quant, \
-                'AutoAWQ supports only 4-bit weight-only quantization.'
-            assert not config.quant.weight.symmetric, 'Only asymmetric quant is supported.'
+            assert (
+                config.quant.weight.bit in [4] and 'act' not in config.quant
+            ), 'AutoAWQ supports only 4-bit weight-only quantization.'
+            assert (
+                not config.quant.weight.symmetric
+            ), 'Only asymmetric quant is supported.'
 
             blockwise_opt.deploy('autoawq_quant')
             blockwise_opt.save_model(save_quant_path)
             update_autoawq_quant_config(config, save_quant_path)
 
         if 'save' in config and config.save.get('save_mlcllm', False):
-            assert config.quant.weight.bit in [4] and 'act' not in config.quant, \
-                'MlcLLM supports only 4-bit weight-only quantization.'
-            assert not config.quant.weight.symmetric, 'Only asymmetric quant is supported.'
+            assert (
+                config.quant.weight.bit in [4] and 'act' not in config.quant
+            ), 'MlcLLM supports only 4-bit weight-only quantization.'
+            assert (
+                not config.quant.weight.symmetric
+            ), 'Only asymmetric quant is supported.'
 
             blockwise_opt.deploy('mlcllm_quant')
             blockwise_opt.save_model(save_quant_path)
@@ -192,7 +201,9 @@ if __name__ == '__main__':
     if int(os.environ['RANK']) == 0:
         if 'save' in config:
             if config.save.get('save_trans', False):
-                save_trans_path = os.path.join(config.save.save_path, 'transformed_model')
+                save_trans_path = os.path.join(
+                    config.save.save_path, 'transformed_model'
+                )
                 mkdirs(save_trans_path)
             if config.save.get('save_trtllm', False):
                 save_trtllm_trans_path = os.path.join(
@@ -204,16 +215,27 @@ if __name__ == '__main__':
                 )
                 mkdirs(save_trtllm_engine_path)
             if config.save.get('save_vllm', False):
-                save_quant_path = os.path.join(config.save.save_path, 'vllm_quant_model')
+                save_quant_path = os.path.join(
+                    config.save.save_path, 'vllm_quant_model'
+                )
+                mkdirs(save_quant_path)
+            if config.save.get('save_lightllm', False):
+                save_quant_path = os.path.join(
+                    config.save.save_path, 'lightllm_quant_model'
+                )
                 mkdirs(save_quant_path)
             if config.save.get('save_sgl', False):
                 save_quant_path = os.path.join(config.save.save_path, 'sgl_quant_model')
                 mkdirs(save_quant_path)
             if config.save.get('save_autoawq', False):
-                save_quant_path = os.path.join(config.save.save_path, 'autoawq_quant_model')
+                save_quant_path = os.path.join(
+                    config.save.save_path, 'autoawq_quant_model'
+                )
                 mkdirs(save_quant_path)
             if config.save.get('save_mlcllm', False):
-                save_quant_path = os.path.join(config.save.save_path, 'mlcllm_quant_model')
+                save_quant_path = os.path.join(
+                    config.save.save_path, 'mlcllm_quant_model'
+                )
                 mkdirs(save_quant_path)
             if config.save.get('save_fake', False):
                 save_fake_path = os.path.join(config.save.save_path, 'fake_quant_model')
