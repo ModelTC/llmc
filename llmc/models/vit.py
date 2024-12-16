@@ -1,8 +1,6 @@
-import inspect
-
-import torch.nn as nn
 from loguru import logger
-from transformers import (AutoConfig, AutoProcessor, ViTForImageClassification,
+from PIL import Image
+from transformers import (AutoConfig, ViTForImageClassification,
                           ViTImageProcessor)
 
 from llmc.utils.registry_factory import MODEL_REGISTRY
@@ -72,13 +70,16 @@ class Vit(BaseModel):
     def __str__(self):
         return f'\nModel: \n{str(self.model)}'
 
-    def batch_process(self, imgs):
-        processor = AutoProcessor.from_pretrained(self.model_path)
-        samples = []
+    def batch_process(self, imgs, calib_or_eval='eval', apply_chat_template=False, return_inputs=True): # noqa
+        assert calib_or_eval == 'calib' or calib_or_eval == 'eval'
+        assert not apply_chat_template
+        img_data_list = []
         for img in imgs:
-            sample = processor(images=img, return_tensors='pt')
-            samples.append(sample)
-        return samples
+            path = img['image']
+            img_data = Image.open(path)
+            img_data_list.append(img_data)
+        inputs = self.processor(images=img_data_list, return_tensors='pt')
+        return inputs
 
     def get_subsets_in_block(self, block):
         return [

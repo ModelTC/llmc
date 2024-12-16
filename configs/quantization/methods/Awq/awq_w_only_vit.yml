@@ -1,0 +1,43 @@
+base:
+    seed: &seed 42
+model:
+    type: Vit
+    path: /mnt/nvme1/yongyang/models/vit-base-patch16-224
+    tokenizer_mode: fast
+    torch_dtype: auto
+calib:
+    name: images
+    download: False
+    path: /mnt/nvme1/yongyang/general_custom_data
+    n_samples: 128
+    bs: 1
+    apply_chat_template: False
+    seed: *seed
+eval:
+    eval_pos: [pretrain, transformed, fake_quant]
+    name: imagenet
+    type: acc
+    download: False
+    path: /mnt/nvme1/yongyang/datasets/imagenet/val
+    bs: 512
+quant:
+    method: Awq
+    weight:
+        bit: 8
+        symmetric: True
+        granularity: per_channel
+        group_size: -1
+    act:
+        bit: 8
+        symmetric: True
+        granularity: per_token
+    special:
+        trans: True
+        # The options for "trans_version" include "v1" and "v2".
+        trans_version: v2
+        weight_clip: False
+        clip_sym: True
+save:
+    save_trans: False
+    save_fake: False
+    save_path: /path/to/save/
