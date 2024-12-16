@@ -8,11 +8,11 @@ from torchvision.datasets import ImageFolder
 
 
 class AccuracyEval:
-    def __init__(self, config, batch_size=256, num_workers=8):
+    def __init__(self, config):
         self.eval_config = config.eval
         self.imagenet_root = self.eval_config['path']
-        self.batch_size = batch_size
-        self.num_workers = num_workers
+        self.bs = self.eval_config['bs']
+        self.num_workers = self.eval_config.get('num_workers', 8)
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     def load_imagenet(self):
@@ -23,7 +23,7 @@ class AccuracyEval:
         val_dataset = ImageFolder(root=self.imagenet_root, transform=val_transform)
         val_loader = DataLoader(
             val_dataset,
-            batch_size=self.batch_size,
+            batch_size=self.bs,
             shuffle=False,
             num_workers=self.num_workers,
             collate_fn=lambda x: x,

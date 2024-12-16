@@ -71,72 +71,79 @@ class BaseDataset(metaclass=ABCMeta):
             else:
                 raise Exception(f'Not support {self.calib_dataset_name} dataset.')
         else:
-            if self.calib_dataset_name == 'custom_txt' or self.calib_dataset_name == 'custom_mm':
+            if self.calib_dataset_name == 'custom_txt' or self.calib_dataset_name == 'custom_mm' or self.calib_dataset_name == 'images': # noqa
                 self.calib_dataset = self.get_cutomdata(self.calib_dataset_path)
             else:
                 self.calib_dataset = load_from_disk(self.calib_dataset_path)
 
     def get_calib_model_inputs(self, samples):
         if not self.padding:
-            assert not self.calib_dataset_name == 'custom_mm'
-            if self.calib_dataset_name == 'custom_txt':
-                txts = self.batch_process(
-                    samples,
-                    calib_or_eval='calib',
-                    apply_chat_template=self.apply_chat_template,
-                    return_inputs=False
-                )
+            if self.calib_dataset_name == 'images':
+                calib_model_inputs = self.get_batch_process(samples)
             else:
-                txts = self.calib_dataset
-            preproc = PREPROC_REGISTRY[self.preproc]
-            preproc_param_dict = {
-                'calib_dataset': txts,
-                'tokenizer': self.tokenizer,
-                'n_samples': self.n_samples,
-                'seq_len': self.seq_len
-            }
-            if self.preproc == 'txt_general_preproc':
-                preproc_param_dict['key'] = self.key
-            samples = preproc(**preproc_param_dict)
-            calib_model_inputs = []
-            if self.calib_bs < 0:
-                batch = torch.cat(samples, dim=0)
-                calib_model_inputs.append({'input_ids': batch})
-            elif self.calib_bs == 1:
-                for i in range(len(samples)):
-                    calib_model_inputs.append({'input_ids': samples[i]})
-            elif self.calib_bs > 1:
-                for i in range(0, len(samples), self.calib_bs):
-                    start = i
-                    end = min(i + self.calib_bs, len(samples))
-                    batch = samples[start:end]
-                    batch = torch.cat(batch, dim=0)
+                assert not self.calib_dataset_name == 'custom_mm'
+                if self.calib_dataset_name == 'custom_txt':
+                    txts = self.batch_process(
+                        samples,
+                        calib_or_eval='calib',
+                        apply_chat_template=self.apply_chat_template,
+                        return_inputs=False
+                    )
+                else:
+                    txts = self.calib_dataset
+                preproc = PREPROC_REGISTRY[self.preproc]
+                preproc_param_dict = {
+                    'calib_dataset': txts,
+                    'tokenizer': self.tokenizer,
+                    'n_samples': self.n_samples,
+                    'seq_len': self.seq_len
+                }
+                if self.preproc == 'txt_general_preproc':
+                    preproc_param_dict['key'] = self.key
+                samples = preproc(**preproc_param_dict)
+                calib_model_inputs = []
+                if self.calib_bs < 0:
+                    batch = torch.cat(samples, dim=0)
                     calib_model_inputs.append({'input_ids': batch})
+                elif self.calib_bs == 1:
+                    for i in range(len(samples)):
+                        calib_model_inputs.append({'input_ids': samples[i]})
+                elif self.calib_bs > 1:
+                    for i in range(0, len(samples), self.calib_bs):
+                        start = i
+                        end = min(i + self.calib_bs, len(samples))
+                        batch = samples[start:end]
+                        batch = torch.cat(batch, dim=0)
+                        calib_model_inputs.append({'input_ids': batch})
         else:
             assert self.calib_dataset_name == 'custom_txt' or self.calib_dataset_name == 'custom_mm'
-            calib_model_inputs = []
-            if self.calib_bs < 0:
+            calib_model_inputs = self.get_batch_process(samples)
+        return calib_model_inputs
+
+    def get_batch_process(self, samples):
+        calib_model_inputs = []
+        if self.calib_bs < 0:
+            calib_model_inputs.append(
+                self.batch_process(
+                    samples,
+                    calib_or_eval='calib',
+                    apply_chat_template=self.apply_chat_template
+                )
+            )
+        elif self.calib_bs == 1:
+            calib_model_inputs = [self.batch_process([sample], calib_or_eval='calib', apply_chat_template=self.apply_chat_template) for sample in samples] # noqa
+        elif self.calib_bs > 1:
+            for i in range(0, len(samples), self.calib_bs):
+                start = i
+                end = min(i + self.calib_bs, len(samples))
+                batch = samples[start:end]
                 calib_model_inputs.append(
                     self.batch_process(
-                        samples,
+                        batch,
                         calib_or_eval='calib',
                         apply_chat_template=self.apply_chat_template
                     )
                 )
-            elif self.calib_bs == 1:
-                calib_model_inputs = [self.batch_process([sample], calib_or_eval='calib', apply_chat_template=self.apply_chat_template) for sample in samples] # noqa
-            elif self.calib_bs > 1:
-                for i in range(0, len(samples), self.calib_bs):
-                    start = i
-                    end = min(i + self.calib_bs, len(samples))
-                    batch = samples[start:end]
-                    calib_model_inputs.append(
-                        self.batch_process(
-                            batch,
-                            calib_or_eval='calib',
-                            apply_chat_template=self.apply_chat_template
-                        )
-                    )
         return calib_model_inputs
 
     def get_calib_dataset(self):
