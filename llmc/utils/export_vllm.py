@@ -48,17 +48,24 @@ def update_vllm_quant_config(
     else:
         group_size = None
 
+    if 'static' in config.quant.act:
+        dynamic = not config.quant.act.static
+    else:
+        dynamic = True
+
     quant_config = {
         'config_groups': {
             'group_0': {
                 'targets': ['Linear'],  # Now only support "Linear".
                 'input_activations': {
-                    'dynamic': True,
+                    'dynamic': dynamic,
                     'group_size': None,   # Don't support activations per-group quant.
                     'num_bits': a_num_bits,
                     'observer': 'minmax',
                     'observer_kwargs': {},
-                    'strategy': 'token',   # Now only support dynamic per-token
+                    'strategy': 'token'
+                                if config.quant.act.granularity == 'per_token'
+                                else 'tensor',
                     'symmetric': config.quant.act.symmetric,
                     'type': quant_type
                 } if 'act' in config.quant else None,

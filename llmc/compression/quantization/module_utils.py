@@ -972,6 +972,12 @@ class VllmRealQuantLinear(nn.Module):
             input_scale = module.buf_act_scales_0
         else:
             input_scale = None
+        if (
+            quant_config.act.get('static', False)
+            and quant_config.get('quant_type', 'int-quant') == 'int-quant'
+        ):
+            input_scale = input_scale.unsqueeze(0)
+
         if module.bias is not None:
             bias = module.bias.data
         else:
@@ -1043,9 +1049,28 @@ class VllmRealQuantLinear(nn.Module):
         )
 
 
+class LightllmRealQuantLinear(VllmRealQuantLinear):
+    def __init__(self, weight, bias, scales, input_scale, need_pack):
+        super().__init__(weight, bias, scales, input_scale, need_pack)
+
+    def __repr__(self):
+        return (
+            'LightllmRealQuantLinear('
+            + f'in_features={self.in_features}, '
+            + f'out_features={self.out_features}, '
+            + f'bias={self.bias is not None}, '
+            + f'weight_shape={self.weight_shape}, '
+            + f'weight_dtype={self.weight_dtype}, '
+            + f'scales_shape={self.scales_shape}, '
+            + f'scales_dtype={self.scales_dtype}, '
+            + f'zeros_shape={self.zeros_shape}, '
+            + f'zeros_dtype={self.zeros_dtype})'
+        )
+
+
 class SglRealQuantLinear(VllmRealQuantLinear):
     def __init__(self, weight, bias, scales, input_scale, need_pack):
-        super().__init__(weight, bias, scales, need_pack)
+        super().__init__(weight, bias, scales, input_scale, need_pack)
 
     def __repr__(self):
         return (
@@ -1302,12 +1327,14 @@ _LLMC_LINEAR_TYPES_ = [
     SglRealQuantLinear,
     AutoawqRealQuantLinear,
     MlcllmRealQuantLinear,
+    LightllmRealQuantLinear,
 ]
 
 _LLMC_ATTN_MAP_ = {'Vit': LlmcViTSelfAttention, 'DeepseekV2': LlmcDeepseekAttention}
 
 _REALQUANT_LINEAR_MAP_ = {
     'vllm_quant': VllmRealQuantLinear,
+    'lightllm_quant': LightllmRealQuantLinear,
     'sgl_quant': SglRealQuantLinear,
     'autoawq_quant': AutoawqRealQuantLinear,
     'mlcllm_quant': MlcllmRealQuantLinear,
