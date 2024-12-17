@@ -42,6 +42,7 @@ quant:
         static_groups: True
         percdamp: 0.01
         blocksize: 128
+        chunk_num: 4
         true_sequential: True
         online_rotate: True
         fp32_had: True
