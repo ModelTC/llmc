@@ -42,6 +42,7 @@ class GPTQ(BaseBlockwiseQuantization):
         self.blocksize = special_config['blocksize']
 
         self.owq = special_config.get('owq', False)
+        self.chunk_num = special_config.get('chunk_num', 1)
 
         if self.owq:
             self.n_outs = special_config['n_outs']
@@ -275,12 +276,18 @@ class GPTQ(BaseBlockwiseQuantization):
             inp = inp.permute([1, 0, 2])
             inp = inp.flatten(1)
 
+        assert inp.shape[1] % self.chunk_num == 0, \
+            f'Error: inp.shape[1] ({inp.shape[1]}) cannot be evenly divided by chunk_num.'
+        chunks = torch.chunk(inp, self.chunk_num, dim=1)
+
         self.layers_cache[name]['H'] *= self.layers_cache[name]['nsamples'] / (
             self.layers_cache[name]['nsamples'] + tmp
         )
         self.layers_cache[name]['nsamples'] += tmp
-        inp = math.sqrt(2 / self.layers_cache[name]['nsamples']) * inp.float()
-        self.layers_cache[name]['H'] += inp.matmul(inp.t())
+
+        for chunk in chunks:
+            chunk = math.sqrt(2 / self.layers_cache[name]['nsamples']) * chunk.float()
+            self.layers_cache[name]['H'] += chunk.matmul(chunk.t())
 
         dist.all_reduce(self.layers_cache[name]['H'], op=dist.ReduceOp.SUM)
         dist.all_reduce(torch.tensor(self.layers_cache[name]['nsamples']).cuda(),
