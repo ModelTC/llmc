@@ -866,13 +866,22 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
 
     @torch.no_grad()
     def contiguous_params(self):
-        for name, param in self.model.model.named_parameters():
-            if not param.is_contiguous():
-                param.data = param.data.contiguous()
+        if self.model.mm_model is not None:
+            for name, param in self.model.mm_model.named_parameters():
+                if not param.is_contiguous():
+                    param.data = param.data.contiguous()
 
-        for name, param in self.model.model.named_buffers():
-            if not param.is_contiguous():
-                param.data = param.data.contiguous()
+            for name, param in self.model.mm_model.named_buffers():
+                if not param.is_contiguous():
+                    param.data = param.data.contiguous()
+        else:
+            for name, param in self.model.model.named_parameters():
+                if not param.is_contiguous():
+                    param.data = param.data.contiguous()
+
+            for name, param in self.model.model.named_buffers():
+                if not param.is_contiguous():
+                    param.data = param.data.contiguous()
 
     @torch.no_grad()
     def save_model(self, path):

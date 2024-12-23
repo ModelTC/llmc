@@ -4,8 +4,6 @@ from typing import Optional, Union
 import torch
 import torch.nn as nn
 from accelerate import Accelerator, DistributedType
-from lmms_eval.api.model import lmms
-from lmms_eval.models.qwen2_vl import Qwen2_VL
 from loguru import logger
 from transformers import AutoConfig, AutoProcessor, AutoTokenizer
 
@@ -211,63 +209,75 @@ class Qwen2VL(Qwen2):
         return Catcher
 
 
-@MODEL_REGISTRY
-class Qwen2VLEval(Qwen2_VL):
-    def __init__(
-        self,
-        llmc_model,
-        pretrained: str = 'Qwen/Qwen2-VL-7B-Instruct',
-        device: Optional[str] = 'cuda',
-        device_map: Optional[str] = 'cuda',
-        batch_size: Optional[Union[int, str]] = 1,
-        use_cache=True,
-        use_flash_attention_2: Optional[bool] = False,
-        max_pixels: int = 12845056,
-        min_pixels: int = 3136,
-        max_num_frames: int = 32,
-        **kwargs,
-    ) -> None:
-        lmms.__init__(self)
-        # Do not use kwargs for now
-        assert kwargs == {}, f'Unexpected kwargs: {kwargs}'
+try:
+    from lmms_eval.api.model import lmms
+    from lmms_eval.models.qwen2_vl import Qwen2_VL
 
-        accelerator = Accelerator()
-        if accelerator.num_processes > 1:
-            self._device = torch.device(f'cuda:{accelerator.local_process_index}')
-            self.device_map = f'cuda:{accelerator.local_process_index}'
-        elif accelerator.num_processes == 1 and device_map == 'auto':
-            self._device = torch.device(device)
-            self.device_map = device_map
-        else:
-            self._device = torch.device(f'cuda:{accelerator.local_process_index}')
-            self.device_map = f'cuda:{accelerator.local_process_index}'
+    @MODEL_REGISTRY
+    class Qwen2VLEval(Qwen2_VL):
+        def __init__(
+            self,
+            llmc_model,
+            pretrained: str = 'Qwen/Qwen2-VL-7B-Instruct',
+            device: Optional[str] = 'cuda',
+            device_map: Optional[str] = 'cuda',
+            batch_size: Optional[Union[int, str]] = 1,
+            use_cache=True,
+            use_flash_attention_2: Optional[bool] = False,
+            max_pixels: int = 12845056,
+            min_pixels: int = 3136,
+            max_num_frames: int = 32,
+            **kwargs,
+        ) -> None:
+            lmms.__init__(self)
+            # Do not use kwargs for now
+            assert kwargs == {}, f'Unexpected kwargs: {kwargs}'
 
-        self._model = llmc_model.eval().cuda()
-        self.processor = AutoProcessor.from_pretrained(pretrained,
-                                                       max_pixels=max_pixels, min_pixels=min_pixels)
-        self.max_pixels = max_pixels
-        self.min_pixels = min_pixels
-        self.max_num_frames = max_num_frames
-        self._tokenizer = AutoTokenizer.from_pretrained(pretrained)
-
-        self._config = self.model.config
-        self.batch_size_per_gpu = int(batch_size)
-        self.use_cache = use_cache
-
-        if accelerator.num_processes > 1:
-            assert accelerator.distributed_type in [
-                DistributedType.FSDP,
-                DistributedType.MULTI_GPU,
-            ], 'Unsupported distributed type provided. Only DDP and FSDP are supported.'
-            if accelerator.distributed_type == DistributedType.FSDP:
-                self._model = accelerator.prepare(self.model)
+            accelerator = Accelerator()
+            if accelerator.num_processes > 1:
+                self._device = torch.device(f'cuda:{accelerator.local_process_index}')
+                self.device_map = f'cuda:{accelerator.local_process_index}'
+            elif accelerator.num_processes == 1 and device_map == 'auto':
+                self._device = torch.device(device)
+                self.device_map = device_map
             else:
-                self._model = accelerator.prepare_model(self.model, evaluation_mode=True)
-            self.accelerator = accelerator
-            if self.accelerator.is_local_main_process:
-                logger.info(f'Using {accelerator.num_processes} devices with data parallelism')
-            self._rank = self.accelerator.local_process_index
-            self._world_size = self.accelerator.num_processes
-        else:
-            self._rank = 0
-            self._word_size = 1
+                self._device = torch.device(f'cuda:{accelerator.local_process_index}')
+                self.device_map = f'cuda:{accelerator.local_process_index}'
+
+            self._model = llmc_model.eval().cuda()
+            self.processor = AutoProcessor.from_pretrained(
+                pretrained,
+                max_pixels=max_pixels,
+                min_pixels=min_pixels
+            )
+            self.max_pixels = max_pixels
+            self.min_pixels = min_pixels
+            self.max_num_frames = max_num_frames
+            self._tokenizer = AutoTokenizer.from_pretrained(pretrained)
+
+            self._config = self.model.config
+            self.batch_size_per_gpu = int(batch_size)
+            self.use_cache = use_cache
+
+            if accelerator.num_processes > 1:
+                assert accelerator.distributed_type in [
+                    DistributedType.FSDP,
+                    DistributedType.MULTI_GPU,
+                ], 'Unsupported distributed type provided. Only DDP and FSDP are supported.'
+                if accelerator.distributed_type == DistributedType.FSDP:
+                    self._model = accelerator.prepare(self.model)
+                else:
+                    self._model = accelerator.prepare_model(self.model, evaluation_mode=True)
+                self.accelerator = accelerator
+                if self.accelerator.is_local_main_process:
+                    logger.info(f'Using {accelerator.num_processes} devices with data parallelism')
+                self._rank = self.accelerator.local_process_index
+                self._world_size = self.accelerator.num_processes
+            else:
+                self._rank = 0
+                self._word_size = 1
+except Exception:
+    logger.warning(
+        'Can not import lmms_eval. '
+        'If you need it, please upgrade transformers.'
+    )
