@@ -12,8 +12,8 @@ from .sparse import Sparser
 
 
 class BaseBlockwiseSparsification(BlockwiseOpt):
-    def __init__(self, model, sparsity_config, input, padding_mask, config, modality='language'):
-        super().__init__(model, sparsity_config, input, padding_mask, config, modality)
+    def __init__(self, model, sparsity_config, input, padding_mask, config):
+        super().__init__(model, sparsity_config, input, padding_mask, config)
         self.set_sparsity_config()
 
     def block_init(self, block):

@@ -23,6 +23,15 @@ from llmc.utils import (check_config, mkdirs, print_important_package_version,
 from llmc.utils.registry_factory import ALGO_REGISTRY, MODEL_REGISTRY
 
 
+def get_modality(config):
+    if 'quant' in config:
+        return config.quant.get('quant_objects', ['language'])
+    elif 'sparse' in config:
+        return config.sparse.get('sparse_objects', ['language'])
+    else:
+        return ['language']
+
+
 def main(config):
     model = MODEL_REGISTRY[config.model.type](config)
 
@@ -32,7 +41,8 @@ def main(config):
     eval_list = get_eval_list(model, config)
     eval_model(model, None, eval_list, eval_pos='pretrain')
 
-    for modality in config.quant.get('quant_objects', ['language']):
+    # for modality in config.quant.get('quant_objects', ['language']):
+    for modality in get_modality(config):
         model.set_modality(modality)
         if not config.get('calib', False):
             blockwise_opt = ALGO_REGISTRY[config.quant.method](

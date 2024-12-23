@@ -11,7 +11,7 @@ calib:
     n_samples: 1
     bs: 1
     seq_len: 512
-    preproc: general
+    preproc: txt_general_preproc
     seed: *seed
 eval:
     eval_pos: [pretrain, transformed, fake_quant]
