@@ -185,6 +185,7 @@ class Awq(BaseBlockwiseQuantization):
                 torch.cuda.empty_cache()
 
                 x_tmp = self.scaling_input(x, scales, is_gqa)
+                logger.info(f"x_tmp:{x_tmp.shape}")
 
                 if not check_w_only(
                     self.block_idx,
@@ -205,12 +206,16 @@ class Awq(BaseBlockwiseQuantization):
                         ).fake_quant_act_dynamic(_x)
                         outs.append(_x)
                     x_tmp = torch.stack(outs)
+                    logger.info(f"x_tmp:{x_tmp.shape}")
 
                 out = self.inspect_module_forward(x_tmp, inspect_module, kwargs)
 
                 if self.padding_mask and org_out.shape[1] == self.padding_mask[i].shape[-1]:
                     org_out = org_out * self.padding_mask[i].unsqueeze(dim=-1).to(org_out.device)  # noqa
                     out = out * self.padding_mask[i].unsqueeze(dim=-1).to(out.device)
+
+                logger.info(f"org_out:{org_out.shape}")
+                logger.info(f"out:{out.shape}")
 
                 loss = self.calculate_loss(org_out, out)
 
