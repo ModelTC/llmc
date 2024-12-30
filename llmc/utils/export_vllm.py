@@ -48,7 +48,7 @@ def update_vllm_quant_config(
     else:
         group_size = None
 
-    if 'static' in config.quant.act:
+    if 'act' in config.quant and 'static' in config.quant.act:
         dynamic = not config.quant.act.static
     else:
         dynamic = True

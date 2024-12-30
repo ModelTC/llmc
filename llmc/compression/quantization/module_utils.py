@@ -973,6 +973,7 @@ class VllmRealQuantLinear(nn.Module):
         else:
             input_scale = None
         if (
+            'act' in quant_config and
             quant_config.act.get('static', False)
             and quant_config.get('quant_type', 'int-quant') == 'int-quant'
         ):
