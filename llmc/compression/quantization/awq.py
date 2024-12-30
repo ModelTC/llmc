@@ -61,9 +61,9 @@ class Awq(BaseBlockwiseQuantization):
 
     def get_act_scale(self, x):
         batch_means = []
-        b_num = x.shape[0] // self.awq_bs
+        b_num = x.shape[0] // self._bs
         for num in range(b_num):
-            batch_x = x[num * self.awq_bs:(num + 1) * self.awq_bs]
+            batch_x = x[num * self._bs:(num + 1) * self._bs]
             batch_mean = batch_x.abs().view(-1, batch_x.shape[-1]).mean(0)
             batch_means.append(batch_mean)
         final_mean = sum(batch_means) / len(batch_means)
@@ -94,15 +94,9 @@ class Awq(BaseBlockwiseQuantization):
 
     def inspect_module_forward(self, x, inspect_module, kwargs):
         outs = []
-        b_num = x.shape[0] // self.awq_bs
-
-        logger.info(b_num)
-        logger.info(x.shape)
-        logger.info(self.awq_bs)
-
-
+        b_num = x.shape[0] // self._bs
         for num in range(b_num):
-            _x = x[num * self.awq_bs:(num + 1) * self.awq_bs]
+            _x = x[num * self._bs:(num + 1) * self._bs]
             out = inspect_module(_x, **kwargs)
             if isinstance(out, tuple):
                 out = out[0]
@@ -117,10 +111,10 @@ class Awq(BaseBlockwiseQuantization):
 
     def calculate_loss(self, org_out, out):
         total_loss = 0.0
-        b_num = org_out.shape[0] // self.awq_bs
+        b_num = org_out.shape[0] // self._bs
         for num in range(b_num):
-            _org_out = org_out[num * self.awq_bs:(num + 1) * self.awq_bs]
-            _out = out[num * self.awq_bs:(num + 1) * self.awq_bs]
+            _org_out = org_out[num * self._bs:(num + 1) * self._bs]
+            _out = out[num * self._bs:(num + 1) * self._bs]
             single_loss = (_org_out - _out).float().pow(2).mean().item()
             total_loss += single_loss
         return total_loss / b_num
@@ -137,9 +131,9 @@ class Awq(BaseBlockwiseQuantization):
     ):
 
         if self.awq_bs is None:
-            logger.info(input[0].shape)
-            self.awq_bs = input[0].shape[0]
-            logger.info(f'awq_bs: {self.awq_bs}')
+            self._bs = input[0].shape[0]
+        else:
+            self._bs = self.awq_bs
 
         w_max = self.get_weight_scale(layers_dict)
         # grid search for ratio
@@ -155,8 +149,6 @@ class Awq(BaseBlockwiseQuantization):
             for i in range(len(input)):
                 input[i] = input[i].to(next(inspect_module.parameters()).device)
                 x = input[i]
-                logger.info(f"x:{x.shape}")
-                logger.info(f"i:{i}")
                 if isinstance(subset_kwargs, list):
                     kwargs = subset_kwargs[i]
                 else:
@@ -187,7 +179,6 @@ class Awq(BaseBlockwiseQuantization):
                 torch.cuda.empty_cache()
 
                 x_tmp = self.scaling_input(x, scales, is_gqa)
-                logger.info(f"x_tmp:{x_tmp.shape}")
 
                 if not check_w_only(
                     self.block_idx,
@@ -208,16 +199,12 @@ class Awq(BaseBlockwiseQuantization):
                         ).fake_quant_act_dynamic(_x)
                         outs.append(_x)
                     x_tmp = torch.stack(outs)
-                    logger.info(f"x_tmp:{x_tmp.shape}")
 
                 out = self.inspect_module_forward(x_tmp, inspect_module, kwargs)
 
                 if self.padding_mask and org_out.shape[1] == self.padding_mask[i].shape[-1]:
                     org_out = org_out * self.padding_mask[i].unsqueeze(dim=-1).to(org_out.device)  # noqa
                     out = out * self.padding_mask[i].unsqueeze(dim=-1).to(out.device)
-
-                logger.info(f"org_out:{org_out.shape}")
-                logger.info(f"out:{out.shape}")
 
                 loss = self.calculate_loss(org_out, out)
 
