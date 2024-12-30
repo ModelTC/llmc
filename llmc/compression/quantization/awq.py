@@ -95,6 +95,10 @@ class Awq(BaseBlockwiseQuantization):
     def inspect_module_forward(self, x, inspect_module, kwargs):
         outs = []
         b_num = x.shape[0] // self.awq_bs
+
+        logger.info(b_num)
+        logger.info(x.shape)
+        logger.info(self.awq_bs)
         for num in range(b_num):
             _x = x[num * self.awq_bs:(num + 1) * self.awq_bs]
             out = inspect_module(_x, **kwargs)
