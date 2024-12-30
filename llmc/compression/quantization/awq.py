@@ -155,6 +155,8 @@ class Awq(BaseBlockwiseQuantization):
             for i in range(len(input)):
                 input[i] = input[i].to(next(inspect_module.parameters()).device)
                 x = input[i]
+                logger.info(f"x:{x.shape}")
+                logger.info(f"i:{i}")
                 if isinstance(subset_kwargs, list):
                     kwargs = subset_kwargs[i]
                 else:
