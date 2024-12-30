@@ -99,6 +99,8 @@ class Awq(BaseBlockwiseQuantization):
         logger.info(b_num)
         logger.info(x.shape)
         logger.info(self.awq_bs)
+
+
         for num in range(b_num):
             _x = x[num * self.awq_bs:(num + 1) * self.awq_bs]
             out = inspect_module(_x, **kwargs)
@@ -135,6 +137,7 @@ class Awq(BaseBlockwiseQuantization):
     ):
 
         if self.awq_bs is None:
+            logger.info(input[0].shape)
             self.awq_bs = input[0].shape[0]
             logger.info(f'awq_bs: {self.awq_bs}')
 
