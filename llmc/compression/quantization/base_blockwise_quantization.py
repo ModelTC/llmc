@@ -283,14 +283,25 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
             assert self.config['model']['type'] in ['Opt', 'Llama']
 
         self.hidden_size = self.model.model_config.hidden_size
-        if self.online_rotate:
-            self.num_heads = self.model.model_config.num_attention_heads
-            self.head_dim = self.hidden_size // self.num_heads
-            self.intermediate_size = self.model.model_config.intermediate_size
-            self.fp32_had = special_config.get('fp32_had', False)
-
+        self.set_model_config()
         self.quant_objects = self.quant_config.get('quant_objects', ['language'])
         logger.info(f'self.quant_objects : {self.quant_objects}')
+
+    def set_model_config(self):
+        self.hidden_size = self.model.model_config.hidden_size
+        self.num_heads = self.model.model_config.num_attention_heads
+        self.head_dim = self.hidden_size // self.num_heads
+        if hasattr(self.model.model_config, 'intermediate_size'):
+            self.intermediate_size = self.model.model_config.intermediate_size
+        if hasattr(self.model.model_config, 'num_key_value_heads'):
+            self.num_key_value_heads = self.model.model_config.num_key_value_heads
+            self.num_key_value_groups = self.num_heads // self.num_key_value_heads
+            if self.num_key_value_groups > 1:
+                self.has_gqa = True
+            else:
+                self.has_gqa = False
+        else:
+            self.has_gqa = False
 
     def replace_rotate_linears(self, block):
         for n, m in block.named_modules():
@@ -582,6 +593,12 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
                 layer.register_buffer(f'buf_act_qmax_{i}', qmax.cuda())
 
     @torch.no_grad()
+    def repeat_gqa_scales(self, scales):
+        scales = scales.view(1, self.num_key_value_heads, self.head_dim)
+        scales = torch.repeat_interleave(scales, dim=1, repeats=self.num_key_value_groups)
+        return scales
+
+    @torch.no_grad()
     def apply_scale(self, scales, prev_op, layers):
         assert (
             len(prev_op) == 1
@@ -652,6 +669,14 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
                 fc1.bias.div_(scales.view(-1))
 
             fc1.weight.div_(scales.view(-1, 1))
+        elif self.has_gqa:
+            if hasattr(fc1, 'bias') and fc1.bias is not None:
+                fc1.bias.div_(scales.view(-1))
+            fc1.weight.div_(scales.view(-1, 1))
+
+            if fc1.out_features != fc2.in_features:
+                logger.info('GQA scale this fc-fc.')
+                scales = self.repeat_gqa_scales(scales)
         else:
             logger.error(f'fc1.out_features: {fc1.out_features}')
             logger.error(f'fc2.in_features: {fc2.in_features}')
@@ -795,11 +820,26 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
             fc.bias.data = fc.bias.data.to(fc_dtype)
 
     @torch.no_grad()
-    def update_input_feat(self, scale, input_feat, layers_dict):
+    def scaling_input(self, x, scales, is_gqa):
+        if is_gqa:
+            scales_tmp = self.repeat_gqa_scales(scales)
+        else:
+            scales_tmp = scales
+
+        x_tmp = torch.empty_like(x)
+        for i, batch in enumerate(x):
+            batch_scale = scales_tmp.view(1, -1)
+            x_tmp[i] = batch / batch_scale
+
+        return x_tmp
+
+    @torch.no_grad()
+    def update_input_feat(self, scale, input_feat, layers_dict, is_gqa):
         for layer_name in layers_dict:
             for i in range(len(input_feat[layer_name])):
                 inp = input_feat[layer_name][i]
-                inp.div_(scale.view(1, -1).to(inp.device))
+                scale = scale.to(inp.device)
+                inp = self.scaling_input(inp, scale, is_gqa)
 
     @torch.no_grad()
     def set_non_linear_mode(self, quant_format, module, mode):

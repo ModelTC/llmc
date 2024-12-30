@@ -1,3 +1,4 @@
+import copy
 import functools
 import gc
 import math
@@ -145,6 +146,36 @@ class TesseraQ(BaseBlockwiseQuantization):
                 self.ori_out2 = self.block_forward(block)
 
     @torch.no_grad()
+    def collect_block_qparams(self, block, input_feat):
+        named_linears = self.model.get_block_linears(block)
+        for n, m in named_linears.items():
+            args = {}
+            if hasattr(m, 'buf_lowbound_factor'):
+                args['lowbound_factor'] = m.buf_lowbound_factor
+            if hasattr(m, 'buf_upbound_factor'):
+                args['upbound_factor'] = m.buf_upbound_factor
+            (
+                tensor,
+                scales,
+                zeros,
+                max_int,
+                min_int,
+            ) = self.wquantizer.get_tensor_qparams(m.weight.data, args=args)
+            m.register_buffer('buf_scales', scales)
+            m.register_buffer('buf_zeros', zeros)
+            m.register_buffer('buf_qmax', torch.tensor(max_int).to(self.dev))
+            m.register_buffer('buf_qmin', torch.tensor(min_int).to(self.dev))
+
+            if self.act_static:
+                subsets = self.model.get_subsets_in_block(block)
+                for index, subset in enumerate(subsets):
+                    layers_dict = subset['layers']
+                    input_name = subset['input'][0]
+                    input_tensors = copy.deepcopy(input_feat[input_name])
+                    self.register_act_qparams(layers_dict, input_tensors)
+                    del input_tensors
+
+    @torch.no_grad()
     def block_transform(self, block, input_feat, block_kwargs):
         logger.info(f'Start transform the {self.block_idx+1}-th block')
 
@@ -163,7 +194,7 @@ class TesseraQ(BaseBlockwiseQuantization):
         if self.weight_clip:
             self.tesseraq_weight_clip(block, input_feat)
 
-        self.collect_block_qparams(block)  # collect quant range after transformation
+        self.collect_block_qparams(block, input_feat)  # collect quant range after transformation
         self.register_tesseraq_parameters(block)
 
         self.tesseraq_train(block)

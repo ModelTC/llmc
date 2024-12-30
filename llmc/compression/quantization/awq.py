@@ -23,6 +23,16 @@ class Awq(BaseBlockwiseQuantization):
         self.trans = special_config.get('trans', True)
         self.trans_version = special_config.get('trans_version', 'v2')
         self.save_scale = special_config.get('save_scale', False)
+        self.awq_bs = special_config.get('awq_bs', None)
+
+    @torch.no_grad()
+    def scaling_weight(self, w, scales, is_gqa):
+        if is_gqa:
+            scales_tmp = self.repeat_gqa_scales(scales)
+        else:
+            scales_tmp = scales
+        w_tmp = w.mul_(scales_tmp.view(1, -1))
+        return w_tmp
 
     @torch.no_grad()
     def get_weight_scale(self, layers_dict):
@@ -49,20 +59,82 @@ class Awq(BaseBlockwiseQuantization):
         torch.cuda.empty_cache()
         return scale
 
-    @torch.no_grad()
     def get_act_scale(self, x):
-        return x.abs().view(-1, x.shape[-1]).mean(0)
+        batch_means = []
+        b_num = x.shape[0] // self._bs
+        for num in range(b_num):
+            batch_x = x[num * self._bs:(num + 1) * self._bs]
+            batch_mean = batch_x.abs().view(-1, batch_x.shape[-1]).mean(0)
+            batch_means.append(batch_mean)
+        final_mean = sum(batch_means) / len(batch_means)
+        return final_mean
+
+    @torch.no_grad()
+    def get_scales(self, prev_op, x, w_max, is_gqa, ratio):
+        if is_gqa:
+            x_tmp = prev_op(x)
+            w_tmp = self.get_weight_scale({'prev_op': prev_op})
+        else:
+            x_tmp = x
+            w_tmp = w_max
+
+        x_tmp = self.get_act_scale(x_tmp)
+
+        if self.trans_version == 'v1':
+            scales = (
+                (x_tmp.pow(ratio) / w_tmp.pow(1 - ratio))
+                .clamp(min=1e-4)
+                .view(-1)
+            )
+        elif self.trans_version == 'v2':
+            scales = x_tmp.pow(ratio).clamp(min=1e-4).view(-1)
+
+        scales = scales / (scales.max() * scales.min()).sqrt()
+        return scales
+
+    def inspect_module_forward(self, x, inspect_module, kwargs):
+        outs = []
+        b_num = x.shape[0] // self._bs
+        for num in range(b_num):
+            _x = x[num * self._bs:(num + 1) * self._bs]
+            out = inspect_module(_x, **kwargs)
+            if isinstance(out, tuple):
+                out = out[0]
+            outs.append(out)
+        return torch.cat(outs, dim=0)
 
     @torch.no_grad()
     def get_original_out(self, x, inspect_module, subset_kwargs):
         with torch.no_grad():
-            org_out = inspect_module(x, **subset_kwargs)
-            if isinstance(org_out, tuple):
-                org_out = org_out[0]
+            org_out = self.inspect_module_forward(x, inspect_module, subset_kwargs)
         return org_out
 
+    def calculate_loss(self, org_out, out):
+        total_loss = 0.0
+        b_num = org_out.shape[0] // self._bs
+        for num in range(b_num):
+            _org_out = org_out[num * self._bs:(num + 1) * self._bs]
+            _out = out[num * self._bs:(num + 1) * self._bs]
+            single_loss = (_org_out - _out).float().pow(2).mean().item()
+            total_loss += single_loss
+        return total_loss / b_num
+
     @torch.no_grad()
-    def search_scale_subset(self, layers_dict, input, inspect_module, subset_kwargs):
+    def search_scale_subset(
+        self,
+        prev_op,
+        layers_dict,
+        input,
+        inspect_module,
+        is_gqa,
+        subset_kwargs
+    ):
+
+        if self.awq_bs is None:
+            self._bs = input[0].shape[0]
+        else:
+            self._bs = self.awq_bs
+
         w_max = self.get_weight_scale(layers_dict)
         # grid search for ratio
         best_error = float('inf')
@@ -89,18 +161,10 @@ class Awq(BaseBlockwiseQuantization):
                 x_max = self.get_act_scale(x)
 
                 ratio = n * 1 / n_grid
-                if self.trans_version == 'v1':
-                    scales = (
-                        (x_max.pow(ratio) / w_max.pow(1 - ratio))
-                        .clamp(min=1e-4)
-                        .view(-1)
-                    )
-                elif self.trans_version == 'v2':
-                    scales = x_max.pow(ratio).clamp(min=1e-4).view(-1)
-                scales = scales / (scales.max() * scales.min()).sqrt()
+                scales = self.get_scales(prev_op, x, w_max, is_gqa, ratio)
                 for layer_name in layers_dict:
                     fc = layers_dict[layer_name]
-                    fc.weight.mul_(scales.view(1, -1))
+                    fc.weight = self.scaling_weight(fc.weight, scales, is_gqa)
 
                     fc.weight.data = get_wquantizer(
                         self.block_idx,
@@ -110,7 +174,12 @@ class Awq(BaseBlockwiseQuantization):
                         self.wquantizer,
                     ).fake_quant_weight_dynamic(fc.weight.data)
 
-                x_tmp = x / scales.view(1, -1)
+                del x_max
+                gc.collect()
+                torch.cuda.empty_cache()
+
+                x_tmp = self.scaling_input(x, scales, is_gqa)
+
                 if not check_w_only(
                     self.block_idx,
                     list(layers_dict.keys())[0],
@@ -118,23 +187,26 @@ class Awq(BaseBlockwiseQuantization):
                     self.quantizer_mix_bits,
                     self.w_only,
                 ):
-                    x_tmp = get_aquantizer(
-                        self.block_idx,
-                        list(layers_dict.keys())[0],
-                        self.mix_bits_map,
-                        self.quantizer_mix_bits,
-                        self.aquantizer,
-                    ).fake_quant_act_dynamic(x_tmp)
-                out = inspect_module(x_tmp, **kwargs)
+                    outs = []
+                    for i in range(x_tmp.shape[0]):
+                        _x = x_tmp[i]
+                        _x = get_aquantizer(
+                            self.block_idx,
+                            list(layers_dict.keys())[0],
+                            self.mix_bits_map,
+                            self.quantizer_mix_bits,
+                            self.aquantizer,
+                        ).fake_quant_act_dynamic(_x)
+                        outs.append(_x)
+                    x_tmp = torch.stack(outs)
 
-                if isinstance(out, tuple):
-                    out = out[0]
+                out = self.inspect_module_forward(x_tmp, inspect_module, kwargs)
 
                 if self.padding_mask and org_out.shape[1] == self.padding_mask[i].shape[-1]:
                     org_out = org_out * self.padding_mask[i].unsqueeze(dim=-1).to(org_out.device)  # noqa
                     out = out * self.padding_mask[i].unsqueeze(dim=-1).to(out.device)
 
-                loss = (org_out - out).float().pow(2).mean().item()
+                loss = self.calculate_loss(org_out, out)
 
                 if len(input) == 1:
                     n_samples = x.shape[0]
@@ -148,6 +220,11 @@ class Awq(BaseBlockwiseQuantization):
                 if is_best:
                     best_error = loss_mean
                     best_scales = scales_mean
+
+                del org_out
+                del out
+                gc.collect()
+                torch.cuda.empty_cache()
 
         # Synchronize across ranks
         best_error_tensor = torch.tensor([best_error], device='cuda')
@@ -248,15 +325,28 @@ class Awq(BaseBlockwiseQuantization):
                 and prev_op[0].out_features != layers[0].in_features * 2
                 and prev_op[0].out_features != layers[0].in_features
             ):
-                logger.info('Cannot apply scale. Do not transform this subset.')
-                return
+
+                if self.has_gqa:
+                    is_gqa = True
+                    input_keys = list(input_feat.keys())
+                    input_name = input_keys[input_keys.index(input_name) - 1]
+                else:
+                    logger.info('Cannot apply scale. Do not transform this subset.')
+                    return
+            else:
+                is_gqa = False
 
             scale = self.search_scale_subset(
-                layers_dict, input_feat[input_name], inspect_module, subset_kwargs
+                prev_op[0],
+                layers_dict,
+                input_feat[input_name],
+                inspect_module,
+                is_gqa,
+                subset_kwargs
             )
 
             self.apply_scale(scale, prev_op, layers)
-            self.update_input_feat(scale, input_feat, layers_dict)
+            self.update_input_feat(scale, input_feat, layers_dict, is_gqa)
 
             if self.save_scale:
                 for n in layers_dict:
