@@ -291,7 +291,8 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
         self.hidden_size = self.model.model_config.hidden_size
         self.num_heads = self.model.model_config.num_attention_heads
         self.head_dim = self.hidden_size // self.num_heads
-        self.intermediate_size = self.model.model_config.get('intermediate_size', None)
+        if hasattr(self.model.model_config, "intermediate_size"):
+            self.intermediate_size = self.model.model_config.intermediate_size
         self.num_key_value_heads = self.model.model_config.num_key_value_heads
         self.num_key_value_groups = self.num_heads // self.num_key_value_heads
         if self.num_key_value_groups > 1:
