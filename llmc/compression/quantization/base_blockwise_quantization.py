@@ -251,7 +251,7 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
 
         # set weight clip config
         self.weight_clip = special_config.get('weight_clip', False)
-        if self.weight_clip:
+        if self.weight_clip or special_config.get('search_clip_init', False):
             self.save_clip = special_config.get('save_clip', False)
             if self.save_clip:
                 self.clip_path = special_config['clip_path']
