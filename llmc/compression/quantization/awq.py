@@ -80,13 +80,13 @@ class Awq(BaseBlockwiseQuantization):
 
         x_tmp = self.get_act_scale(x_tmp)
 
-        if self.trans_version == 'v1':
+        if self.trans_version == 'v1' and not is_gqa:
             scales = (
                 (x_tmp.pow(ratio) / w_tmp.pow(1 - ratio))
                 .clamp(min=1e-4)
                 .view(-1)
             )
-        elif self.trans_version == 'v2':
+        elif self.trans_version == 'v2' or is_gqa:
             scales = x_tmp.pow(ratio).clamp(min=1e-4).view(-1)
 
         scales = scales / (scales.max() * scales.min()).sqrt()
