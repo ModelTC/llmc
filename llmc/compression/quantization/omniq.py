@@ -394,7 +394,11 @@ class OmniQuant(BaseBlockwiseQuantization):
                 n_sample_token=self.config.calib.get('seq_len', None),
             )
 
-            up_factor, low_factor = self.auto_clipper.get_clip_factor(self.block_idx, m, min_val, max_val, n)
+            up_factor, low_factor = self.auto_clipper.get_clip_factor(self.block_idx,
+                                                                      m,
+                                                                      min_val,
+                                                                      max_val,
+                                                                      n)
 
         up_param = nn.Parameter(up_factor)
         low_param = nn.Parameter(low_factor)
