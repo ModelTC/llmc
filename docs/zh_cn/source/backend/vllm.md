@@ -21,8 +21,8 @@ pip install vllm
 - **W8A16**：权重为 int8，激活为 float16；
 - **W8A8**：权重为 int8，激活为 int8；
 - **FP8 (E4M3, E5M2)**：权重为 float8，激活为 float8；
-- **权重 per-channel/group 量化**：按tensor进行量化；
-- **权重 per-tensor 量化**：按通道或按组进行量化；
+- **权重 per-channel/group 量化**：按通道或按组进行量化；
+- **权重 per-tensor 量化**：按tensor进行量化；
 - **激活 per-token 动态量化**：针对每个 token 的动态量化方式，进一步提升量化精度。
 - **激活 per-tensor 静态量化**：针对每个 tensor 的静态量化方式，进一步提升效率。
 - **权重\激活对称量化**：量化参数包括scale；
