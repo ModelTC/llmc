@@ -45,7 +45,10 @@ class BlockwiseOpt(metaclass=ABCMeta):
 
         if hasattr(self, 'save_clip') and self.save_clip:
             os.makedirs(self.clip_path, exist_ok=True)
-            torch.save(self.auto_clipper.weight_clips, os.path.join(self.clip_path, 'clips.pth'))
+            torch.save(
+                self.auto_clipper.weight_clips,
+                os.path.join(self.clip_path, 'clips.pth'),
+            )
 
     def cache_input_hook(self, m, x, y, name, feat_dict):
         inputs = [i.detach().cpu() for i in x]
@@ -63,14 +66,31 @@ class BlockwiseOpt(metaclass=ABCMeta):
             kwargs['past_key_value'] = kvcache
             kwargs['use_cache'] = True
             if kwargs['hidden_states'].shape[1] == 1:
-                if self.config['model']['type'] in ['DeepseekV2']:
-                    kwargs['position_ids'] = kwargs['position_ids'][:, -1].unsqueeze(1)
+                if kwargs['position_ids'].shape[1] == 1:
+                    # For eval decoding PPL (Perplexity), it will be removed in future versions.
+                    past_seen_tokens = kvcache.get_seq_length()
+                    cache_position = torch.arange(
+                        past_seen_tokens,
+                        past_seen_tokens + kwargs['hidden_states'].shape[1],
+                        device=kwargs['hidden_states'].device,
+                    )
+                    kwargs['cache_position'] = cache_position
+                    position_ids = cache_position.unsqueeze(0)
+                    kwargs['position_ids'] = position_ids
+                    if 'position_embeddings' in kwargs:
+                        kwargs['position_embeddings'] = self.model.rotary_emb(
+                            kwargs['hidden_states'], position_ids
+                        )
                 else:
-                    kwargs['position_ids'] = kwargs['position_ids'][:, -1].unsqueeze(0).unsqueeze(0)
-                if 'position_embeddings' in kwargs:
-                    cos = kwargs['position_embeddings'][0][:, -1, :].unsqueeze(1)
-                    sin = kwargs['position_embeddings'][1][:, -1, :].unsqueeze(1)
-                    kwargs['position_embeddings'] = (cos, sin)
+                    if self.config['model']['type'] in ['DeepseekV2']:
+                        kwargs['position_ids'] = kwargs['position_ids'][:, -1].unsqueeze(1)
+                    else:
+                        kwargs['position_ids'] = \
+                            kwargs['position_ids'][:, -1].unsqueeze(0).unsqueeze(0)
+                    if 'position_embeddings' in kwargs:
+                        cos = kwargs['position_embeddings'][0][:, -1, :].unsqueeze(1)
+                        sin = kwargs['position_embeddings'][1][:, -1, :].unsqueeze(1)
+                        kwargs['position_embeddings'] = (cos, sin)
 
             return args, kwargs
 

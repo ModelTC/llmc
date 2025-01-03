@@ -14,15 +14,15 @@ calib:
     preproc: txt_general_preproc
     seed: *seed
 eval:
-    eval_pos: [pretrain, fake_quant]
+    eval_pos: [transformed, fake_quant, fake_quant_wo_kv] #long_ppl eval not support pretrain eval pos
     name: wikitext2
+    type: decode_ppl
     download: False
-    path: eval data path
-    seq_len: 2048
-    # For 7B / 13B model eval, bs can be set to "1", and inference_per_block can be set to "False".
-    # For 70B model eval, bs can be set to "20", and inference_per_block can be set to "True".
+    path: eval_data_path
     bs: 1
     inference_per_block: False
+    num_samples: 10
+    # num_eval_tokens: 3
 quant:
     method: RTN
     weight:

@@ -27,6 +27,9 @@ class Qwen2(BaseModel):
     def get_embed_layers(self):
         return [self.embed_tokens]
 
+    def get_attn_in_block(self, block):
+        return {'self_attn': block.self_attn}
+
     def get_attention_rotary_layers(self):
         if packaging.version.parse(version('transformers')) >= packaging.version.parse('4.45.0'):
             return [self.rotary_emb]

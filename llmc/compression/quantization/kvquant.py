@@ -27,7 +27,7 @@ class NaiveQuantKVCache(DynamicCache):
         self.static = kvquant_cfg.get('static', False)
         self._quantized_key_cache = []
         self._quantized_value_cache = []
-        self.transformed = False
+        self.use_org_kv = False
 
         if self.static:
             self._reset_buffers()
@@ -48,9 +48,8 @@ class NaiveQuantKVCache(DynamicCache):
         layer_idx,
         cache_kwargs,
     ):
-        if self.transformed:
-            super().update(key_states, value_states, layer_idx, cache_kwargs)
-
+        if self.use_org_kv:
+            return super().update(key_states, value_states, layer_idx, cache_kwargs)
         elif self.static and self.calib:
             self._calibration(layer_idx, key_states, value_states)
             keys_to_return, values_to_return = key_states, value_states
@@ -217,6 +216,8 @@ class NaiveQuantKVCache(DynamicCache):
         return scales, zeros, qmin, qmax
 
     def get_seq_length(self, layer_idx=0):
+        if self.use_org_kv:
+            return super().get_seq_length()
         if len(self._quantized_key_cache) <= layer_idx:
             return 0
         return self._seen_tokens if layer_idx == 0 else self._seen_tokens - 1
@@ -224,12 +225,10 @@ class NaiveQuantKVCache(DynamicCache):
 
 @KV_REGISTRY.register('Kivi')
 class KiviQuantKVCache(NaiveQuantKVCache):
-    def __init__(self, quant_type, kvquant_cfg, num_hidden_layers, num_samples, bsz):
+    def __init__(self, quant_type, kvquant_cfg, num_hidden_layers, num_samples=128, bsz=1):
         super().__init__(quant_type, kvquant_cfg, num_hidden_layers, num_samples, bsz)
         assert not self.static, 'Only support dynamic quantization for KIVI'
         self.residual_length = kvquant_cfg.get('residual_length', 128)
-        self.key_cache = []
-        self.value_cache = []
 
     def update(
         self,
@@ -238,51 +237,218 @@ class KiviQuantKVCache(NaiveQuantKVCache):
         layer_idx,
         cache_kwargs,
     ):
-        if layer_idx == 0:
-            self._seen_tokens += key_states.shape[-2]
+        if self.use_org_kv:
+            return super().update(key_states, value_states, layer_idx, cache_kwargs)
+        else:
+            if layer_idx == 0:
+                self._seen_tokens += key_states.shape[-2]
 
+            if len(self.key_cache) <= layer_idx:
+                self._quantized_key_cache.append(self._quantize(key_states.contiguous(),
+                                                                layer_idx,
+                                                                is_key=True))
+                self._quantized_value_cache.append(self._quantize(value_states.contiguous(),
+                                                                  layer_idx,
+                                                                  is_key=False))
+                self.key_cache.append(torch.zeros(0,
+                                                  dtype=key_states.dtype,
+                                                  device=key_states.device))
+                self.value_cache.append(torch.zeros(0,
+                                                    dtype=key_states.dtype,
+                                                    device=key_states.device))
+                keys_to_return, values_to_return = key_states, value_states
+            else:
+                dequant_key = self._dequantize(self._quantized_key_cache[layer_idx])
+                dequant_value = self._dequantize(self._quantized_value_cache[layer_idx])
+                keys_to_return = [dequant_key, self.key_cache[layer_idx], key_states]
+                values_to_return = [dequant_value, self.value_cache[layer_idx], value_states]
+
+                keys_to_return = torch.cat(keys_to_return, dim=-2)
+                values_to_return = torch.cat(values_to_return, dim=-2)
+                if (
+                    self.key_cache[layer_idx].dim() == 4
+                    and self.key_cache[layer_idx].shape[-2] + 1 >= self.residual_length
+                ):
+                    self._quantized_key_cache[layer_idx] = \
+                        self._quantize(keys_to_return.contiguous(), layer_idx, is_key=True)
+                    self._quantized_value_cache[layer_idx] = self._quantize(
+                        values_to_return.contiguous(), layer_idx, is_key=False
+                    )
+                    self.key_cache[layer_idx] = torch.zeros(0,
+                                                            dtype=key_states.dtype,
+                                                            device=key_states.device)
+                    self.value_cache[layer_idx] = torch.zeros(0,
+                                                              dtype=key_states.dtype,
+                                                              device=key_states.device)
+                else:
+                    self.key_cache[layer_idx] = torch.cat([self.key_cache[layer_idx], key_states],
+                                                          dim=-2)
+                    self.value_cache[layer_idx] = \
+                        torch.cat([self.value_cache[layer_idx], value_states], dim=-2)
+
+            return keys_to_return, values_to_return
+
+
+@KV_REGISTRY.register('Sink')
+class SinkQuantKVCache(NaiveQuantKVCache):
+    def __init__(
+        self,
+        quant_type,
+        kvquant_cfg,
+        num_hidden_layers,
+        window_length,
+        num_sink_tokens,
+        num_samples=128,
+        bsz=1
+    ):
+        super().__init__(quant_type, kvquant_cfg, num_hidden_layers, num_samples, bsz)
+        assert not self.static, 'Only support dynamic quantization for Sink'
+        self.window_length = window_length
+        self.num_sink_tokens = num_sink_tokens
+        self.cos_sin_rerotation_cache = {}
+        self._cos_cache = None
+        self._sin_cache = None
+
+    @staticmethod
+    def _rotate_half(x):
+        x1 = x[..., :x.shape[-1] // 2]
+        x2 = x[..., x.shape[-1] // 2:]
+        return torch.cat((-x2, x1), dim=-1)
+
+    def _apply_key_rotary_pos_emb(
+        self, key_states, cos, sin
+    ):
+        rotated_key_states = (key_states * cos) + (self._rotate_half(key_states) * sin)
+        return rotated_key_states
+
+    def _get_rerotation_cos_sin(
+        self, key_states, cos, sin
+    ):
+        if key_states.shape[-2] not in self.cos_sin_rerotation_cache:
+            # Upcast to float32 temporarily for better accuracy
+            cos = cos.to(torch.float32)
+            sin = sin.to(torch.float32)
+
+            original_cos = cos[self.num_sink_tokens + key_states.shape[-2]:]
+            shifted_cos = cos[self.num_sink_tokens:-key_states.shape[-2]]
+            original_sin = sin[self.num_sink_tokens + key_states.shape[-2]:]
+            shifted_sin = sin[self.num_sink_tokens:-key_states.shape[-2]]
+            rerotation_cos = original_cos * shifted_cos + original_sin * shifted_sin
+            rerotation_sin = -original_sin * shifted_cos + original_cos * shifted_sin
+
+            self.cos_sin_rerotation_cache[key_states.shape[-2]] = (
+                rerotation_cos.to(key_states.dtype).unsqueeze(0),
+                rerotation_sin.to(key_states.dtype).unsqueeze(0),
+            )
+        return self.cos_sin_rerotation_cache[key_states.shape[-2]]
+
+    def get_seq_length(self, layer_idx=0):
+        """Returns the sequence length of the cached states.
+
+        A layer index can be optionally passed.
+        """
         if len(self.key_cache) <= layer_idx:
-            self._quantized_key_cache.append(self._quantize(key_states.contiguous(),
+            return 0
+        return self.key_cache[layer_idx].shape[-2]
+
+    def get_max_cache_shape(self):
+        """Returns the maximum sequence length of the cache object, in case of
+        SinkCache it is the window length."""
+        return self.window_length
+
+    def update(
+        self,
+        key_states,
+        value_states,
+        layer_idx,
+        cache_kwargs,
+    ):
+
+        if self.use_org_kv:
+            return super().update(key_states, value_states, layer_idx, cache_kwargs)
+        else:
+            sin = cache_kwargs.get('sin')
+            cos = cache_kwargs.get('cos')
+            partial_rotation_size = cache_kwargs.get('partial_rotation_size')
+            using_rope = cos is not None and sin is not None
+
+            if layer_idx == 0:
+                self._seen_tokens += key_states.shape[-2]
+
+            if using_rope and layer_idx == 0:
+
+                if cos.dim() == 2:
+                    self._cos_cache = cos
+                    self._sin_cache = sin
+                else:
+                    if self._cos_cache is None:
+                        self._cos_cache = cos[0, ...]
+                        self._sin_cache = sin[0, ...]
+                    elif self._cos_cache.shape[0] < self.window_length:
+                        self._cos_cache = torch.cat([self._cos_cache, cos[0, ...]], dim=0)
+                        self._sin_cache = torch.cat([self._sin_cache, sin[0, ...]], dim=0)
+
+            # [bsz, num_heads, seq_len, head_dim]
+            if len(self.key_cache) <= layer_idx:
+                # Empty cache
+                self.key_cache.append(key_states)
+                self.value_cache.append(value_states)
+
+            elif key_states.shape[-2] + self.get_seq_length(layer_idx) < self.window_length:
+                # Growing cache
+                self.key_cache[layer_idx] = \
+                    torch.cat([self.key_cache[layer_idx], key_states], dim=-2)
+                self.value_cache[layer_idx] = \
+                    torch.cat([self.value_cache[layer_idx], value_states], dim=-2)
+
+            else:
+                # Shifting cache
+                keys_to_keep = self.key_cache[layer_idx][
+                    :, :, -self.window_length + self.num_sink_tokens + key_states.shape[-2]:
+                ]
+
+                if using_rope:
+                    rerotation_cos, rerotation_sin = self._get_rerotation_cos_sin(
+                        key_states,
+                        self._cos_cache[: self.window_length],
+                        self._sin_cache[: self.window_length]
+                    )
+                    if partial_rotation_size is not None:
+                        keys_to_keep, keys_pass = (
+                            keys_to_keep[..., :partial_rotation_size],
+                            keys_to_keep[..., partial_rotation_size:],
+                        )
+                    keys_to_keep = self._apply_key_rotary_pos_emb(keys_to_keep,
+                                                                  rerotation_cos,
+                                                                  rerotation_sin)
+                    if partial_rotation_size is not None:
+                        keys_to_keep = torch.cat((keys_to_keep, keys_pass), dim=-1)
+
+                # Concatenate sink tokens, shifted & rotated tokens (if needed), and new tokens
+                sink_keys = self.key_cache[layer_idx][:, :, : self.num_sink_tokens]
+
+                dq_keys_to_keep = self._dequantize(self._quantize(keys_to_keep.contiguous(),
+                                                                  layer_idx,
+                                                                  is_key=True))
+                dq_keys = self._dequantize(self._quantize(key_states.contiguous(),
+                                                          layer_idx,
+                                                          is_key=True))
+
+                self.key_cache[layer_idx] = torch.cat([sink_keys, dq_keys_to_keep, dq_keys], dim=-2)
+
+                sink_values = self.value_cache[layer_idx][:, :, : self.num_sink_tokens]
+                values_to_keep = self.value_cache[layer_idx][
+                    :, :, -self.window_length + self.num_sink_tokens + value_states.shape[-2]:
+                ]
+                dq_values_to_keep = self._dequantize(self._quantize(values_to_keep.contiguous(),
+                                                                    layer_idx,
+                                                                    is_key=True))
+                dq_values = self._dequantize(self._quantize(value_states.contiguous(),
                                                             layer_idx,
                                                             is_key=True))
-            self._quantized_value_cache.append(self._quantize(value_states.contiguous(),
-                                                              layer_idx,
-                                                              is_key=False))
-            self.key_cache.append(torch.zeros(0,
-                                              dtype=key_states.dtype,
-                                              device=key_states.device))
-            self.value_cache.append(torch.zeros(0,
-                                                dtype=key_states.dtype,
-                                                device=key_states.device))
-            keys_to_return, values_to_return = key_states, value_states
-        else:
-            dequant_key = self._dequantize(self._quantized_key_cache[layer_idx])
-            dequant_value = self._dequantize(self._quantized_value_cache[layer_idx])
-            keys_to_return = [dequant_key, self.key_cache[layer_idx], key_states]
-            values_to_return = [dequant_value, self.value_cache[layer_idx], value_states]
 
-            keys_to_return = torch.cat(keys_to_return, dim=-2)
-            values_to_return = torch.cat(values_to_return, dim=-2)
-            if (
-                self.key_cache[layer_idx].dim() == 4
-                and self.key_cache[layer_idx].shape[-2] + 1 >= self.residual_length
-            ):
-                self._quantized_key_cache[layer_idx] = self._quantize(keys_to_return.contiguous(),
-                                                                      layer_idx,
-                                                                      is_key=True)
-                self._quantized_value_cache[layer_idx] = self._quantize(
-                    values_to_return.contiguous(), layer_idx, is_key=False
-                )
-                self.key_cache[layer_idx] = torch.zeros(0,
-                                                        dtype=key_states.dtype,
-                                                        device=key_states.device)
-                self.value_cache[layer_idx] = torch.zeros(0,
-                                                          dtype=key_states.dtype,
-                                                          device=key_states.device)
-            else:
-                self.key_cache[layer_idx] = torch.cat([self.key_cache[layer_idx], key_states],
-                                                      dim=-2)
-                self.value_cache[layer_idx] = torch.cat([self.value_cache[layer_idx], value_states],
-                                                        dim=-2)
+                self.value_cache[layer_idx] = torch.cat([sink_values,
+                                                         dq_values_to_keep,
+                                                         dq_values], dim=-2)
 
-        return keys_to_return, values_to_return
+            return self.key_cache[layer_idx], self.value_cache[layer_idx]
