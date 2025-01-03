@@ -20,6 +20,7 @@ class BaseEval:
         self.model_type = config.model.type
         logger.info(f'eval_cfg : {self.eval_cfg}')
         self.dataset = self.eval_cfg['name']
+        self.dataset_type = self.eval_cfg.get('type', 'ppl')
         assert self.dataset in [
             'wikitext2',
             'c4',
@@ -31,6 +32,8 @@ class BaseEval:
             'custom_gen',
         ], 'Eval only support wikitext2, c4, ptb, custom, human_eval dataset now.'
         self.seq_len = self.eval_cfg.get('seq_len', None)
+        self.num_samples = self.eval_cfg.get('num_samples', None)
+        self.num_eval_tokens = self.eval_cfg.get('num_eval_tokens', None)
         self.eval_dataset_bs = self.eval_cfg['bs']
         self.eval_dataset_path = self.eval_cfg.get('path', None)
         self.apply_chat_template = self.eval_cfg.get('apply_chat_template', False)
@@ -70,7 +73,10 @@ class BaseEval:
                     testdata = load_from_disk(self.eval_dataset_path)
             self.testdata = testdata
             # encode data
-            if self.dataset == 'wikitext2':
+            if self.dataset_type == 'decode_ppl':
+                assert self.dataset == 'wikitext2'
+                testenc = testdata['text']
+            elif self.dataset == 'wikitext2':
                 testenc = self.tokenizer(
                     '\n\n'.join(testdata['text']), return_tensors='pt'
                 )

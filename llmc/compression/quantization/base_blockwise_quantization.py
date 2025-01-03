@@ -58,7 +58,7 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
 
     def get_replacement_params(self, mode='fake_quant', w_only=False, name=None):
         params_dict = {}
-        if mode == 'fake_quant':
+        if mode in ['fake_quant', 'fake_quant_wo_kv']:
             if not self.mix_bits:
                 params_dict['a_qdq'] = (
                     partial(self.a_qdq, aquantizer=self.aquantizer)
@@ -229,17 +229,16 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
         # set kv cache quant config
         if 'kvcache' in self.quant_config:
             self.quant_config['kvcache']['static'] = self.act_static
+            kv_special_cfg = self.quant_config['kvcache'].get('special', {})
+            logger.info(kv_special_cfg)
+            act_static_cfg = {}
             if self.act_static:
-                self.kv_module = KV_REGISTRY[self.quant_config['kvcache']['method']](
-                    self.quant_type, self.quant_config['kvcache'],
-                    self.model.model_config.num_hidden_layers, self.config.calib.n_samples,
-                    self.config.calib.bs
-                )
-            else:
-                self.kv_module = KV_REGISTRY[self.quant_config['kvcache']['method']](
-                    self.quant_type, self.quant_config['kvcache'],
-                    self.model.model_config.num_hidden_layers
-                )
+                act_static_cfg.update(self.config.calib.n_sample)
+                act_static_cfg.update(self.config.calib.bs)
+            self.kv_module = KV_REGISTRY[self.quant_config['kvcache']['method']](
+                self.quant_type, self.quant_config['kvcache'],
+                self.model.model_config.num_hidden_layers, **kv_special_cfg, **act_static_cfg
+            )
             self.quant_kvcache = True
             self.model.kvcache_buffer.append(self.kv_module)
         else:
@@ -860,6 +859,7 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
         module_mapping = {
             'origin_float': OriginFloatLinear,
             'fake_quant': EffcientFakeQuantLinear,
+            'fake_quant_wo_kv': EffcientFakeQuantLinear,
         }
         module_mapping.update(_REALQUANT_LINEAR_MAP_)
 
@@ -884,10 +884,12 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
         self.set_non_linear_mode(quant_format, self.model.model, False)
 
         if self.quant_kvcache:
-            if quant_format == 'transformed':
-                self.kv_module.transformed = True
+            if quant_format == 'origin_float':
+                self.kv_module.use_org_kv = True
+            elif quant_format == 'fake_quant_wo_kv':
+                self.kv_module.use_org_kv = True
             elif quant_format == 'fake_quant':
-                self.kv_module.transformed = False
+                self.kv_module.use_org_kv = False
                 if self.act_static:
                     self.kv_module.calib = False
 

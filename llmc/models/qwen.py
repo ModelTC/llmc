@@ -27,6 +27,9 @@ class Qwen(BaseModel):
     def get_pre_head_layernorm_layers(self):
         return [self.model.transformer.ln_f]
 
+    def get_attn_in_block(self, block):
+        return {'self_attn': block.self_attn}
+
     def get_layers_except_blocks(self):
         return [self.wte,
                 self.rotary_emb,

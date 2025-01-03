@@ -5,16 +5,15 @@ model:
     path: model path
     torch_dtype: auto
 eval:
-    eval_pos: [pretrain, fake_quant]
-    type: code
-    name: human_eval
-    res_path: ./human_eval/
-    # For 7B / 13B model eval, bs can be set to "1", and inference_per_block can be set to "False".
-    # For 70B model eval, bs can be set to "20", and inference_per_block can be set to "True".
+    eval_pos: [transformed, fake_quant, fake_quant_wo_kv] #long_ppl eval not support pretrain eval pos
+    name: wikitext2
+    type: decode_ppl
+    download: False
+    path: eval_data_path
     bs: 1
-    format_tabs: True
     inference_per_block: False
-    # add_chat_temp: True
+    num_samples: 10
+    # num_eval_tokens: 3
 quant:
     method: RTN
     weight:
@@ -27,10 +26,13 @@ quant:
         symmetric: True
         granularity: per_token
     kvcache:
-        method: Naive
-        bit: 8
+        method: Sink
+        bit: 4
         symmetric: True
         granularity: per_token
+        special:
+            window_length: 512
+            num_sink_tokens: 4
 save:
     save_fake: False
     save_path: /path/to/save/
