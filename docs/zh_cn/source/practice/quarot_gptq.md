@@ -1,4 +1,4 @@
-# Quarot + GPTQ
+# QuaRot + GPTQ
 
 
 ## 1.1 权重-激活量化
