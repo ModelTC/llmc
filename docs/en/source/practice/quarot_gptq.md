@@ -1,5 +1,5 @@
 
-# Quarot + GPTQ
+# QuaRot + GPTQ
 
 ## 1.1 Weight-Activation Quantization
 
