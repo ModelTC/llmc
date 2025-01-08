@@ -23,7 +23,7 @@ from .module_utils import (_LLMC_ATTN_MAP_, _LLMC_LINEAR_TYPES_,
                            _TRANSFORMERS_LN_TYPES_, EffcientFakeQuantLinear,
                            FakeQuantLinear, LlmcActFn, OriginFloatLinear,
                            RotateLinear)
-from .quant import FloatQuantizer, IntegerQuantizer
+from .quant import FloatQuantizer, IntegerQuantizer, Weight48IntegerQuantizer
 from .utils import check_do_quant, check_w_only, get_aquantizer, get_wquantizer
 
 
@@ -175,22 +175,32 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
         self.tp = self.quant_config.get('tp', 1)
         self.quant_config['weight']['tp'] = self.tp
 
-        # select quant module
-        self.quant_type = self.quant_config.get('quant_type', 'int-quant')
-        if self.quant_type == 'int-quant':
-            self.quant_module = IntegerQuantizer
-        elif self.quant_type == 'float-quant':
-            self.quant_module = FloatQuantizer
-        logger.info(f'The used Quant Module is {self.quant_module}')
+        # select quantizer
+        # weight
+        quant_type = self.quant_config['weight'].get('quant_type', 'int-quant')
+        if quant_type == 'int-quant':
+            if self.quant_config['weight']['bit'] == 48:
+                self.weight_quant_module = Weight48IntegerQuantizer
+            else:
+                self.weight_quant_module = IntegerQuantizer
+        elif quant_type == 'float-quant':
+            self.weight_quant_module = FloatQuantizer
+        logger.info(f'The used Weight Quant Module is {self.weight_quant_module}')
+        self.wquantizer = self.weight_quant_module(**self.quant_config['weight'])
 
-        # set weight quant config
-        self.wquantizer = self.quant_module(**self.quant_config['weight'])
-
-        # set act quant config
+        # act
         if 'act' in self.quant_config:
             self.w_only = False
+            quant_type = self.quant_config['act'].get('quant_type', 'int-quant')
+            if quant_type == 'int-quant':
+                if self.quant_config['act']['bit'] == 48:
+                    self.act_quant_module = Weight48IntegerQuantizer
+                else:
+                    self.act_quant_module = IntegerQuantizer
+            elif quant_type == 'float-quant':
+                self.act_quant_module = FloatQuantizer
             self.quant_config['act']['tp'] = self.tp
-            self.aquantizer = self.quant_module(**self.quant_config['act'])
+            self.aquantizer = self.act_quant_module(**self.quant_config['act'])
             self.act_static = self.quant_config['act'].get('static', False)
             if self.act_static:
                 assert (
