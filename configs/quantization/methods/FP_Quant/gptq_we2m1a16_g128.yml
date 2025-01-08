@@ -26,14 +26,15 @@ eval:
     inference_per_block: False
 quant:
     method: GPTQ
-    quant_type: float-quant
     weight:
+        quant_type: float-quant
         bit: e2m1
         symmetric: True
         granularity: per_group
         group_size: 128
         use_qtorch: True
     special:
+        quant_type: float-quant
         actorder: True
         static_groups: False
         percdamp: 0.01

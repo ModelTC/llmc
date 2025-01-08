@@ -25,14 +25,15 @@ eval:
     inference_per_block: False
 quant:
     method: Awq
-    quant_type: float-quant
     weight:
+        quant_type: float-quant
         bit: e2m1
         symmetric: False
         granularity: per_group
         group_size: 128
         use_qtorch: True
     special:
+        quant_type: float-quant
         trans: True
         # The options for "trans_version" include "v1" and "v2".
         trans_version: v2

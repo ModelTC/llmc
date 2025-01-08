@@ -37,7 +37,7 @@ class BaseQuantizer(object):
         # hist config
         self.bins = self.kwargs.get('bins', 2048)
         self.hist_threshold = self.kwargs.get('hist_threshold', 1)
-        self.dst_nbins = 2**bit
+        self.dst_nbins = 2**bit if isinstance(bit, int) else None
         self.upsample_rate = (
             16  # used to reduce quantization errors when upscaling histogram
         )

@@ -26,14 +26,15 @@ eval:
     inference_per_block: False
 quant:
     method: Awq
-    quant_type: float-quant
     weight:
+        quant_type: float-quant
         # Support ["e4m3", "e5m2"]
         bit: e4m3
         symmetric: True
         granularity: per_tensor
         use_qtorch: True
     act:
+        quant_type: float-quant
         # Support ["e4m3", "e5m2"]
         bit: e4m3
         symmetric: True

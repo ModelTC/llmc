@@ -16,12 +16,13 @@ eval:
     inference_per_block: False
 quant:
     method: RTN
-    quant_type: float-quant
     weight:
+        quant_type: float-quant
         bit: e2m1
         symmetric: True
         granularity: per_channel
     act:
+        quant_type: float-quant
         bit: e2m1
         symmetric: True
         granularity: per_token
