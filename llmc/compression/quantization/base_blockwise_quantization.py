@@ -11,7 +11,6 @@ import torch.distributed as dist
 import torch.nn as nn
 from loguru import logger
 
-from llmc.utils import copy_files
 from llmc.utils.registry_factory import KV_REGISTRY
 
 from ..blockwise_optimization import BlockwiseOpt
@@ -910,10 +909,7 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
 
     @torch.no_grad()
     def copy_tokenizer(self, path):
-        for substring in self.config.save.get(
-            'tokenizer_file_substring', ['token', 'merges', 'vocab', 'preprocessor_config', 'chat_template'] # noqa
-        ):
-            copy_files(self.config.model.path, path, substring)
+        self.model.tokenizer.save_pretrained(path)
         logger.info('copy tokenizer done --')
 
     @torch.no_grad()
