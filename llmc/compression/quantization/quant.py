@@ -1250,7 +1250,7 @@ class Weight48IntegerQuantizer(BaseQuantizer):
                 self.bit_settings[bit]['zeros_qmin'] = self.bit_settings[bit]['qmin']
                 self.bit_settings[bit]['zeros_qmax'] = self.bit_settings[bit]['qmax']
 
-    def reshape_tensor(self, tensor, bit):
+    def reshape_tensor(self, tensor, bit=4):
         granularity = self.bit_settings[bit].get('granularity')
         if granularity == 'per_group':
             group_size = self.bit_settings[bit].get('group_size')
