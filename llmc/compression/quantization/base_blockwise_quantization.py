@@ -291,8 +291,8 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
 
         self.hidden_size = self.model.model_config.hidden_size
         self.set_model_config()
-        self.quant_objects = self.quant_config.get('quant_objects', ['language'])
-        logger.info(f'self.quant_objects : {self.quant_objects}')
+        self.modality = self.quant_config.modality
+        logger.info(f'self.quant_objects : {self.quant_config.modality}')
 
     def set_model_config(self):
         self.hidden_size = self.model.model_config.hidden_size
@@ -877,13 +877,13 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
             )
 
         module = module_mapping[quant_format]
-        if 'vision' in self.quant_objects:
+        if self.modality == 'vision':
             self.model.replace_vision_module_all(
                 module,
                 self.get_replacement_params(mode=quant_format, w_only=self.w_only),
                 keep_device=keep_device,
             )
-        if 'language' in self.quant_objects:
+        if self.modality == 'language':
             self.model.replace_language_module_all(
                 module,
                 self.get_replacement_params(mode=quant_format, w_only=self.w_only),

@@ -17,19 +17,10 @@ from llmc.compression.sparsification import *
 from llmc.data import BaseDataset
 from llmc.eval.utils import eval_model, get_eval_list
 from llmc.models import *
-from llmc.utils import (check_config, mkdirs, print_important_package_version,
-                        seed_all, update_autoawq_quant_config,
-                        update_vllm_quant_config)
+from llmc.utils import (check_config, deploy_all_modality, get_modality,
+                        mkdirs, print_important_package_version, seed_all,
+                        update_autoawq_quant_config, update_vllm_quant_config)
 from llmc.utils.registry_factory import ALGO_REGISTRY, MODEL_REGISTRY
-
-
-def get_modality(config):
-    if 'quant' in config:
-        return config.quant.get('quant_objects', ['language'])
-    elif 'sparse' in config:
-        return config.sparse.get('sparse_objects', ['language'])
-    else:
-        return ['language']
 
 
 def main(config):
@@ -41,27 +32,20 @@ def main(config):
     eval_list = get_eval_list(model, config)
     eval_model(model, None, eval_list, eval_pos='pretrain')
 
-    # for modality in config.quant.get('quant_objects', ['language']):
-    for modality in get_modality(config):
+    blockwise_opts = []
+    modalities, modality_configs = get_modality(config)
+    for modality, modality_config in zip(modalities, modality_configs):
         model.set_modality(modality)
         if not config.get('calib', False):
-            if not config.get('sparse', False):
-                blockwise_opt = ALGO_REGISTRY[config.quant.method](
-                    model,
-                    config.quant,
-                    None,
-                    None,
-                    config,
-                )
-            else:
-                blockwise_opt = ALGO_REGISTRY[config.sparse.method](
-                    model,
-                    config.sparse,
-                    None,
-                    None,
-                    config,
-                )
+            blockwise_opt = ALGO_REGISTRY[modality_config.method](
+                model,
+                quant_config=modality_config,
+                input=None,
+                padding_mask=None,
+                config=config,
+            )
             blockwise_opt.run_block_loop()
+            blockwise_opts.append(blockwise_opt)
             dist.barrier()
         else:
             dataset = BaseDataset(
@@ -72,26 +56,18 @@ def main(config):
             del calib_data
             gc.collect()
             torch.cuda.empty_cache()
-            if not config.get('sparse', False):
-                blockwise_opt = ALGO_REGISTRY[config.quant.method](
-                    model,
-                    config.quant,
-                    model.get_first_block_input(),
-                    model.get_padding_mask(),
-                    config,
-                )
-            else:
-                blockwise_opt = ALGO_REGISTRY[config.sparse.method](
-                    model,
-                    config.sparse,
-                    model.get_first_block_input(),
-                    model.get_padding_mask(),
-                    config,
-                )
+            blockwise_opt = ALGO_REGISTRY[modality_config.method](
+                model,
+                modality_config,
+                model.get_first_block_input(),
+                model.get_padding_mask(),
+                config,
+            )
             blockwise_opt.run_block_loop()
+            blockwise_opts.append(blockwise_opt)
             dist.barrier()
 
-    eval_model(model, blockwise_opt, eval_list, eval_pos='transformed')
+    eval_model(model, blockwise_opts, eval_list, eval_pos='transformed')
     if int(os.environ['RANK']) == 0:
         if 'save' in config and config.save.get('save_trans', False):
             blockwise_opt.save_model(save_trans_path)
@@ -106,11 +82,11 @@ def main(config):
                 config.save.get('trtllm_cfg'),
             )
 
-        eval_model(model, blockwise_opt, eval_list, eval_pos='fake_quant')
-        eval_model(model, blockwise_opt, eval_list, eval_pos='fake_quant_wo_kv')
+        eval_model(model, blockwise_opts, eval_list, eval_pos='fake_quant')
+        eval_model(model, blockwise_opts, eval_list, eval_pos='fake_quant_wo_kv')
 
         if 'save' in config and config.save.get('save_fake', False):
-            blockwise_opt.deploy('fake_quant')
+            deploy_all_modality(blockwise_opts, 'fake_quant')
             blockwise_opt.save_model(save_fake_path)
 
         if 'save' in config:
@@ -119,56 +95,59 @@ def main(config):
                 or config.save.get('save_sgl', False)
                 or config.save.get('save_lightllm', False)
             ):
-                w, a = config.quant.weight, config.quant.get('act')
+                for modality_config in modality_configs:
+                    w, a = modality_config.weight, modality_config.get('act')
 
-                if isinstance(w.bit, str):
-                    assert a, 'Only WA float quant is supported.'
-                    assert (
-                        w.symmetric and a.symmetric
-                    ), 'Only symmetric quant is supported.'
-                    assert (
-                        w.bit == a.bit
-                        and w.bit in ['e4m3', 'e5m2']
-                        and a.bit in ['e4m3', 'e5m2']
-                    ), 'Only WA FP8 quant is supported'
-                else:
-                    assert w.symmetric, 'Only symmetric quant is supported.'
-                    assert w.bit in [4, 8], 'Supported quant: w4a16, w8a16, w8a8.'
-                    if a:
-                        assert a.symmetric, 'Only symmetric quant is supported.'
-                        assert a.bit == 8, 'Supported quant: w4a16, w8a16, w8a8.'
+                    if isinstance(w.bit, str):
+                        assert a, 'Only WA float quant is supported.'
+                        assert (
+                            w.symmetric and a.symmetric
+                        ), 'Only symmetric quant is supported.'
+                        assert (
+                            w.bit == a.bit
+                            and w.bit in ['e4m3', 'e5m2']
+                            and a.bit in ['e4m3', 'e5m2']
+                        ), 'Only WA FP8 quant is supported'
+                    else:
+                        assert w.symmetric, 'Only symmetric quant is supported.'
+                        assert w.bit in [4, 8], 'Supported quant: w4a16, w8a16, w8a8.'
+                        if a:
+                            assert a.symmetric, 'Only symmetric quant is supported.'
+                            assert a.bit == 8, 'Supported quant: w4a16, w8a16, w8a8.'
 
                 if config.save.get('save_vllm', False):
-                    blockwise_opt.deploy('vllm_quant')
+                    deploy_all_modality(blockwise_opts, 'vllm_quant')
                 if config.save.get('save_lightllm', False):
-                    blockwise_opt.deploy('lightllm_quant')
+                    deploy_all_modality(blockwise_opts, 'lightllm_quant')
                 if config.save.get('save_sgl', False):
-                    blockwise_opt.deploy('sgl_quant')
+                    deploy_all_modality(blockwise_opts, 'sgl_quant')
 
                 blockwise_opt.save_model(save_quant_path)
                 update_vllm_quant_config(blockwise_opt.model, config, save_quant_path)
 
         if 'save' in config and config.save.get('save_autoawq', False):
-            assert (
-                config.quant.weight.bit in [4] and 'act' not in config.quant
-            ), 'AutoAWQ supports only 4-bit weight-only quantization.'
-            assert (
-                not config.quant.weight.symmetric
-            ), 'Only asymmetric quant is supported.'
+            for modality_config in modality_configs:
+                assert (
+                    modality_config.weight.bit in [4] and 'act' not in modality_config
+                ), 'AutoAWQ supports only 4-bit weight-only quantization.'
+                assert (
+                    not modality_config.weight.symmetric
+                ), 'Only asymmetric quant is supported.'
 
-            blockwise_opt.deploy('autoawq_quant')
+            deploy_all_modality(blockwise_opts, 'autoawq_quant')
             blockwise_opt.save_model(save_quant_path)
             update_autoawq_quant_config(config, save_quant_path)
 
         if 'save' in config and config.save.get('save_mlcllm', False):
-            assert (
-                config.quant.weight.bit in [4] and 'act' not in config.quant
-            ), 'MlcLLM supports only 4-bit weight-only quantization.'
-            assert (
-                not config.quant.weight.symmetric
-            ), 'Only asymmetric quant is supported.'
+            for modality_config in modality_configs:
+                assert (
+                    modality_config.weight.bit in [4] and 'act' not in modality_config
+                ), 'MlcLLM supports only 4-bit weight-only quantization.'
+                assert (
+                    not modality_config.weight.symmetric
+                ), 'Only asymmetric quant is supported.'
 
-            blockwise_opt.deploy('mlcllm_quant')
+            deploy_all_modality(blockwise_opts, 'mlcllm_quant')
             blockwise_opt.save_model(save_quant_path)
             update_autoawq_quant_config(config, save_quant_path)
 
