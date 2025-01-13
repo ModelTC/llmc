@@ -1,0 +1,25 @@
+base:
+    seed: &seed 42
+model:
+    type: model_type
+    path: model path
+    torch_dtype: torch.bfloat16
+eval:
+    eval_pos: [transformed]
+    name: wikitext2
+    type: decode_ppl
+    download: False
+    path: eval_data_path
+    bs: 1
+    inference_per_block: False
+    num_samples: 50
+    # num_eval_tokens: 3
+sparse:
+    method: Dense
+    kvcache:
+        method: SinkKV
+        window_length: 256
+        num_sink_tokens: 4
+save:
+    save_fake: False
+    save_path: /path/to/save/

@@ -6,11 +6,11 @@ from loguru import logger
 
 
 class BlockwiseOpt(metaclass=ABCMeta):
-    def __init__(self, model, quant_config, input, padding_mask, config):
+    def __init__(self, model, compress_config, input, padding_mask, config):
         self.model = model
         self.blocks = model.get_blocks()
-        self.quant_config = quant_config
-        self.sparsity_config = quant_config
+        self.quant_config = compress_config
+        self.sparsity_config = compress_config
         self.input = input
         self.padding_mask = padding_mask
         self.data_free = False if self.input else True
@@ -60,37 +60,41 @@ class BlockwiseOpt(metaclass=ABCMeta):
         else:
             feat_dict[name].append(tuple(inputs))
 
-    def kv_cache_input_hook(self):
+    def kv_cache_input_hook(self, attn_layer):
         def hook_fn(module, args, kwargs):
             kvcache = getattr(module, 'kvcache')
             kwargs['past_key_value'] = kvcache
-            kwargs['use_cache'] = True
-            if kwargs['hidden_states'].shape[1] == 1:
-                if kwargs['position_ids'].shape[1] == 1:
-                    # For eval decoding PPL (Perplexity), it will be removed in future versions.
-                    past_seen_tokens = kvcache.get_seq_length()
-                    cache_position = torch.arange(
-                        past_seen_tokens,
-                        past_seen_tokens + kwargs['hidden_states'].shape[1],
-                        device=kwargs['hidden_states'].device,
+            if self.config.eval.get('type', None) == 'decode_ppl':
+                # For eval decoding PPL (Perplexity).
+                past_seen_tokens = kvcache.get_seq_length()
+                cache_position = torch.arange(
+                    past_seen_tokens,
+                    past_seen_tokens + kwargs['hidden_states'].shape[1],
+                    device=kwargs['hidden_states'].device,
+                )
+                kwargs['cache_position'] = cache_position
+                position_ids = cache_position.unsqueeze(0)
+                kwargs['position_ids'] = position_ids
+                if 'position_embeddings' in kwargs:
+                    kwargs['position_embeddings'] = self.model.rotary_emb(
+                        kwargs['hidden_states'], position_ids
                     )
-                    kwargs['cache_position'] = cache_position
-                    position_ids = cache_position.unsqueeze(0)
-                    kwargs['position_ids'] = position_ids
-                    if 'position_embeddings' in kwargs:
-                        kwargs['position_embeddings'] = self.model.rotary_emb(
-                            kwargs['hidden_states'], position_ids
-                        )
-                else:
-                    if self.config['model']['type'] in ['DeepseekV2']:
-                        kwargs['position_ids'] = kwargs['position_ids'][:, -1].unsqueeze(1)
-                    else:
-                        kwargs['position_ids'] = \
-                            kwargs['position_ids'][:, -1].unsqueeze(0).unsqueeze(0)
-                    if 'position_embeddings' in kwargs:
-                        cos = kwargs['position_embeddings'][0][:, -1, :].unsqueeze(1)
-                        sin = kwargs['position_embeddings'][1][:, -1, :].unsqueeze(1)
-                        kwargs['position_embeddings'] = (cos, sin)
+            if kwargs['hidden_states'].shape[1] == 1:
+                from .sparsification.kvsparse import ShadowKVCache
+                if isinstance(kvcache, ShadowKVCache):
+                    hidden_states = kwargs['hidden_states'][:, -1, :].unsqueeze(0)
+                    kwargs['hidden_states'] = hidden_states
+                    bsz, q_len, _ = hidden_states.size()
+                    tmp_query_states = \
+                        attn_layer.q_proj(hidden_states).view(bsz,
+                                                              q_len,
+                                                              -1,
+                                                              attn_layer.head_dim).transpose(1, 2)
+                    retrieval_position_ids = \
+                        kvcache.get_retrieval_position_ids(layer_idx=attn_layer.layer_idx,
+                                                           query_states=tmp_query_states)
+                    kwargs['retrieval_position_ids'] = retrieval_position_ids
+                    kwargs['cos_sin_cache'] = self.cos_sin_cache
 
             return args, kwargs
 

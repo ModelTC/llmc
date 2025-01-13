@@ -25,6 +25,5 @@ sparse:
     weight:
         sparsity: 0.5
 save:
-    save_fp: False
-    save_lightllm: False
+    save_trans: False
     save_path: ./save

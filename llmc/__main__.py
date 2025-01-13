@@ -82,7 +82,9 @@ def main(config):
                 config.save.get('trtllm_cfg'),
             )
 
+
         eval_model(model, blockwise_opts, eval_list, eval_pos='fake_quant')
+        eval_model(model, blockwise_opts, eval_list, eval_pos='fake_quant_wo_kv')
 
         if 'save' in config and config.save.get('save_fake', False):
             deploy_all_modality(blockwise_opts, 'fake_quant')

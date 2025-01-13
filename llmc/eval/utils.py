@@ -80,7 +80,7 @@ def eval_model(model, blockwise_opts, eval_list, eval_pos):
         if do_eval:
             if eval_pos == 'transformed':
                 deploy_all_modality(blockwise_opts, 'origin_float')
-            elif eval_pos == 'fake_quant':
+            elif eval_pos in ['fake_quant', 'fake_quant_wo_kv']:
                 deploy_all_modality(blockwise_opts, 'fake_quant')
             for eval_class, config_for_eval in eval_list:
                 if eval_pos in config_for_eval.eval.eval_pos:

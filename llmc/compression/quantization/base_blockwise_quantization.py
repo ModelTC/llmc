@@ -11,15 +11,14 @@ import torch.distributed as dist
 import torch.nn as nn
 from loguru import logger
 
-from llmc.utils import copy_files
 from llmc.utils.registry_factory import KV_REGISTRY
 
 from ..blockwise_optimization import BlockwiseOpt
+from .attn_utils import _LLMC_ATTN_MAP_
 from .auto_clip import AutoClipper
 from .hadamard_utils import apply_exact_had_to_linear, get_hadK
-from .module_utils import (_LLMC_ATTN_MAP_, _LLMC_LINEAR_TYPES_,
-                           _LLMC_LN_TYPES_, _REALQUANT_LINEAR_MAP_,
-                           _TRANSFORMERS_LINEAR_TYPES_,
+from .module_utils import (_LLMC_LINEAR_TYPES_, _LLMC_LN_TYPES_,
+                           _REALQUANT_LINEAR_MAP_, _TRANSFORMERS_LINEAR_TYPES_,
                            _TRANSFORMERS_LN_TYPES_, EffcientFakeQuantLinear,
                            FakeQuantLinear, LlmcActFn, OriginFloatLinear,
                            RotateLinear)
@@ -240,7 +239,6 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
         if 'kvcache' in self.quant_config:
             self.quant_config['kvcache']['static'] = self.act_static
             kv_special_cfg = self.quant_config['kvcache'].get('special', {})
-            logger.info(kv_special_cfg)
             act_static_cfg = {}
             if self.act_static:
                 act_static_cfg.update(self.config.calib.n_sample)
@@ -556,7 +554,7 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
         attn_layer = attn_layers_dict[list(attn_layers_dict.keys())[0]]
         setattr(attn_layer, 'kvcache', self.kv_module)
         attn_layer.register_forward_pre_hook(
-            self.kv_cache_input_hook(), with_kwargs=True
+            self.kv_cache_input_hook(attn_layer), with_kwargs=True
         )
 
     @torch.no_grad()
@@ -910,10 +908,7 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
 
     @torch.no_grad()
     def copy_tokenizer(self, path):
-        for substring in self.config.save.get(
-            'tokenizer_file_substring', ['token', 'merges', 'vocab', 'preprocessor_config', 'chat_template'] # noqa
-        ):
-            copy_files(self.config.model.path, path, substring)
+        self.model.tokenizer.save_pretrained(path)
         logger.info('copy tokenizer done --')
 
     @torch.no_grad()
