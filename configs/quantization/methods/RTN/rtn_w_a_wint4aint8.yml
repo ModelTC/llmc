@@ -17,7 +17,6 @@ eval:
 quant:
     method: RTN
     weight:
-        quant_type: int-quant
         bit: 48
         bit4:
             symmetric: False
@@ -32,7 +31,6 @@ quant:
             granularity: per_channel
             int_range: [-120, 120]
     act:
-        quant_type: int-quant
         bit: 8
         symmetric: True
         granularity: per_token

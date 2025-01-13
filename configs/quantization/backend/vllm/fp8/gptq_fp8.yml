@@ -27,14 +27,14 @@ eval:
 quant:
     method: GPTQ
     weight:
-        quant_type: float_quant
+        quant_type: float-quant
         # Support ["e4m3", "e5m2"]
         bit: e4m3
         symmetric: True
         granularity: per_channel
         use_qtorch: True
     act:
-        quant_type: float_quant
+        quant_type: float-quant
         # Support ["e4m3", "e5m2"]
         bit: e4m3
         symmetric: True
