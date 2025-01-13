@@ -45,13 +45,22 @@ def main(config):
     for modality in get_modality(config):
         model.set_modality(modality)
         if not config.get('calib', False):
-            blockwise_opt = ALGO_REGISTRY[config.quant.method](
-                model,
-                quant_config=config.quant,
-                input=None,
-                padding_mask=None,
-                config=config,
-            )
+            if not config.get('sparse', False):
+                blockwise_opt = ALGO_REGISTRY[config.quant.method](
+                    model,
+                    config.quant,
+                    None,
+                    None,
+                    config,
+                )
+            else:
+                blockwise_opt = ALGO_REGISTRY[config.sparse.method](
+                    model,
+                    config.sparse,
+                    None,
+                    None,
+                    config,
+                )
             blockwise_opt.run_block_loop()
             dist.barrier()
         else:
@@ -98,6 +107,7 @@ def main(config):
             )
 
         eval_model(model, blockwise_opt, eval_list, eval_pos='fake_quant')
+        eval_model(model, blockwise_opt, eval_list, eval_pos='fake_quant_wo_kv')
 
         if 'save' in config and config.save.get('save_fake', False):
             blockwise_opt.deploy('fake_quant')

@@ -19,6 +19,7 @@ from .base_blockwise_sparsification import BaseBlockwiseSparsification
 class ShortGPT(BaseBlockwiseSparsification):
     def __init__(self, model, sparsity_config, input, padding_mask, config):
         super().__init__(model, sparsity_config, input, padding_mask, config)
+        self.importances = np.zeros(len(self.blocks))
 
     def block_opt(self, block):
         block = block.cuda()
@@ -60,9 +61,7 @@ class ShortGPT(BaseBlockwiseSparsification):
         output_feat
     ):
         # calculate BI score
-        if self.sparser.importances is None:
-            self.sparser.importances = np.zeros(len(self.blocks))
-        self.sparser.importances[self.block_idx] = self.compute_bi(
+        self.importances[self.block_idx] = self.compute_bi(
             input_feat[0], output_feat[0]
         ).sum().cpu().item()
 
@@ -71,10 +70,10 @@ class ShortGPT(BaseBlockwiseSparsification):
         self,
         layers_to_remove: Optional[List[int]] = []
     ):
-        if not layers_to_remove and self.sparser.n_prune_layers:
+        if not layers_to_remove and self.n_prune_layers:
             layers_to_remove = np.argsort(
-                np.array(self.sparser.importances)
-            )[:self.sparser.n_prune_layers].tolist()
+                np.array(self.importances)
+            )[:self.n_prune_layers].tolist()
 
         for idx in sorted(layers_to_remove, reverse=True):
             try:
@@ -85,7 +84,7 @@ class ShortGPT(BaseBlockwiseSparsification):
 
     @torch.no_grad()
     def deploy(self, deploy_format):
-        logger.info(f'After compute, BI scores are {self.sparser.importances}')
+        logger.info(f'After compute, BI scores are {self.importances}')
         logger.info('-- deploy_sparsity_model start --')
         logger.info(f'sparsity_config : {self.sparsity_config}')
         logger.info('-- begin remove layers --')

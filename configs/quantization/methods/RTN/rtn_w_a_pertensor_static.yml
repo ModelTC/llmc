@@ -35,6 +35,7 @@ quant:
         symmetric: True
         granularity: per_tensor
         static: True
+        calib_algo: static_hist
 save:
     save_fake: False
     save_path: /path/to/save/
