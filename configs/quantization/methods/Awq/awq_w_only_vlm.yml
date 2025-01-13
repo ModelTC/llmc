@@ -25,21 +25,36 @@ eval:
     bs: 1
     inference_per_block: False
 quant:
-    method: Awq
-    quant_objects: [vision, language] # default is [language]
-    weight:
-        bit: 4
-        symmetric: False
-        granularity: per_group
-        group_size: 128
-    special:
-        trans: True
-        # The options for "trans_version" include "v1" and "v2".
-        # But their results don't differ significantly.
-        trans_version: v2
-        weight_clip: True
-        # For 2-bit quantization, setting "clip_sym: False" will yield better results.
-        clip_sym: True
+    vision:
+        method: Awq
+        weight:
+            bit: 4
+            symmetric: False
+            granularity: per_group
+            group_size: 128
+        special:
+            trans: True
+            # The options for "trans_version" include "v1" and "v2".
+            # But their results don't differ significantly.
+            trans_version: v2
+            weight_clip: True
+            # For 2-bit quantization, setting "clip_sym: False" will yield better results.
+            clip_sym: True
+    language:
+        method: Awq
+        weight:
+            bit: 4
+            symmetric: False
+            granularity: per_group
+            group_size: 128
+        special:
+            trans: True
+            # The options for "trans_version" include "v1" and "v2".
+            # But their results don't differ significantly.
+            trans_version: v2
+            weight_clip: True
+            # For 2-bit quantization, setting "clip_sym: False" will yield better results.
+            clip_sym: True
 save:
     save_trans: False
     save_fake: False
