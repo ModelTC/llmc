@@ -293,7 +293,7 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
 
         self.hidden_size = self.model.model_config.hidden_size
         self.set_model_config()
-        self.quant_objects = self.quant_config.get('quant_objects', ['language'])
+        self.quant_objects = [key for key in self.config.quant.keys()]
         logger.info(f'self.quant_objects : {self.quant_objects}')
 
     def set_model_config(self):
@@ -862,7 +862,7 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
                 m.calib = mode
 
     @torch.no_grad()
-    def deploy(self, quant_format, keep_device=False):
+    def deploy(self, quant_format, keep_device=False, modality='language'):
         logger.info(f'-- deploy_{quant_format}_model start --')
         logger.info(f'quant_config : {self.quant_config}')
 
@@ -879,13 +879,13 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
             )
 
         module = module_mapping[quant_format]
-        if 'vision' in self.quant_objects:
+        if modality == 'vision':
             self.model.replace_vision_module_all(
                 module,
                 self.get_replacement_params(mode=quant_format, w_only=self.w_only),
                 keep_device=keep_device,
             )
-        if 'language' in self.quant_objects:
+        if modality == 'language':
             self.model.replace_language_module_all(
                 module,
                 self.get_replacement_params(mode=quant_format, w_only=self.w_only),

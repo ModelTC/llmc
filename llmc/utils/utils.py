@@ -29,15 +29,18 @@ def check_config(config):
             elif weight_setting.granularity == 'per_head':
                 assert weight_setting.head_num > 0
 
-        if config.quant.weight.get('granularity', False):
-            weight_setting = config.quant.weight
-            check_weight_setting(weight_setting)
-        if config.quant.weight.get('w_1', False):
-            weight_setting = config.quant.weight.w_1
-            check_weight_setting(weight_setting)
-        if config.quant.weight.get('w_2', False):
-            weight_setting = config.quant.weight.w_2
-            check_weight_setting(weight_setting)
+        for _, modality_config in config.quant.items():
+            if not isinstance(modality_config, dict) or not modality_config.get('weight', False):
+                continue
+            if modality_config.weight.get('granularity', False):
+                weight_setting = modality_config.weight
+                check_weight_setting(weight_setting)
+            if modality_config.weight.get('w_1', False):
+                weight_setting = modality_config.weight.w_1
+                check_weight_setting(weight_setting)
+            if modality_config.weight.get('w_2', False):
+                weight_setting = modality_config.weight.w_2
+                check_weight_setting(weight_setting)
     if config.model.get('tokenizer_mode', False):
         assert (
             config.model.tokenizer_mode == 'slow'
@@ -72,3 +75,21 @@ def print_important_package_version():
     logger.info(f"tokenizers : {version('tokenizers')}")
     logger.info(f"huggingface-hub : {version('huggingface-hub')}")
     logger.info(f"datasets : {version('datasets')}")
+
+
+def get_modality(config):
+    modalities = []
+    modality_configs = []
+    compression_config = config.quant if 'quant' in config else config.sparse
+    for modality in ['vision', 'language']:
+        if modality in compression_config:
+            modalities.append(modality)
+            modality_configs.append(compression_config[modality])
+    if not modalities:
+        return ['language'], [compression_config]
+    return modalities, modality_configs
+
+
+def deploy_all_modality(blockwise_opts, quant_format):
+    for blockwise_opt in blockwise_opts:
+        blockwise_opt.deploy(quant_format)
