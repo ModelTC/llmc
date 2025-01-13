@@ -34,8 +34,8 @@ quant:
         granularity: per_tensor
         use_qtorch: True
     act:
-        # Support ["e4m3", "e5m2"]
         quant_type: float-quant
+        # Support ["e4m3", "e5m2"]
         bit: e4m3
         symmetric: True
         granularity: per_tensor
