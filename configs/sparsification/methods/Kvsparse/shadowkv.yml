@@ -1,0 +1,22 @@
+base:
+    seed: &seed 42
+model:
+    type: model_type
+    path: model path
+    torch_dtype: torch.bfloat16
+eval:
+    eval_pos: [transformed]
+    name: wikitext2
+    download: False
+    path: eval_data_path
+    bs: 1
+    seq_len: 2048
+sparse:
+    method: Dense
+    kvcache:
+        method: ShadowKV
+        replace_attn: True
+    sparsity_out: False
+save:
+    save_trans: False
+    save_path: ./save

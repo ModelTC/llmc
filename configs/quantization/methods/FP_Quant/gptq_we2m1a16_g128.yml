@@ -26,8 +26,8 @@ eval:
     inference_per_block: False
 quant:
     method: GPTQ
-    quant_type: float-quant
     weight:
+        quant_type: float-quant
         bit: e2m1
         symmetric: True
         granularity: per_group

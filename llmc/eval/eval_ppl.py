@@ -32,7 +32,6 @@ class PerplexityEval(BaseEval):
             lm_logits = model.model(inputs).logits
             model.reset_kv()
 
-            # Shift logits and labels for next token prediction
             shift_logits = lm_logits[:, :-1, :].contiguous()
             shift_labels = inputs[:, 1:]
 

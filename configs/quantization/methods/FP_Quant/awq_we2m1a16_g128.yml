@@ -25,8 +25,8 @@ eval:
     inference_per_block: False
 quant:
     method: Awq
-    quant_type: float-quant
     weight:
+        quant_type: float-quant
         bit: e2m1
         symmetric: False
         granularity: per_group
