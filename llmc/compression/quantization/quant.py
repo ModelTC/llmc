@@ -1,6 +1,14 @@
 import torch
 from loguru import logger
 
+try:
+    from qtorch.quant import float_quantize
+except Exception:
+    logger.warning(
+        'qtorch not found, please install qtorch.'
+        'Please install qtorch (pip install qtorch).'
+    )
+    float_quantize = None
 
 class BaseQuantizer(object):
     def __init__(self, bit, symmetric, granularity, **kwargs):
@@ -36,8 +44,6 @@ class BaseQuantizer(object):
 
         # hist config
         self.bins = self.kwargs.get('bins', 2048)
-        self.hist_threshold = self.kwargs.get('hist_threshold', 1)
-        self.dst_nbins = 2**bit if isinstance(bit, int) else None
         self.upsample_rate = (
             16  # used to reduce quantization errors when upscaling histogram
         )
@@ -86,36 +92,6 @@ class BaseQuantizer(object):
             return self.get_learnable_range(tensor, **args)
         else:
             return self.get_minmax_range(tensor)
-
-    def get_hist_range(self, stats_min_max, act_stats_hist):
-        clip_val = {}
-        for input_idx, hist in act_stats_hist.items():
-            hist = hist.float() / hist.sum()
-            data_max = max(
-                -torch.min(stats_min_max[input_idx]['min']),
-                torch.max(stats_min_max[input_idx]['max']),
-            )
-            accum = 0
-            for i in range(len(hist)):
-                accum += hist[i]
-                if accum >= self.hist_threshold:
-                    clip_value = (i + 0.5) * (data_max / self.bins)
-                    clip_val[input_idx] = [
-                        max(-clip_value, torch.min(stats_min_max[input_idx]['min'])),
-                        min(clip_value, torch.max(stats_min_max[input_idx]['max'])),
-                    ]
-                    break
-            if input_idx not in clip_val:
-                clip_val[input_idx] = [
-                    torch.min(stats_min_max[input_idx]['min']),
-                    torch.max(stats_min_max[input_idx]['max']),
-                ]
-
-        moving_min_vals, moving_max_vals = [], []
-        for input_idx, tensor_range in clip_val.items():
-            moving_min_vals.append(tensor_range[0])
-            moving_max_vals.append(tensor_range[1])
-        return moving_min_vals, moving_max_vals
 
     def get_minmax_range(self, tensor):
         if self.granularity == 'per_tensor':
@@ -556,7 +532,7 @@ class BaseQuantizer(object):
         if self.calib_algo == 'static_hist':
             assert (
                 self.sym is True and self.granularity == 'per_tensor'
-            ), 'Only support per tensor static symmetric.'
+            ), 'Only support per tensor static symmetric int quantize.'
             min_vals, max_vals = self.get_static_hist_range(act_tensors)
         elif self.calib_algo == 'static_minmax':
             min_vals, max_vals = self.get_static_minmax_range(act_tensors)
@@ -657,6 +633,7 @@ class IntegerQuantizer(BaseQuantizer):
 
         self.qmin = torch.tensor(self.qmin)
         self.qmax = torch.tensor(self.qmax)
+        self.dst_nbins = 2**bit
 
     def get_hqq_qparams(self, tensor, args):
         tensor = tensor.float()
@@ -947,17 +924,10 @@ class FloatQuantizer(BaseQuantizer):
         self.sign_bits = 1
         self.num_bits = self.e_bits + self.m_bits + self.sign_bits
         self.default_bias = 2 ** (self.e_bits - 1)
-
+        self.dst_nbins = 2**self.num_bits
         self.use_qtorch = self.kwargs.get('use_qtorch')
         if self.use_qtorch:
-            try:
-                from qtorch.quant import float_quantize
-            except ImportError:
-                logger.error('qtorch not found, please install qtorch.')
-                raise ImportError('Please install qtorch (pip install qtorch).')
-
-            self.float_quantize = float_quantize
-
+            assert float_quantize is not None, 'Please install qtorch (pip install qtorch). Or set use_qtorch=False'
             if 'float_range' in self.kwargs:
                 self.qmin, self.qmax = self.kwargs['float_range']
             else:
@@ -1045,7 +1015,7 @@ class FloatQuantizer(BaseQuantizer):
         scaled_tensor = tensor / scales + zeros
         if self.use_qtorch:
             org_dtype = scaled_tensor.dtype
-            q_tensor = self.float_quantize(
+            q_tensor = float_quantize(
                 scaled_tensor.float(), self.e_bits, self.m_bits, rounding='nearest'
             )
             q_tensor.to(org_dtype)
