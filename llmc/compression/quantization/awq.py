@@ -31,8 +31,8 @@ class Awq(BaseBlockwiseQuantization):
             scales_tmp = self.repeat_gqa_scales(scales)
         else:
             scales_tmp = scales
-        w_tmp = w.mul_(scales_tmp.view(1, -1))
-        return w_tmp
+        w.mul_(scales_tmp.view(1, -1))
+        return w
 
     @torch.no_grad()
     def get_weight_scale(self, layers_dict):
@@ -60,14 +60,17 @@ class Awq(BaseBlockwiseQuantization):
         return scale
 
     def get_act_scale(self, x):
-        batch_means = []
-        b_num = x.shape[0] // self._bs
-        for num in range(b_num):
-            batch_x = x[num * self._bs:(num + 1) * self._bs]
-            batch_mean = batch_x.abs().view(-1, batch_x.shape[-1]).mean(0)
-            batch_means.append(batch_mean)
-        final_mean = sum(batch_means) / len(batch_means)
-        return final_mean
+        if x.shape[0] == self._bs:
+            return x.abs().view(-1, x.shape[-1]).mean(0)
+        else:
+            batch_means = []
+            b_num = x.shape[0] // self._bs
+            for num in range(b_num):
+                batch_x = x[num * self._bs:(num + 1) * self._bs]
+                batch_mean = batch_x.abs().view(-1, batch_x.shape[-1]).mean(0)
+                batch_means.append(batch_mean)
+            final_mean = sum(batch_means) / len(batch_means)
+            return final_mean
 
     @torch.no_grad()
     def get_scales(self, prev_op, x, w_max, is_gqa, ratio):
@@ -93,15 +96,22 @@ class Awq(BaseBlockwiseQuantization):
         return scales
 
     def inspect_module_forward(self, x, inspect_module, kwargs):
-        outs = []
-        b_num = x.shape[0] // self._bs
-        for num in range(b_num):
-            _x = x[num * self._bs:(num + 1) * self._bs]
-            out = inspect_module(_x, **kwargs)
-            if isinstance(out, tuple):
-                out = out[0]
-            outs.append(out)
-        return torch.cat(outs, dim=0)
+        if self._bs == x.shape[0]:
+            with torch.no_grad():
+                out = inspect_module(x, **kwargs)
+                if isinstance(out, tuple):
+                    out = out[0]
+            return out
+        else:
+            outs = []
+            b_num = x.shape[0] // self._bs
+            for num in range(b_num):
+                _x = x[num * self._bs:(num + 1) * self._bs]
+                out = inspect_module(_x, **kwargs)
+                if isinstance(out, tuple):
+                    out = out[0]
+                outs.append(out)
+            return torch.cat(outs, dim=0)
 
     @torch.no_grad()
     def get_original_out(self, x, inspect_module, subset_kwargs):
@@ -110,14 +120,53 @@ class Awq(BaseBlockwiseQuantization):
         return org_out
 
     def calculate_loss(self, org_out, out):
-        total_loss = 0.0
-        b_num = org_out.shape[0] // self._bs
-        for num in range(b_num):
-            _org_out = org_out[num * self._bs:(num + 1) * self._bs]
-            _out = out[num * self._bs:(num + 1) * self._bs]
-            single_loss = (_org_out - _out).float().pow(2).mean().item()
-            total_loss += single_loss
-        return total_loss / b_num
+        if out.shape[0] == self._bs:
+            return (org_out - out).float().pow(2).mean().item()
+        else:
+            total_loss = 0.0
+            b_num = org_out.shape[0] // self._bs
+            for num in range(b_num):
+                _org_out = org_out[num * self._bs:(num + 1) * self._bs]
+                _out = out[num * self._bs:(num + 1) * self._bs]
+                single_loss = (_org_out - _out).float().pow(2).mean().item()
+                total_loss += single_loss
+            return total_loss / b_num
+
+    def fake_quantize_weight(self, weight, scales, is_gqa, layer_name):
+        weight = self.scaling_weight(weight, scales, is_gqa)
+        weight.data = get_wquantizer(
+            self.block_idx,
+            layer_name,
+            self.mix_bits_map,
+            self.quantizer_mix_bits,
+            self.wquantizer,
+        ).fake_quant_weight_dynamic(weight.data)
+
+        return weight
+
+    def fake_quantize_input(self, x_tmp, layers_dict):
+        if self._bs == x_tmp.shape[0]:
+            x_tmp = get_aquantizer(
+                self.block_idx,
+                list(layers_dict.keys())[0],
+                self.mix_bits_map,
+                self.quantizer_mix_bits,
+                self.aquantizer,
+            ).fake_quant_act_dynamic(x_tmp)
+        else:
+            outs = []
+            for i in range(x_tmp.shape[0]):
+                _x = x_tmp[i]
+                _x = get_aquantizer(
+                    self.block_idx,
+                    list(layers_dict.keys())[0],
+                    self.mix_bits_map,
+                    self.quantizer_mix_bits,
+                    self.aquantizer,
+                ).fake_quant_act_dynamic(_x)
+                outs.append(_x)
+            x_tmp = torch.stack(outs)
+        return x_tmp
 
     @torch.no_grad()
     def search_scale_subset(
@@ -158,25 +207,12 @@ class Awq(BaseBlockwiseQuantization):
                 else:
                     org_out = self.get_original_out(x, inspect_module, kwargs)
                     org_out_dict[i] = org_out
-                x_max = self.get_act_scale(x)
 
                 ratio = n * 1 / n_grid
                 scales = self.get_scales(prev_op, x, w_max, is_gqa, ratio)
                 for layer_name in layers_dict:
                     fc = layers_dict[layer_name]
-                    fc.weight = self.scaling_weight(fc.weight, scales, is_gqa)
-
-                    fc.weight.data = get_wquantizer(
-                        self.block_idx,
-                        layer_name,
-                        self.mix_bits_map,
-                        self.quantizer_mix_bits,
-                        self.wquantizer,
-                    ).fake_quant_weight_dynamic(fc.weight.data)
-
-                del x_max
-                gc.collect()
-                torch.cuda.empty_cache()
+                    fc.weight = self.fake_quantize_weight(fc.weight, scales, is_gqa, layer_name)
 
                 x_tmp = self.scaling_input(x, scales, is_gqa)
 
@@ -187,18 +223,7 @@ class Awq(BaseBlockwiseQuantization):
                     self.quantizer_mix_bits,
                     self.w_only,
                 ):
-                    outs = []
-                    for i in range(x_tmp.shape[0]):
-                        _x = x_tmp[i]
-                        _x = get_aquantizer(
-                            self.block_idx,
-                            list(layers_dict.keys())[0],
-                            self.mix_bits_map,
-                            self.quantizer_mix_bits,
-                            self.aquantizer,
-                        ).fake_quant_act_dynamic(_x)
-                        outs.append(_x)
-                    x_tmp = torch.stack(outs)
+                    x_tmp = self.fake_quantize_input(x_tmp, layers_dict)
 
                 out = self.inspect_module_forward(x_tmp, inspect_module, kwargs)
 

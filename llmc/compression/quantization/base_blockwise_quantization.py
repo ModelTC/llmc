@@ -243,8 +243,9 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
             if self.act_static:
                 act_static_cfg.update(self.config.calib.n_sample)
                 act_static_cfg.update(self.config.calib.bs)
+            kv_quant_type = self.quant_config['kvcache'].get('quant_type', 'int-quant')
             self.kv_module = KV_REGISTRY[self.quant_config['kvcache']['method']](
-                self.quant_type, self.quant_config['kvcache'],
+                kv_quant_type, self.quant_config['kvcache'],
                 self.model.model_config.num_hidden_layers, **kv_special_cfg, **act_static_cfg
             )
             self.quant_kvcache = True
@@ -287,8 +288,9 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
         # set online-rotation config
         self.online_rotate = special_config.get('online_rotate', False)
         if self.online_rotate:
-            assert self.config['model']['type'] in ['Opt', 'Llama']
-
+            assert (
+                self.config['model']['type'] in ['Opt', 'Llama']
+            ), 'Please set online_rotate=False'
         self.hidden_size = self.model.model_config.hidden_size
         self.set_model_config()
         self.modality = self.quant_config.modality
@@ -832,12 +834,13 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
             scales_tmp = self.repeat_gqa_scales(scales)
         else:
             scales_tmp = scales
-
-        x_tmp = torch.empty_like(x)
-        for i, batch in enumerate(x):
-            batch_scale = scales_tmp.view(1, -1)
-            x_tmp[i] = batch / batch_scale
-
+        if hasattr(self, '_bs') and self._bs < x.shape[0]:
+            x_tmp = torch.empty_like(x)
+            for i, batch in enumerate(x):
+                batch_scale = scales_tmp.view(1, -1)
+                x_tmp[i] = batch / batch_scale
+        else:
+            x_tmp = x / scales.view(1, -1)
         return x_tmp
 
     @torch.no_grad()
@@ -846,7 +849,7 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
             for i in range(len(input_feat[layer_name])):
                 inp = input_feat[layer_name][i]
                 scale = scale.to(inp.device)
-                inp = self.scaling_input(inp, scale, is_gqa)
+                input_feat[layer_name][i] = self.scaling_input(inp, scale, is_gqa)
 
     @torch.no_grad()
     def set_non_linear_mode(self, quant_format, module, mode):
