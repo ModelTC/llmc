@@ -840,7 +840,7 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
                 batch_scale = scales_tmp.view(1, -1)
                 x_tmp[i] = batch / batch_scale
         else:
-            x_tmp = x / scales.view(1, -1)
+            x_tmp = x / scales_tmp.view(1, -1)
         return x_tmp
 
     @torch.no_grad()
