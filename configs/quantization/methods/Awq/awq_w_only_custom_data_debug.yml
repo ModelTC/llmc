@@ -71,6 +71,17 @@ eval:
       apply_chat_template: True
       inference_per_block: False
     - eval_pos: [pretrain, transformed, fake_quant]
+      name: custom_ppl
+      type: ppl
+      download: False
+      path: /data/yongyang/datasets/general_custom_data
+      apply_chat_template: False
+      seq_len: 2048
+      # For 7B / 13B model eval, bs can be set to "1", and inference_per_block can be set to "False".
+      # For 70B model eval, bs can be set to "20", and inference_per_block can be set to "True".
+      bs: 1
+      inference_per_block: False
+    - eval_pos: [pretrain, transformed, fake_quant]
       name: wikitext2
       type: token_acc
       download: False
