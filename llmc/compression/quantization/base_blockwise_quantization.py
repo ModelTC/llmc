@@ -295,6 +295,8 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
         self.set_model_config()
         self.modality = self.quant_config.modality
         logger.info(f'self.quant_objects : {self.quant_config.modality}')
+        self.do_gqa_trans = special_config.get('do_gqa_trans', False)
+        logger.info(f'self.do_gqa_trans : {self.do_gqa_trans}')
 
     def set_model_config(self):
         self.hidden_size = self.model.model_config.hidden_size
@@ -678,7 +680,7 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
                 fc1.bias.div_(scales.view(-1))
 
             fc1.weight.div_(scales.view(-1, 1))
-        elif self.has_gqa:
+        elif self.has_gqa and self.do_gqa_trans:
             if hasattr(fc1, 'bias') and fc1.bias is not None:
                 fc1.bias.div_(scales.view(-1))
             fc1.weight.div_(scales.view(-1, 1))
