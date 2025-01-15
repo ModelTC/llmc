@@ -8,10 +8,15 @@ def update_vllm_quant_config(
     vllm_quant_method='compressed-tensors',
 
 ):
-
     need_pack = config.quant.weight.get('need_pack', False)
-    if config.quant.get('quant_type', 'int-quant') == 'float-quant':
-        if 'act' in config.quant and config.quant.act.static:
+    weight_quant_type = config.quant.act.get('quant_type', 'int-quant')
+    if 'act' in config.quant:
+        act_quant_type = config.quant.act.get('quant_type', 'int-quant')
+        assert act_quant_type == weight_quant_type
+    else:
+        act_quant_type = None
+    if act_quant_type is not None and act_quant_type == 'float-quant':
+        if config.quant.act.get('static', False):
             quant_config = {
                 'activation_scheme': 'static',
                 'ignored_layers': [
@@ -30,8 +35,7 @@ def update_vllm_quant_config(
             vllm_quant_format = 'float-quantized'
             quant_type = 'float'
             w_num_bits = 8
-            if 'act' in config.quant:
-                a_num_bits = 8
+            a_num_bits = 8
     elif need_pack:
         vllm_quant_format = 'pack-quantized'
         quant_type = 'int'
