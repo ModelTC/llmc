@@ -351,7 +351,7 @@ class Awq(BaseBlockwiseQuantization):
                 and prev_op[0].out_features != layers[0].in_features
             ):
 
-                if self.has_gqa:
+                if self.has_gqa and self.do_gqa_trans:
                     is_gqa = True
                     input_keys = list(input_feat.keys())
                     input_name = input_keys[input_keys.index(input_name) - 1]
