@@ -3,6 +3,7 @@ import functools
 import gc
 import json
 import os
+import re
 from collections import defaultdict
 from functools import partial
 
@@ -169,6 +170,14 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
         self.mix_bits = 'mix_bits' in self.quant_config
         self.mix_bits_map = [{} for _ in range(self.num_blocks)]
         self.quantizer_mix_bits = []
+
+        if 'ignored_layers' in self.config:
+            self.mixed_precision = True
+            self.ignored_block_ids = self.config.ignored_layers.get('block_ids', [])
+            self.ignored_layer_names = self.config.ignored_layers.get('layer_names', [])
+            self.ignored_speical_names = self.config.ignored_layers.get('speical_names', [])
+        else:
+            self.mixed_precision = False
 
         self.quant_out = self.quant_config.get('quant_out', False)
         self.tp = self.quant_config.get('tp', 1)
@@ -364,6 +373,38 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
         )
         extra_modules.update(matmul_modules)
         extra_modules.update(softmax_modules)
+
+    def replace_origin_linears(self):
+        if self.ignored_speical_names:
+            assert hasattr(self.model, 'block_name_prefix'), \
+                'block_name_prefix missing in model'
+        ignored_block_ids = []
+        for item in self.ignored_block_ids:
+            match = re.match(r'(\d+)-(\d+)', str(item))
+            if match:
+                start, end = int(match.group(1)), int(match.group(2))
+                ignored_block_ids.extend(range(start, end + 1))
+            else:
+                ignored_block_ids.append(int(item))
+
+        for idx, block in enumerate(self.blocks):
+            for n, m in block.named_modules():
+                if idx in ignored_block_ids and n in self.ignored_layer_names:
+                    subset = {'layers': {n: m}}
+                else:
+                    layer_name = f'{self.model.block_name_prefix}.{idx}.{n}'
+                    if layer_name in self.ignored_speical_names:
+                        subset = {'layers': {n: m}}
+                    else:
+                        continue
+                self.model.replace_module_subset(
+                    OriginFloatLinear,
+                    block,
+                    subset,
+                    None,
+                    {},
+                )
+        logger.info(f' The Replaced model: {self.model}')
 
     @torch.no_grad()
     def collect_block_qparams(self, block):
@@ -908,6 +949,9 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
 
         if self.model.mm_model is not None:
             logger.info(f'Now, the mm_model is: {self.model.mm_model}')
+
+        if self.mixed_precision:
+            self.replace_origin_linears()
 
         logger.info(f'-- deploy_{quant_format}_model done --')
 
