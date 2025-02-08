@@ -9,7 +9,7 @@ def update_vllm_quant_config(
 
 ):
     need_pack = config.quant.weight.get('need_pack', False)
-    weight_quant_type = config.quant.act.get('quant_type', 'int-quant')
+    weight_quant_type = config.quant.weight.get('quant_type', 'int-quant')
     if 'act' in config.quant:
         act_quant_type = config.quant.act.get('quant_type', 'int-quant')
         assert act_quant_type == weight_quant_type
