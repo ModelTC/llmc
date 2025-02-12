@@ -100,7 +100,7 @@ def main(config):
 
                     if isinstance(w.bit, str):
                         assert w.symmetric, 'Only symmetric quant is supported.'
-                        assert w.bit in ["e4m3", "e3m4"], 'Supported quant: w8a16.'
+                        assert w.bit in ['e4m3', 'e3m4'], 'Supported quant: w8a16.'
                         if a:
                             assert (
                                 w.symmetric and a.symmetric
