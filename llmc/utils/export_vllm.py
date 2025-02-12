@@ -40,6 +40,10 @@ def update_vllm_quant_config(
         vllm_quant_format = 'pack-quantized'
         quant_type = 'int'
         w_num_bits = config.quant.weight.bit
+    elif weight_quant_type == 'float-quant':
+        vllm_quant_format = 'float-quantized'
+        quant_type = 'float'
+        w_num_bits = 8
     else:
         vllm_quant_format = 'int-quantized'
         quant_type = 'int'
