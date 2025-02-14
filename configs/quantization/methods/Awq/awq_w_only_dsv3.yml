@@ -39,7 +39,7 @@ quant:
         # DeepseekV3/R1 not support weight_clip now
         weight_clip: False
         # For 2-bit quantization, setting "clip_sym: False" will yield better results.
-        clip_sym: True
+        save_mem: False
 save:
     save_trans: False
     save_fake: False
