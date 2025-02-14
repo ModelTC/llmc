@@ -9,6 +9,7 @@ from loguru import logger
 from llmc.utils.registry_factory import ALGO_REGISTRY
 
 from .base_blockwise_quantization import BaseBlockwiseQuantization
+from .fp8_kernel import weight_dequant, weight_quant
 from .module_utils import (_LLMC_LINEAR_TYPES_, _LLMC_LN_TYPES_,
                            _TRANSFORMERS_LINEAR_TYPES_,
                            _TRANSFORMERS_LN_TYPES_, FakeQuantLinear)
@@ -24,6 +25,7 @@ class Awq(BaseBlockwiseQuantization):
         self.trans_version = special_config.get('trans_version', 'v2')
         self.save_scale = special_config.get('save_scale', False)
         self.awq_bs = special_config.get('awq_bs', None)
+        self.save_mem = special_config.get('save_mem', True)
 
     @torch.no_grad()
     def scaling_weight(self, w, scales, is_gqa):
@@ -132,17 +134,30 @@ class Awq(BaseBlockwiseQuantization):
                 total_loss += single_loss
             return total_loss / b_num
 
-    def fake_quantize_weight(self, weight, scales, is_gqa, layer_name):
-        weight = self.scaling_weight(weight, scales, is_gqa)
-        weight.data = get_wquantizer(
+    def fake_quantize_weight(self, fc, scales, is_gqa, layer_name):
+        if fc.weight.data.dtype == torch.float8_e4m3fn:
+            fp8_scale = fc.weight_scale_inv.data
+            tmp_weight_data = weight_dequant(fc.weight.data, fp8_scale).to(torch.bfloat16)
+            tmp_fp8_scale = self.scaling_fp8_scale(fp8_scale, scales, is_pre_layer=False)
+        else:
+            tmp_weight_data = fc.weight.data
+
+        tmp_weight_data = self.scaling_weight(tmp_weight_data, scales, is_gqa)
+        tmp_weight_data = get_wquantizer(
             self.block_idx,
             layer_name,
             self.mix_bits_map,
             self.quantizer_mix_bits,
             self.wquantizer,
-        ).fake_quant_weight_dynamic(weight.data)
+        ).fake_quant_weight_dynamic(tmp_weight_data)
 
-        return weight
+        if fc.weight.data.dtype == torch.float8_e4m3fn:
+            fc.weight.data = weight_quant(tmp_weight_data, tmp_fp8_scale)
+            fc.weight_scale_inv.data = tmp_fp8_scale
+        else:
+            fc.weight.data = tmp_weight_data
+
+        return fc.weight
 
     def fake_quantize_input(self, x_tmp, layers_dict):
         if self._bs == x_tmp.shape[0]:
@@ -212,7 +227,7 @@ class Awq(BaseBlockwiseQuantization):
                 scales = self.get_scales(prev_op, x, w_max, is_gqa, ratio)
                 for layer_name in layers_dict:
                     fc = layers_dict[layer_name]
-                    fc.weight = self.fake_quantize_weight(fc.weight, scales, is_gqa, layer_name)
+                    fc.weight = self.fake_quantize_weight(fc, scales, is_gqa, layer_name)
 
                 x_tmp = self.scaling_input(x, scales, is_gqa)
 
@@ -245,11 +260,11 @@ class Awq(BaseBlockwiseQuantization):
                 if is_best:
                     best_error = loss_mean
                     best_scales = scales_mean
-
-                del org_out
-                del out
-                gc.collect()
-                torch.cuda.empty_cache()
+                if self.save_mem:
+                    del org_out
+                    del out
+                    gc.collect()
+                    torch.cuda.empty_cache()
 
         # Synchronize across ranks
         best_error_tensor = torch.tensor([best_error], device='cuda')

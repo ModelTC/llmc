@@ -101,6 +101,8 @@ def update_vllm_quant_config(
     config_file = save_quant_path + '/config.json'
     with open(config_file, 'r') as file:
         config_vllm = json.load(file)
+    if weight_quant_type == 'int-quant' and 'quantization_config' in config_vllm:
+        del config_vllm['quantization_config']
     config_vllm['compression_config'] = quant_config
     with open(config_file, 'w') as file:
         json.dump(config_vllm, file, indent=4)

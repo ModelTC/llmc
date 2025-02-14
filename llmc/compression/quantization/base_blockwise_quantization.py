@@ -17,6 +17,7 @@ from llmc.utils.registry_factory import KV_REGISTRY
 from ..blockwise_optimization import BlockwiseOpt
 from .attn_utils import _LLMC_ATTN_MAP_
 from .auto_clip import AutoClipper
+from .fp8_kernel import weight_dequant, weight_quant
 from .hadamard_utils import apply_exact_had_to_linear, get_hadK
 from .module_utils import (_LLMC_LINEAR_TYPES_, _LLMC_LN_TYPES_,
                            _REALQUANT_LINEAR_MAP_, _TRANSFORMERS_LINEAR_TYPES_,
@@ -590,7 +591,12 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
     def collect_layers_weights(self, layers, tensor_parallelize_style=None):
         weights = []
         for _m in layers:
-            weights.append(_m.weight)
+            if _m.weight.data.dtype == torch.float8_e4m3fn:
+                fp8_scale = _m.weight_scale_inv
+                tmp_weight = weight_dequant(_m.weight, fp8_scale).to(torch.bfloat16)
+                weights.append(tmp_weight)
+            else:
+                weights.append(_m.weight)
         return weights
 
     @torch.no_grad()
@@ -686,6 +692,16 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
             raise NotImplementedError(f'prev_op {type(prev_op[0])} not supported yet!')
 
     @torch.no_grad()
+    def scaling_fp8_scale(self, fp8_scale, scales, is_pre_layer=True, block_size=128):
+        if is_pre_layer:
+            scales_reshaped = torch.max(scales.view(-1, 1, block_size), dim=2).values
+            fp8_scale = (fp8_scale / scales_reshaped).float()
+        else:
+            scales_reshaped = torch.max(scales.view(1, -1, block_size), dim=2).values
+            fp8_scale = (fp8_scale * scales_reshaped).float()
+        return fp8_scale
+
+    @torch.no_grad()
     def scale_fc_fc(self, fc1, fc2, scales):
         scales = scales.to(fc1.weight.device)
         if fc1.out_features == fc2.in_features * 3:
@@ -720,7 +736,17 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
             if hasattr(fc1, 'bias') and fc1.bias is not None:
                 fc1.bias.div_(scales.view(-1))
 
-            fc1.weight.div_(scales.view(-1, 1))
+            if fc1.weight.data.dtype == torch.float8_e4m3fn:
+                fp8_scale = fc1.weight_scale_inv
+                tmp_weight_data = weight_dequant(fc1.weight.data, fp8_scale).to(torch.bfloat16)
+                tmp_weight_data.div_(scales.view(-1, 1))
+                tmp_fp8_scale = self.scaling_fp8_scale(fp8_scale, scales)
+
+                fc1.weight.data = weight_quant(tmp_weight_data, tmp_fp8_scale)
+                fc1.weight_scale_inv.data = tmp_fp8_scale
+            else:
+                fc1.weight.div_(scales.view(-1, 1))
+
         elif self.has_gqa and self.do_gqa_trans:
             if hasattr(fc1, 'bias') and fc1.bias is not None:
                 fc1.bias.div_(scales.view(-1))
@@ -734,7 +760,16 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
             logger.error(f'fc2.in_features: {fc2.in_features}')
             raise Exception('Can not scale this fc-fc.')
 
-        fc2.weight.mul_(scales.view(1, -1))
+        if fc2.weight.data.dtype == torch.float8_e4m3fn:
+            fp8_scale = fc2.weight_scale_inv
+            tmp_weight_data = weight_dequant(fc2.weight.data, fp8_scale).to(torch.bfloat16)
+            tmp_weight_data.mul_(scales.view(1, -1))
+            tmp_fp8_scale = self.scaling_fp8_scale(fp8_scale, scales, is_pre_layer=False)
+
+            fc2.weight.data = weight_quant(tmp_weight_data, tmp_fp8_scale)
+            fc2.weight_scale_inv.data = tmp_fp8_scale
+        else:
+            fc2.weight.mul_(scales.view(1, -1))
 
     @torch.no_grad()
     def shift_fc_fc(self, fc1, fc2, shifts):
@@ -794,7 +829,16 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
             ln.bias.div_(scales)
 
         for fc in fcs:
-            fc.weight.mul_(scales.view(1, -1))
+            if fc.weight.data.dtype == torch.float8_e4m3fn:
+                fp8_scale = fc.weight_scale_inv
+                tmp_weight_data = weight_dequant(fc.weight.data, fp8_scale).to(torch.bfloat16)
+                tmp_weight_data.mul_(scales.view(1, -1))
+                tmp_fp8_scale = self.scaling_fp8_scale(fp8_scale, scales, is_pre_layer=False)
+
+                fc.weight.data = weight_quant(tmp_weight_data, tmp_fp8_scale)
+                fc.weight_scale_inv.data = tmp_fp8_scale
+            else:
+                fc.weight.mul_(scales.view(1, -1))
 
         for p in ln.parameters():
             assert torch.isnan(p).sum() == 0

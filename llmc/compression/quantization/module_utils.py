@@ -8,6 +8,8 @@ import torch.nn.functional as F
 from loguru import logger
 from transformers.pytorch_utils import ALL_LAYERNORM_LAYERS
 
+from .fp8_kernel import act_quant, fp8_gemm, weight_dequant, weight_quant
+
 try:
     import fast_hadamard_transform
 
@@ -19,6 +21,57 @@ except Exception:
     )
 
 from .utils import calculate_zeros_width
+
+
+class LlmcFp8Linear(nn.Module):
+    def __init__(self, in_features, out_features, bias, block_size=128):
+        super().__init__()
+        self.block_size = block_size
+        self.in_features = in_features
+        self.out_features = out_features
+        if bias:
+            self.bias = nn.Parameter(torch.empty(out_features))
+        else:
+            self.register_parameter('bias', None)
+
+        # Init empty weight and scale
+        self.weight = nn.Parameter(torch.empty(out_features,
+                                               in_features,
+                                               dtype=torch.float8_e4m3fn))
+        scale_out_features = (out_features + block_size - 1) // block_size
+        scale_in_features = (in_features + block_size - 1) // block_size
+        self.weight_scale_inv \
+            = nn.Parameter(torch.empty(scale_out_features,
+                                       scale_in_features,
+                                       dtype=torch.float32))
+
+    def forward(self, x):
+        x, scale = act_quant(x, self.block_size)
+        y = fp8_gemm(x, scale, self.weight, self.weight_scale_inv).to(torch.bfloat16)
+        if self.bias is not None:
+            y += self.bias
+        return y
+
+    @classmethod
+    @torch.no_grad()
+    def new(cls, module):
+        in_features = module.in_features
+        out_features = module.out_features
+        bias = module.bias
+        new_module = cls(in_features, out_features, bias)
+        return new_module
+
+    def __repr__(self):
+        return (
+            'LlmcFp8Linear('
+            + f'in_features={self.in_features}, '
+            + f'out_features={self.out_features}, '
+            + f'bias={self.bias is not None}, '
+            + f'weight_shape={self.weight.shape}, '
+            + f'weight_dtype={self.weight.dtype}, '
+            + f'scales_shape={self.weight_scale_inv.shape}, '
+            + f'scales_dtype={self.weight_scale_inv.dtype}, '
+        )
 
 
 class LlmcActFn(nn.Module):
@@ -237,14 +290,28 @@ class OriginFloatLinear(nn.Module):
                 self.register_buffer(name, buf.data)
         if hasattr(self, 'buf_rotate') and self.buf_rotate:
             self.rotater = ori_module.rotater
+        else:
+            self.buf_rotate = False
+
+        if self.weight.data.dtype == torch.float8_e4m3fn:
+            self.fp8_forward = True
+            self.weight_scale_inv = ori_module.weight_scale_inv
+            self.block_size = 128
+        else:
+            self.fp8_forward = False
 
     @torch.no_grad()
     def forward(self, x):
         if hasattr(self, 'buf_rotate') and self.buf_rotate:
             x = self.rotater.rotate(x)
-
-        x = torch.functional.F.linear(x, self.weight, self.bias)
-        return x
+        if self.fp8_forward:
+            x, scale = act_quant(x, self.block_size)
+            y = fp8_gemm(x, scale, self.weight, self.weight_scale_inv).to(torch.bfloat16)
+            if self.bias is not None:
+                y += self.bias
+        else:
+            y = torch.functional.F.linear(x, self.weight, self.bias)
+        return y
 
     @classmethod
     @torch.no_grad()
@@ -268,6 +335,8 @@ class OriginFloatLinear(nn.Module):
         return (
             f'OriginFloatLinear(in_features={self.in_features},'
             f'out_features={self.out_features},'
+            f'online_rotate={self.buf_rotate},'
+            f'fp8_forward={self.fp8_forward},'
             f'bias={self.bias is not None})'
         )
 
@@ -494,11 +563,17 @@ class EffcientFakeQuantLinear(nn.Module):
         for name, buf in ori_module.named_buffers():
             if name.startswith('buf_'):
                 self.register_buffer(name, buf.data)
-
         if hasattr(self, 'buf_rotate') and self.buf_rotate:
             self.rotater = ori_module.rotater
         else:
             self.buf_rotate = False
+
+        if self.weight.data.dtype == torch.float8_e4m3fn:
+            self.fp8_forward = True
+            self.weight_scale_inv = ori_module.weight_scale_inv
+            self.block_size = 128
+        else:
+            self.fp8_forward = False
 
     @torch.no_grad()
     def forward(self, x, dtype=None):
@@ -508,13 +583,27 @@ class EffcientFakeQuantLinear(nn.Module):
         if self.a_qdq is not None:
             x = self.a_qdq(x, self)
 
-        x = torch.functional.F.linear(x, self.weight, self.bias)
-        return x
+        if self.fp8_forward:
+            x, scale = act_quant(x, self.block_size)
+            y = fp8_gemm(x, scale, self.weight, self.weight_scale_inv).to(torch.bfloat16)
+            if self.bias is not None:
+                y += self.bias
+        else:
+            y = torch.functional.F.linear(x, self.weight, self.bias)
+        return y
 
     @classmethod
     @torch.no_grad()
     def new(cls, module, w_qdq, a_qdq, debug_print={}):
+
+        if hasattr(module, 'weight_scale_inv'):
+            module.weight.data \
+                = weight_dequant(module.weight.data,
+                                 module.weight_scale_inv.data).to(torch.bfloat16)
         weight = w_qdq(module)
+
+        if hasattr(module, 'weight_scale_inv'):
+            weight.data = weight_quant(weight.data, module.weight_scale_inv.data)
 
         if module.bias is not None:
             bias = module.bias.data
@@ -546,6 +635,7 @@ class EffcientFakeQuantLinear(nn.Module):
             f'weight_quant={self.w_qdq_name},'
             f'act_quant={self.a_qdq_name},'
             f'online_rotate={self.buf_rotate},'
+            f'fp8_forward={self.fp8_forward},'
             f'debug_print={self.debug_print})'
         )
 
@@ -606,6 +696,10 @@ class VllmRealQuantLinear(nn.Module):
     @classmethod
     @torch.no_grad()
     def quant_pack(cls, module, w_q, quant_config):
+        if module.weight.data.dtype == torch.float8_e4m3fn:
+            module.weight.data \
+                = weight_dequant(module.weight.data,
+                                 module.weight_scale_inv.data).to(torch.bfloat16)
         weight, scales, zeros = w_q(module)
         need_pack = quant_config['weight'].get('need_pack', False)
         if need_pack:
@@ -638,6 +732,7 @@ class VllmRealQuantLinear(nn.Module):
 
         packed = np.ascontiguousarray(packed).view(np.int32)
         int_weight = torch.from_numpy(packed)
+        del weight, packed
         return int_weight, scales
 
     def __repr__(self):
@@ -925,6 +1020,7 @@ _LLMC_LN_TYPES_ = [
 
 
 _LLMC_LINEAR_TYPES_ = [
+    LlmcFp8Linear,
     OriginFloatLinear,
     RotateLinear,
     FakeQuantLinear,
