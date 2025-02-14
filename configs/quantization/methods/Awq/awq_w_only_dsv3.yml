@@ -1,10 +1,10 @@
 base:
     seed: &seed 42
 model:
-    type: model_type
-    path: model path
-    tokenizer_mode: slow
-    torch_dtype: auto
+    type: DeepseekV3
+    path: model_path
+    tokenizer_mode: fast
+    torch_dtype: torch.float8_e4m3fn
 calib:
     name: pileval
     download: False
@@ -22,8 +22,8 @@ eval:
     seq_len: 2048
     # For 7B / 13B model eval, bs can be set to "1", and inference_per_block can be set to "False".
     # For 70B model eval, bs can be set to "20", and inference_per_block can be set to "True".
-    bs: 1
-    inference_per_block: False
+    bs: 4
+    inference_per_block: True
 quant:
     method: Awq
     weight:
@@ -36,9 +36,10 @@ quant:
         # The options for "trans_version" include "v1" and "v2".
         # But their results don't differ significantly.
         trans_version: v2
-        weight_clip: True
+        # DeepseekV3/R1 not support weight_clip now
+        weight_clip: False
         # For 2-bit quantization, setting "clip_sym: False" will yield better results.
-        clip_sym: True
+        save_mem: False
 save:
     save_trans: False
     save_fake: False
