@@ -48,6 +48,9 @@ docker pull registry.cn-hangzhou.aliyuncs.com/yongyang/llmcompression:pure-lates
 
 ## 最新消息
 
+- **2025年2月7日:** 🔥 我们现已全面支持 **`DeepSeekv3`**、**`DeepSeek-R1`** 和 **`DeepSeek-R1-zero`** 等 671B 大规模 **`MOE`** 模型的量化。  
+现在，您可以直接加载 `FP8` 权重，无需额外转换。使用单张 80G 显存的 GPU 即可运行 `AWQ` 和 `RTN` 量化，同时还支持导出真实量化的 **INT4/INT8** 权重
+  
 - **2024年11月20日:** 🔥 我们现已全面支持✨`DeepSeekv2(2.5)`等`MOE`模型以及✨`Qwen2VL`、`Llama3.2`等`VLM`模型的量化。支持的量化方案包括✅整型量化、✅浮点量化，以及✅AWQ、✅GPTQ、✅SmoothQuant 和 ✅Quarot 等先进算法。
 
 - **2024年11月12日:** 🔥 我们新增对各种模型和算法的💥`激活静态 per-tensor量化`支持，涵盖✅整型量化和✅浮点量化，进一步优化性能和效率。同时支持导出`✨真实量化模型`，并使用 [VLLM](https://github.com/vllm-project/vllm)和[SGLang](https://github.com/sgl-project/sglang)后端进行推理加速，具体请参阅[VLLM文档](https://llmc-zhcn.readthedocs.io/en/latest/backend/vllm.html)和[SGLang文档](https://llmc-zhcn.readthedocs.io/en/latest/backend/sglang.html)。
@@ -108,11 +111,11 @@ docker pull registry.cn-hangzhou.aliyuncs.com/yongyang/llmcompression:pure-lates
 
 - 💥**支持的格式**: 支持 ✨`量化`（整型和浮点）和 ✨`稀疏化`，具体包括 ✅权重激活量化、✅权重量化、✅混合精度量化，以及 ✅结构化 和 ✅非结构化稀疏化。
 
-- 💥**广泛模型支持**: 支持多种 ✨`LLM模型`，包括 ✅LLama、✅Mistral、✅InternLM2、✅Qwen2 等，以及 ✅MOE(DeepSeekv2, Deepseekv2.5) 和 ✅VLM(Llama3.2-vision, Qwen2-vl) 模型（参见[支持的模型列表](#supported-model-list)）。
+- 💥**广泛模型支持**: 支持多种 ✨`LLM模型`，包括 ✅LLama、✅Mistral、✅InternLM2、✅Qwen2 等，以及 ✅MOE(DeepSeekv3, Deepseek-R1) 和 ✅VLM(Llama3.2-vision, Qwen2-vl) 模型（参见[支持的模型列表](#supported-model-list)）。
 
 - 💥**多后端兼容性**: 无缝集成多个后端，增强部署灵活性。多种量化设置和模型格式兼容广泛的后端和硬件平台，例如 ✅VLLM、✅Sglang、✅LightLLM、✅MLC-LLM 和 ✅AutoAWQ，使其高度灵活（参见✨`推理后端` 章节 [此处](https://llmc-zhcn.readthedocs.io/en/latest/)）。
 
-- 💥**性能效率**: 支持大规模LLM的量化，例如 ✨`Llama3.1-405B` 和 ✨`DeepSeekV2-236B`，并可在 `单个 A100/H100/H800 GPU` 上评估 PPL。
+- 💥**性能效率**: 支持大规模LLM的量化，例如 ✨`Llama3.1-405B` 和 ✨`DeepSeek-R1-671B`，并可在 `单个 A100/H100/H800 GPU` 上评估 PPL。
 
 ## 使用指南
 

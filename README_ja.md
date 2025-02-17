@@ -48,6 +48,9 @@ docker pull registry.cn-hangzhou.aliyuncs.com/yongyang/llmcompression:pure-lates
 
 ## 最新情報
 
+- V 🔥 私たちは現在、671Bパラメータを持つ大規模な **`MOE`** モデル、例えば **`DeepSeekv3`**、**`DeepSeek-R1`**、および **`DeepSeek-R1-zero`** の量子化を完全にサポートしています。  
+今すぐFP8ウェイトを追加の変換なしで直接読み込むことができます。AWQおよびRTN量子化は、1枚の80GB GPUで実行でき、さらに、真の量子化された **INT4/INT8** ウェイトのエクスポートにも対応しています。
+
 - **2024年11月20日:** 🔥 私たちは現在、✨`DeepSeekv2(2.5)`などの`MOE`モデルおよび✨`Qwen2VL`、`Llama3.2`などの`VLM`モデルの量子化を完全にサポートしています。対応する量子化手法には、✅整数量子化、✅浮動小数点量子化、さらに✅AWQ、✅GPTQ、✅SmoothQuant、✅Quarotといった高度なアルゴリズムが含まれます。
 
 - **2024年11月12日:** 🔥 私たちは💥`アクティベーション静的per-tensor`量子化のサポートを、様々なモデルやアルゴリズムに追加しました。これにより、✅整数量子化および✅浮動小数点量子化をカバーし、性能と効率をさらに最適化します。また、✨`真の量子化モデル`のエクスポートをサポートし、[VLLM](https://github.com/vllm-project/vllm)および[SGLang](https://github.com/sgl-project/sglang)バックエンドを使用した推論の高速化も可能です。詳細は[VLLMドキュメント](https://llmc-en.readthedocs.io/en/latest/backend/vllm.html)および[SGLangドキュメント](https://llmc-en.readthedocs.io/en/latest/backend/sglang.html)をご参照ください。
@@ -108,11 +111,11 @@ docker pull registry.cn-hangzhou.aliyuncs.com/yongyang/llmcompression:pure-lates
 
 - 💥**サポートされているフォーマット**: ✨`量子化`（整数および浮動小数点）と ✨`疎性` の両方をサポートし、具体的には ✅重量-活性化、✅重量のみ、✅混合精度量子化、および ✅構造化疎性 と ✅非構造化疎性 を含みます。
 
-- 💥**広範なモデルサポート**: 多様な ✨`LLMモデル` をサポートしており、✅LLama、✅Mistral、✅InternLM2、✅Qwen2 など、さらに ✅✅MOE(DeepSeekv2, Deepseekv2.5) モデルや ✅VLM(Llama3.2-vision, Qwen2-vl) モデルもサポートしています（[サポートされているモデルリスト](#supported-model-list)を参照してください）。
+- 💥**広範なモデルサポート**: 多様な ✨`LLMモデル` をサポートしており、✅LLama、✅Mistral、✅InternLM2、✅Qwen2 など、さらに ✅✅MOE(DeepSeekv2, Deepseek-R1) モデルや ✅VLM(Llama3.2-vision, Qwen2-vl) モデルもサポートしています（[サポートされているモデルリスト](#supported-model-list)を参照してください）。
 
 - 💥**マルチバックエンドの互換性**: 複数のバックエンドとシームレスに統合し、展開の柔軟性を強化します。さまざまな量子化設定およびモデルフォーマットが、✅VLLM、✅Sglang、✅LightLLM、✅MLC-LLM、✅AutoAWQ など、幅広いバックエンドおよびハードウェアプラットフォームと互換性があり、高い柔軟性を実現しています（`Backend`セクションは[こちら](https://llmc-en.readthedocs.io/en/latest/)をご覧ください）。
 
-- 💥**パフォーマンス効率**: ✨`Llama3.1-405B` や ✨`DeepSeekV2-236B` などの大規模LLMの量子化をサポートし、`単一の A100/H100/H800 GPU` でPPL評価を可能にします。
+- 💥**パフォーマンス効率**: ✨`Llama3.1-405B` や ✨`DeepSeek-R1-671B` などの大規模LLMの量子化をサポートし、`単一の A100/H100/H800 GPU` でPPL評価を可能にします。
 
 ## 使用方法
 
