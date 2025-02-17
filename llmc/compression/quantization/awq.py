@@ -9,12 +9,14 @@ from loguru import logger
 from llmc.utils.registry_factory import ALGO_REGISTRY
 
 from .base_blockwise_quantization import BaseBlockwiseQuantization
+
 try:
     from .fp8_kernel import weight_dequant, weight_quant
 except Exception:
     logger.warning(
         'import triton error. '
     )
+
 from .module_utils import (_LLMC_LINEAR_TYPES_, _LLMC_LN_TYPES_,
                            _TRANSFORMERS_LINEAR_TYPES_,
                            _TRANSFORMERS_LN_TYPES_, FakeQuantLinear)
