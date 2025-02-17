@@ -8,7 +8,12 @@ import torch.nn.functional as F
 from loguru import logger
 from transformers.pytorch_utils import ALL_LAYERNORM_LAYERS
 
-from .fp8_kernel import act_quant, fp8_gemm, weight_dequant, weight_quant
+try:
+    from .fp8_kernel import act_quant, fp8_gemm, weight_dequant, weight_quant
+except Exception:
+    logger.warning(
+        'import triton error. '
+    )
 
 try:
     import fast_hadamard_transform

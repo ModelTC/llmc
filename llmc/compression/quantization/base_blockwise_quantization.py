@@ -17,7 +17,14 @@ from llmc.utils.registry_factory import KV_REGISTRY
 from ..blockwise_optimization import BlockwiseOpt
 from .attn_utils import _LLMC_ATTN_MAP_
 from .auto_clip import AutoClipper
-from .fp8_kernel import weight_dequant, weight_quant
+
+try:
+    from .fp8_kernel import weight_dequant, weight_quant
+except Exception:
+    logger.warning(
+        'import triton error. '
+    )
+
 from .hadamard_utils import apply_exact_had_to_linear, get_hadK
 from .module_utils import (_LLMC_LINEAR_TYPES_, _LLMC_LN_TYPES_,
                            _REALQUANT_LINEAR_MAP_, _TRANSFORMERS_LINEAR_TYPES_,
