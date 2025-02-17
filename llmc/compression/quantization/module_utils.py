@@ -9,7 +9,7 @@ from loguru import logger
 from transformers.pytorch_utils import ALL_LAYERNORM_LAYERS
 
 try:
-    from .fp8_kernel import weight_dequant, weight_quant
+    from .fp8_kernel import act_quant, fp8_gemm, weight_dequant, weight_quant
 except Exception:
     logger.warning(
         'import triton error. '
