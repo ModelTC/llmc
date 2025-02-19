@@ -382,38 +382,6 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
         extra_modules.update(matmul_modules)
         extra_modules.update(softmax_modules)
 
-    def replace_origin_linears(self):
-        if self.ignored_speical_names:
-            assert hasattr(self.model, 'block_name_prefix'), \
-                'block_name_prefix missing in model'
-        ignored_block_ids = []
-        for item in self.ignored_block_ids:
-            match = re.match(r'(\d+)-(\d+)', str(item))
-            if match:
-                start, end = int(match.group(1)), int(match.group(2))
-                ignored_block_ids.extend(range(start, end + 1))
-            else:
-                ignored_block_ids.append(int(item))
-
-        for idx, block in enumerate(self.blocks):
-            for n, m in block.named_modules():
-                if idx in ignored_block_ids and n in self.ignored_layer_names:
-                    subset = {'layers': {n: m}}
-                else:
-                    layer_name = f'{self.model.block_name_prefix}.{idx}.{n}'
-                    if layer_name in self.ignored_speical_names:
-                        subset = {'layers': {n: m}}
-                    else:
-                        continue
-                self.model.replace_module_subset(
-                    OriginFloatLinear,
-                    block,
-                    subset,
-                    None,
-                    {},
-                )
-        logger.info(f' The Replaced model: {self.model}')
-
     @torch.no_grad()
     def collect_block_qparams(self, block):
         named_linears = self.model.get_block_linears(block)
@@ -956,6 +924,28 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
             if getattr(m, 'calib', None) is not None:
                 m.calib = mode
 
+    def set_no_quant_layer(self):
+        if self.ignored_speical_names:
+            assert hasattr(self.model, 'block_name_prefix'), \
+                'block_name_prefix missing in model'
+        ignored_block_ids = []
+        for item in self.ignored_block_ids:
+            match = re.match(r'(\d+)-(\d+)', str(item))
+            if match:
+                start, end = int(match.group(1)), int(match.group(2))
+                ignored_block_ids.extend(range(start, end + 1))
+            else:
+                ignored_block_ids.append(int(item))
+
+        for idx, block in enumerate(self.blocks):
+            for n, m in block.named_modules():
+                if idx in ignored_block_ids and n in self.ignored_layer_names:
+                    m.register_buffer('no_quant', torch.tensor(True))
+                else:
+                    layer_name = f'{self.model.block_name_prefix}.{idx}.{n}'
+                    if layer_name in self.ignored_speical_names:
+                        m.register_buffer('no_quant', torch.tensor(True))
+
     @torch.no_grad()
     def deploy(self, quant_format, keep_device=False):
         logger.info(f'-- deploy_{quant_format}_model start --')
@@ -972,6 +962,8 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
             raise NotImplementedError(
                 f"Quant format '{quant_format}' is not implemented."
             )
+        if self.mixed_precision and 'quant' in quant_format:
+            self.set_no_quant_layer()
 
         module = module_mapping[quant_format]
         if self.modality == 'vision':
@@ -1000,9 +992,6 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
 
         if self.model.mm_model is not None:
             logger.info(f'Now, the mm_model is: {self.model.mm_model}')
-
-        if self.mixed_precision:
-            self.replace_origin_linears()
 
         logger.info(f'-- deploy_{quant_format}_model done --')
 

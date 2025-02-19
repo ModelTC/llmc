@@ -436,6 +436,8 @@ class BaseModel(metaclass=ABCMeta):
             layers_dict = subset['layers']
 
         for name, m in layers_dict.items():
+            if hasattr(m, 'no_quant') and m.no_quant is True:
+                continue
             # mix bits
             params_tmp_dict = {}
             if 'mix_bits' in params_dict and params_dict['mix_bits']:
