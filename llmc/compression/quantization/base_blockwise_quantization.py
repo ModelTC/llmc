@@ -924,7 +924,7 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
             if getattr(m, 'calib', None) is not None:
                 m.calib = mode
 
-    def set_no_quant_linear(self):
+    def set_no_quant_layer(self):
         if self.ignored_speical_names:
             assert hasattr(self.model, 'block_name_prefix'), \
                 'block_name_prefix missing in model'
@@ -963,7 +963,7 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
                 f"Quant format '{quant_format}' is not implemented."
             )
         if self.mixed_precision and 'quant' in quant_format:
-            self.set_no_quant_linear()
+            self.set_no_quant_layer()
 
         module = module_mapping[quant_format]
         if self.modality == 'vision':
