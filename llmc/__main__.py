@@ -29,13 +29,12 @@ def main(config):
     logger.info(f'model: {model}')
     logger.info(f'tokenizer: {model.get_tokenizer()}')
 
-    eval_list = get_eval_list(model, config)
-    eval_model(model, None, eval_list, eval_pos='pretrain')
-
     blockwise_opts = []
     modalities, modality_configs = get_modality(config)
     for modality, modality_config in zip(modalities, modality_configs):
         model.set_modality(modality)
+        eval_list = get_eval_list(model, config)
+        eval_model(model, None, eval_list, eval_pos='pretrain')
         if not config.get('calib', False):
             blockwise_opt = ALGO_REGISTRY[modality_config.method](
                 model,
