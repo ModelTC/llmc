@@ -5,6 +5,41 @@ from transformers.models.llama.modeling_llama import (apply_rotary_pos_emb,
                                                       repeat_kv)
 
 
+def _update_causal_mask(causal_mask, attention_mask, input_tensor, past_seen_tokens):
+
+    batch_size, seq_length = input_tensor.shape[:2]
+    dtype = input_tensor.dtype
+    device = input_tensor.device
+
+    # We use the current dtype to avoid any overflows
+    min_dtype = torch.finfo(dtype).min
+    causal_mask = causal_mask[None, None, :, :].to(dtype=dtype, device=device) * min_dtype
+    causal_mask = causal_mask.expand(batch_size, 1, -1, -1)
+    if attention_mask is not None:
+        causal_mask = causal_mask.clone()  # copy to contiguous memory for in-place edit
+        if attention_mask.dim() == 2:
+            mask_length = attention_mask.shape[-1]
+            padding_mask = causal_mask[..., :mask_length].eq(0.0)\
+                * attention_mask[:, None, None, :].eq(0.0)
+            causal_mask[..., :mask_length] = \
+                causal_mask[..., :mask_length].masked_fill(padding_mask, min_dtype)
+        elif attention_mask.dim() == 4:
+            # backwards compatibility: we allow passing a
+            # 4D attention mask shorter than the input length with
+            # cache. In that case, the 4D attention mask attends to the newest tokens only.
+            if attention_mask.shape[-2] < past_seen_tokens + input_tensor.shape[1]:
+                offset = past_seen_tokens
+            else:
+                offset = 0
+            mask_shape = attention_mask.shape
+            mask_slice = (attention_mask.eq(0.0)).to(dtype=dtype) * min_dtype
+            causal_mask[
+                : mask_shape[0], : mask_shape[1],
+                offset: mask_shape[2] + offset, : mask_shape[3]] = mask_slice
+
+    return causal_mask
+
+
 def eager_attention_forward(
     module,
     query,
