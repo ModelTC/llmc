@@ -40,6 +40,10 @@ class Llava(Llama):
         self.vision_projector = self.vlm_model.multi_modal_projector
         self.model = self.vlm_model.language_model
         self.model_config = self.vlm_model_config.text_config
+        self.pruning_config = {
+            'image_token_start_index': 5,
+            'image_token_length': 576
+        }
 
         self.processor = AutoProcessor.from_pretrained(self.model_path)
 
@@ -176,7 +180,7 @@ class LlavaHfEval(LlavaHf):
         attn_implementation: Optional[str] = None,
         device_map: str = '',
         chat_template: Optional[str] = None,
-        use_cache: bool = True,
+        use_cache: bool = False,
         max_frames_num: Optional[int] = 32,
         **kwargs,
     ) -> None:

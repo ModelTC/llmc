@@ -38,7 +38,7 @@ def main(config):
         if not config.get('calib', False):
             blockwise_opt = ALGO_REGISTRY[modality_config.method](
                 model,
-                quant_config=modality_config,
+                modality_config,
                 input=None,
                 padding_mask=None,
                 config=config,
