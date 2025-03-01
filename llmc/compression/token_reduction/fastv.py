@@ -2,22 +2,21 @@ import functools
 
 import torch
 
-from llmc.utils.registry_factory import ALGO_REGISTRY
+from llmc.compression.sparsification.attn_utils import _update_causal_mask
+from llmc.utils.registry_factory import TOKEN_REDUCTION_REGISTRY
 
-from ..blockwise_optimization import BlockwiseOpt
-from .attn_utils import _update_causal_mask
-from .base_blockwise_sparsification import BaseBlockwiseSparsification
+from .token_reduction_module import TokenReductionModule
 
 
-@ALGO_REGISTRY
-class FastV(BaseBlockwiseSparsification):
-    def __init__(self, model, sparsity_config, input, padding_mask, config):
-        BlockwiseOpt.__init__(self, model, sparsity_config, input, padding_mask, config)
+@TOKEN_REDUCTION_REGISTRY.register('FastV')
+class FastV(TokenReductionModule):
+    def __init__(self, config, model, blocks):
+        super().__init__(config, model, blocks)
         self.add_sparse_config()
-        self.register_hooks()
+        self.register_reduction_modules()
 
     def add_sparse_config(self):
-        special_config = self.sparsity_config.get('special', {})
+        special_config = self.config.get('special', {})
         self.pruning_loc = special_config['pruning_loc']
         special_config['image_token_start_index'] = \
             self.model.pruning_config['image_token_start_index']
@@ -27,11 +26,7 @@ class FastV(BaseBlockwiseSparsification):
 
         self.model.model.parameters = special_config
 
-    @torch.no_grad()
-    def block_opt(self, block, *opt_kwargs):
-        pass
-
-    def register_hooks(self):
+    def register_reduction_modules(self):
 
         def update_output_attentions_hook(module, args, kwargs):
             kwargs['output_attentions'] = True

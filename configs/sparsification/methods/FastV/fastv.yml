@@ -13,8 +13,9 @@ eval:
     bs: 1
     inference_per_block: False
 sparse:
-    method: FastV
+    method: TokenReduction
     special:
+        method: FastV
         pruning_loc: 3
         rate: 0.5
 save:
