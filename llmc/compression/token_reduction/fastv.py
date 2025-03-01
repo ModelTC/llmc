@@ -5,11 +5,11 @@ import torch
 from llmc.compression.sparsification.attn_utils import _update_causal_mask
 from llmc.utils.registry_factory import TOKEN_REDUCTION_REGISTRY
 
-from .base_token_reduction import BaseTokenReduction
+from .token_reduction_module import TokenReductionModule
 
 
 @TOKEN_REDUCTION_REGISTRY.register('FastV')
-class FastV(BaseTokenReduction):
+class FastV(TokenReductionModule):
     def __init__(self, config, model, blocks):
         super().__init__(config, model, blocks)
         self.add_sparse_config()
