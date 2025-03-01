@@ -12,7 +12,7 @@ import torch.distributed as dist
 import torch.nn as nn
 from loguru import logger
 
-from llmc.utils.registry_factory import KV_REGISTRY
+from llmc.utils.registry_factory import KV_REGISTRY, TOKEN_REDUCTION_REGISTRY
 
 from ..blockwise_optimization import BlockwiseOpt
 from .attn_utils import _LLMC_ATTN_MAP_
@@ -312,6 +312,14 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
         self.set_model_config()
         self.modality = self.quant_config.modality
         logger.info(f'self.quant_objects : {self.quant_config.modality}')
+
+        # set token reduction config
+        if 'token_reduction' in self.quant_config:
+            token_reduction_cfg = self.quant_config['token_reduction']
+            TOKEN_REDUCTION_REGISTRY[self.quant_config['token_reduction']['method']](
+                token_reduction_cfg, self.model, self.blocks
+            )
+
         self.do_gqa_trans = special_config.get('do_gqa_trans', False)
         logger.info(f'self.do_gqa_trans : {self.do_gqa_trans}')
 

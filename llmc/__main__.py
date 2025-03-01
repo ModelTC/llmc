@@ -14,6 +14,7 @@ from torch.distributed import destroy_process_group, init_process_group
 
 from llmc.compression.quantization import *
 from llmc.compression.sparsification import *
+from llmc.compression.token_reduction import *
 from llmc.data import BaseDataset
 from llmc.eval.utils import eval_model, get_eval_list
 from llmc.models import *

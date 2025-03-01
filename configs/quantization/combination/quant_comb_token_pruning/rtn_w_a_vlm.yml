@@ -1,0 +1,45 @@
+base:
+    seed: &seed 42
+model:
+    type: model_type
+    path: model path
+    torch_dtype: auto
+eval:
+    eval_pos: [pretrain, fake_quant]
+    type: vqa
+    name: mme
+    download: False
+    path: MME dataset path
+    bs: 1
+    inference_per_block: False
+quant:
+    vision:
+        method: RTN
+        weight:
+            bit: 8
+            symmetric: True
+            granularity: per_channel
+            group_size: -1
+        act:
+            bit: 8
+            symmetric: True
+            granularity: per_token
+    language:
+        method: RTN
+        weight:
+            bit: 8
+            symmetric: True
+            granularity: per_channel
+            group_size: -1
+        act:
+            bit: 8
+            symmetric: True
+            granularity: per_token
+        token_reduction:
+            method: FastV
+            special:
+                pruning_loc: 3
+                rate: 0.5
+save:
+    save_fake: False
+    save_path: /path/to/save/
