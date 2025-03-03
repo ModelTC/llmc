@@ -11,8 +11,11 @@ from llmc.utils.registry_factory import ALGO_REGISTRY
 from .base_blockwise_quantization import BaseBlockwiseQuantization
 
 try:
-    from .fp8_kernel import weight_dequant, weight_quant
-except Exception:
+    from .fp8_kernel import weight_cast_to_bf16, weight_cast_to_fp8
+    logger.info(
+        'import triton successful. '
+    )
+except ImportError:
     logger.warning(
         'import triton error. '
     )
@@ -144,7 +147,7 @@ class Awq(BaseBlockwiseQuantization):
     def fake_quantize_weight(self, fc, scales, is_gqa, layer_name):
         if fc.weight.data.dtype == torch.float8_e4m3fn:
             fp8_scale = fc.weight_scale_inv.data
-            tmp_weight_data = weight_dequant(fc.weight.data, fp8_scale).to(torch.bfloat16)
+            tmp_weight_data = weight_cast_to_bf16(fc.weight.data, fp8_scale).to(torch.bfloat16)
             tmp_fp8_scale = self.scaling_fp8_scale(fp8_scale, scales, is_pre_layer=False)
         else:
             tmp_weight_data = fc.weight.data
@@ -159,7 +162,7 @@ class Awq(BaseBlockwiseQuantization):
         ).fake_quant_weight_dynamic(tmp_weight_data)
 
         if fc.weight.data.dtype == torch.float8_e4m3fn:
-            fc.weight.data = weight_quant(tmp_weight_data, tmp_fp8_scale)
+            fc.weight.data = weight_cast_to_fp8(tmp_weight_data, tmp_fp8_scale)
             fc.weight_scale_inv.data = tmp_fp8_scale
         else:
             fc.weight.data = tmp_weight_data

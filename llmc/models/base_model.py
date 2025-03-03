@@ -403,16 +403,14 @@ class BaseModel(metaclass=ABCMeta):
     def replace_language_module_all(self, module, params_dict, keep_device=False):
         for block_idx in range(len(self.blocks)):
             logger.info(f'Replace block index: {block_idx}/{len(self.blocks)}')
-            block = self.blocks[block_idx]
             if keep_device:
-                self.replace_module_block(module, block, block_idx, params_dict)
+                self.replace_module_block(module, self.blocks[block_idx], block_idx, params_dict)
             else:
-                block = block.cuda()
-                self.replace_module_block(module, block, block_idx, params_dict)
-                block = block.cpu()
-
-        gc.collect()
-        torch.cuda.empty_cache()
+                self.blocks[block_idx].cuda()
+                self.replace_module_block(module, self.blocks[block_idx], block_idx, params_dict)
+                self.blocks[block_idx].cpu()
+            gc.collect()
+            torch.cuda.empty_cache()
         logger.info(f'The Replaced model: {self.model}')
 
     def replace_module_block(self, module, block, block_idx, params_dict):
@@ -422,9 +420,11 @@ class BaseModel(metaclass=ABCMeta):
                 module, block, layer_norms, block_idx, params_dict
             )
         else:
-            subset = {}
-            subset['layers'] = self.get_block_linears(block)
-            self.replace_module_subset(module, block, subset, block_idx, params_dict)
+            self.replace_module_subset(module,
+                                       block,
+                                       {'layers': self.get_block_linears(block)},
+                                       block_idx,
+                                       params_dict)
 
     def replace_module_subset(self, module, block, subset, block_idx, params_dict):
         if module in _LLMC_LINEAR_TYPES_ + _TRANSFORMERS_LINEAR_TYPES_:
@@ -459,7 +459,13 @@ class BaseModel(metaclass=ABCMeta):
                 child_name = name_tmp[0]
 
             setattr(parent, child_name, M)
+            del M
+
             logger.info(f'replace >>> {name} in {block_idx}-th block')
+
+        del layers_dict
+        gc.collect()
+        torch.cuda.empty_cache()
 
     def replace_module_layernorm(self, module, block, lns, i, params_dict):
         for name, m in lns.items():

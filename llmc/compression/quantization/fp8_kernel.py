@@ -58,7 +58,7 @@ def act_quant(
 
 
 @triton.jit
-def weight_quant_kernel(x_ptr, s_ptr, y_ptr, M, N, BLOCK_SIZE: tl.constexpr):
+def weight_cast_to_fp8_kernel(x_ptr, s_ptr, y_ptr, M, N, BLOCK_SIZE: tl.constexpr):
     """Quantizes weights using the provided scaling factors and stores the
     result.
 
@@ -88,7 +88,7 @@ def weight_quant_kernel(x_ptr, s_ptr, y_ptr, M, N, BLOCK_SIZE: tl.constexpr):
     tl.store(y_ptr + offs, y, mask=mask)
 
 
-def weight_quant(
+def weight_cast_to_fp8(
     x: torch.Tensor, s: torch.Tensor, block_size: int = 128
 ) -> torch.Tensor:
     """Quantizes the given weight tensor using the provided scale tensor.
@@ -114,12 +114,12 @@ def weight_quant(
         triton.cdiv(M, meta['BLOCK_SIZE']),
         triton.cdiv(N, meta['BLOCK_SIZE']),
     )
-    weight_quant_kernel[grid](x, s, y, M, N, BLOCK_SIZE=block_size)
+    weight_cast_to_fp8_kernel[grid](x, s, y, M, N, BLOCK_SIZE=block_size)
     return y
 
 
 @triton.jit
-def weight_dequant_kernel(x_ptr, s_ptr, y_ptr, M, N, BLOCK_SIZE: tl.constexpr):
+def weight_cast_to_bf16_kernel(x_ptr, s_ptr, y_ptr, M, N, BLOCK_SIZE: tl.constexpr):
     """Dequantizes weights using the provided scaling factors and stores the
     result.
 
@@ -147,7 +147,7 @@ def weight_dequant_kernel(x_ptr, s_ptr, y_ptr, M, N, BLOCK_SIZE: tl.constexpr):
     tl.store(y_ptr + offs, y, mask=mask)
 
 
-def weight_dequant(
+def weight_cast_to_bf16(
     x: torch.Tensor, s: torch.Tensor, block_size: int = 128
 ) -> torch.Tensor:
     """Dequantizes the given weight tensor using the provided scale tensor.
@@ -171,7 +171,7 @@ def weight_dequant(
         triton.cdiv(M, meta['BLOCK_SIZE']),
         triton.cdiv(N, meta['BLOCK_SIZE']),
     )
-    weight_dequant_kernel[grid](x, s, y, M, N, BLOCK_SIZE=block_size)
+    weight_cast_to_bf16_kernel[grid](x, s, y, M, N, BLOCK_SIZE=block_size)
     return y
 
 

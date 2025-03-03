@@ -1,3 +1,5 @@
+import gc
+
 import torch
 from loguru import logger
 
@@ -9,6 +11,17 @@ except Exception:
         'Please install qtorch (pip install qtorch).'
     )
     float_quantize = None
+
+def weight_cast_to_bf16(weight, scale):
+    quantizer = FloatQuantizer(
+        bit='e4m3',
+        symmetric=True,
+        granularity='per_block',
+        block_size=128,
+        use_qtorch=True,
+    )
+    return quantizer.block_dequant(weight.float(), scale.float()).to(torch.bfloat16)
+
 
 class BaseQuantizer(object):
     def __init__(self, bit, symmetric, granularity, **kwargs):
@@ -23,6 +36,9 @@ class BaseQuantizer(object):
             self.group_size = self.kwargs['group_size']
         elif self.granularity == 'per_head':
             self.head_num = self.kwargs['head_num']
+        elif self.granularity == 'per_block':
+            assert self.calib_algo == 'minmax' and self.sym
+            self.block_size = self.kwargs['block_size']
 
         if self.kwargs.get('ste', False):
             self.round_func = lambda x: (x.round() - x).detach() + x
@@ -97,6 +113,13 @@ class BaseQuantizer(object):
         if self.granularity == 'per_tensor':
             max_val = torch.max(tensor)
             min_val = torch.min(tensor)
+        elif self.granularity == 'per_block':
+            N, M = tensor.shape
+            unfolded_tensor = tensor.unfold(0, self.block_size, self.block_size).unfold(
+                1, self.block_size, self.block_size
+            )
+            max_val = unfolded_tensor.float().max(dim=2)[0].max(dim=2)[0]
+            min_val = unfolded_tensor.float().min(dim=2)[0].min(dim=2)[0]
         else:
             max_val = tensor.amax(dim=-1, keepdim=True)
             min_val = tensor.amin(dim=-1, keepdim=True)
@@ -115,10 +138,10 @@ class BaseQuantizer(object):
         dev = tensor.device
 
         for b_num in range(self.mse_b_num):
-            _tensor = tensor[b_num * bs:(b_num + 1) * bs, :]
+            _tensor = tensor[b_num * bs : (b_num + 1) * bs, :]
             _min_val, _max_val = (
-                min_val[b_num * bs:(b_num + 1) * bs, :],
-                max_val[b_num * bs:(b_num + 1) * bs, :],
+                min_val[b_num * bs : (b_num + 1) * bs, :],
+                max_val[b_num * bs : (b_num + 1) * bs, :],
             )
 
             best = torch.full([_tensor.shape[0]], float('inf'), device=dev)
@@ -157,8 +180,8 @@ class BaseQuantizer(object):
                     best_max_val[tmp] = xmax[tmp]
 
             (
-                min_val[b_num * bs:(b_num + 1) * bs, :],
-                max_val[b_num * bs:(b_num + 1) * bs, :],
+                min_val[b_num * bs : (b_num + 1) * bs, :],
+                max_val[b_num * bs : (b_num + 1) * bs, :],
             ) = (best_min_val, best_max_val)
 
         return (min_val, max_val)
@@ -239,7 +262,9 @@ class BaseQuantizer(object):
         ) / 3
         return density * norm
 
-    def get_quantization_error(self, histogram, min_val, max_val, next_start_bin, next_end_bin):
+    def get_quantization_error(
+        self, histogram, min_val, max_val, next_start_bin, next_end_bin
+    ):
         r"""
         Compute the quantization error if we use start_bin to end_bin as the
         min and max to do the quantization.
@@ -341,10 +366,9 @@ class BaseQuantizer(object):
         if orig_min == orig_max:
             bin_value = torch.sum(update_hist)
             transformed_orig_hist = (
-                torch.histc(orig_min,
-                            bins=self.bins,
-                            min=update_min,
-                            max=update_max)  # type: ignore[arg-type]
+                torch.histc(
+                    orig_min, bins=self.bins, min=update_min, max=update_max
+                )  # type: ignore[arg-type]
                 * bin_value
             )
             return transformed_orig_hist + update_hist
@@ -409,11 +433,9 @@ class BaseQuantizer(object):
                 continue
 
             # calculate the quantization error using next_start_bin and next_end_bin
-            norm = self.get_quantization_error(histogram,
-                                               min_val,
-                                               max_val,
-                                               next_start_bin,
-                                               next_end_bin)
+            norm = self.get_quantization_error(
+                histogram, min_val, max_val, next_start_bin, next_end_bin
+            )
 
             if norm > norm_min:
                 break
@@ -481,9 +503,7 @@ class BaseQuantizer(object):
         for i in range(len(histograms)):
             histogram = histograms[i]
             min_val, max_val = min_vals[i], max_vals[i]
-            new_min, new_max = self.get_hist_threshold(
-                histogram, min_val, max_val
-            )
+            new_min, new_max = self.get_hist_threshold(histogram, min_val, max_val)
             new_min_vals.append(new_min)
             new_max_vals.append(new_max)
 
@@ -615,6 +635,45 @@ class BaseQuantizer(object):
                 t = tensor.reshape(*shape[:-1], -1)[..., :-deficiency]
         return t
 
+    def block_quant(self, tensor, scales):
+        N, M = tensor.shape
+        unfolded_tensor = tensor.unfold(0, self.block_size, self.block_size).unfold(
+            1, self.block_size, self.block_size
+        )
+        num_blocks_x, num_blocks_y = unfolded_tensor.shape[:2]
+        quantized_tensor = torch.zeros_like(tensor)
+        for i in range(num_blocks_x):
+            for j in range(num_blocks_y):
+                block = unfolded_tensor[i, j, :, :]
+                block_scale = scales[i, j]
+                quantized_block = torch.clip(
+                    block / block_scale, self.qmin.cuda(), self.qmax.cuda()
+                )
+                quantized_tensor[
+                    i * self.block_size : (i + 1) * self.block_size,
+                    j * self.block_size : (j + 1) * self.block_size,
+                ] = quantized_block
+
+        return quantized_tensor
+
+    def block_dequant(self, quantized_tensor, scales):
+        N, M = quantized_tensor.shape
+        unfolded_tensor = quantized_tensor.unfold(
+            0, self.block_size, self.block_size
+        ).unfold(1, self.block_size, self.block_size)
+        num_blocks_x, num_blocks_y = unfolded_tensor.shape[:2]
+        dequantized_tensor = torch.zeros_like(quantized_tensor)
+        for i in range(num_blocks_x):
+            for j in range(num_blocks_y):
+                block = unfolded_tensor[i, j, :, :]
+                block_scale = scales[i, j]
+                dequantized_block = block * block_scale
+                dequantized_tensor[
+                    i * self.block_size : (i + 1) * self.block_size,
+                    j * self.block_size : (j + 1) * self.block_size,
+                ] = dequantized_block
+        return dequantized_tensor
+
 
 class IntegerQuantizer(BaseQuantizer):
     def __init__(self, bit, symmetric, granularity, **kwargs):
@@ -670,8 +729,17 @@ class IntegerQuantizer(BaseQuantizer):
         return tensor
 
     def quant_dequant(self, tensor, scales, zeros, qmax, qmin, output_scale_factor=1):
-        tensor = self.quant(tensor, scales, zeros, qmax, qmin)
-        tensor = self.dequant(tensor, scales * output_scale_factor, zeros)
+        if self.granularity == 'per_block':
+            tensor = self.block_quant(tensor, scales)
+            tensor = torch.clamp(
+                self.round_func(tensor),
+                qmin,
+                qmax,
+            )
+            tensor = self.block_dequant(tensor, scales * output_scale_factor)
+        else:
+            tensor = self.quant(tensor, scales, zeros, qmax, qmin)
+            tensor = self.dequant(tensor, scales * output_scale_factor, zeros)
         return tensor
 
     def fake_quant_act_static(self, act, args={}):
@@ -840,7 +908,15 @@ class IntegerQuantizer(BaseQuantizer):
             args['qmin'],
         )
         weight = self.reshape_tensor(weight)
-        weight = self.quant(weight, scales, zeros, qmax, qmin)
+        if self.granularity == 'per_block':
+            weight = self.block_quant(weight, scales)
+            weight = torch.clamp(
+                self.round_func(weight),
+                qmin,
+                qmax,
+            )
+        else:
+            weight = self.quant(weight, scales, zeros, qmax, qmin)
         weight = self.restore_tensor(weight, org_w_shape)
 
         scales = scales * output_scale_factor
@@ -860,6 +936,8 @@ class IntegerQuantizer(BaseQuantizer):
 
         if self.granularity == 'per_tensor':
             qparams_shape = 1
+        elif self.granularity == 'per_block':
+            qparams_shape = scales.shape
         else:
             qparams_shape = (weight.shape[0], -1)
 
@@ -877,7 +955,15 @@ class IntegerQuantizer(BaseQuantizer):
         else:
             output_scale_factor = 1
         weight, scales, zeros, qmax, qmin = self.get_tensor_qparams(weight, args)
-        weight = self.quant(weight, scales, zeros, qmax, qmin)
+        if self.granularity == 'per_block':
+            weight = self.block_quant(weight, scales)
+            weight = torch.clamp(
+                self.round_func(weight),
+                qmin,
+                qmax,
+            )
+        else:
+            weight = self.quant(weight, scales, zeros, qmax, qmin)
         weight = self.restore_tensor(weight, org_w_shape)
 
         scales = scales * output_scale_factor
@@ -897,6 +983,8 @@ class IntegerQuantizer(BaseQuantizer):
 
         if self.granularity == 'per_tensor':
             qparams_shape = 1
+        elif self.granularity == 'per_block':
+            qparams_shape = scales.shape
         else:
             qparams_shape = (weight.shape[0], -1)
 
@@ -927,7 +1015,9 @@ class FloatQuantizer(BaseQuantizer):
         self.dst_nbins = 2**self.num_bits
         self.use_qtorch = self.kwargs.get('use_qtorch')
         if self.use_qtorch:
-            assert float_quantize is not None, 'Please install qtorch (pip install qtorch). Or set use_qtorch=False'
+            assert (
+                float_quantize is not None
+            ), 'Please install qtorch (pip install qtorch). Or set use_qtorch=False'
             if 'float_range' in self.kwargs:
                 self.qmin, self.qmax = self.kwargs['float_range']
             else:
@@ -1028,8 +1118,12 @@ class FloatQuantizer(BaseQuantizer):
         return tensor
 
     def quant_dequant(self, tensor, scales, zeros, qmax, qmin):
-        tensor = self.quant(tensor, scales, zeros, qmax, qmin)
-        tensor = self.dequant(tensor, scales, zeros)
+        if self.granularity == 'per_block':
+            tensor = self.block_quant(tensor, scales)
+            tensor = self.block_dequant(tensor, scales)
+        else:
+            tensor = self.quant(tensor, scales, zeros, qmax, qmin)
+            tensor = self.dequant(tensor, scales, zeros)
         return tensor
 
     def fake_quant_act_static(self, act, args={}):
@@ -1127,7 +1221,15 @@ class FloatQuantizer(BaseQuantizer):
             args['qmin'],
         )
         weight = self.reshape_tensor(weight)
-        weight = self.quant(weight, scales, zeros, qmax, qmin)
+        if self.granularity == 'per_block':
+            weight = self.block_quant(weight, scales)
+            weight = torch.clamp(
+                self.round_func(weight),
+                qmin,
+                qmax,
+            )
+        else:
+            weight = self.quant(weight, scales, zeros, qmax, qmin)
         weight = self.restore_tensor(weight, org_w_shape)
 
         scales = scales * output_scale_factor
@@ -1136,6 +1238,8 @@ class FloatQuantizer(BaseQuantizer):
         zeros = None
         if self.granularity == 'per_tensor':
             qparams_shape = 1
+        elif self.granularity == 'per_block':
+            qparams_shape = scales.shape
         else:
             qparams_shape = (weight.shape[0], -1)
 
@@ -1153,7 +1257,15 @@ class FloatQuantizer(BaseQuantizer):
         else:
             output_scale_factor = 1
         weight, scales, zeros, qmax, qmin = self.get_tensor_qparams(weight, args)
-        weight = self.quant(weight, scales, zeros, qmax, qmin)
+        if self.granularity == 'per_block':
+            weight = self.block_quant(weight, scales)
+            weight = torch.clamp(
+                self.round_func(weight),
+                qmin,
+                qmax,
+            )
+        else:
+            weight = self.quant(weight, scales, zeros, qmax, qmin)
         weight = self.restore_tensor(weight, org_w_shape)
 
         scales = scales * output_scale_factor
@@ -1162,6 +1274,8 @@ class FloatQuantizer(BaseQuantizer):
         zeros = None
         if self.granularity == 'per_tensor':
             qparams_shape = 1
+        elif self.granularity == 'per_block':
+            qparams_shape = scales.shape
         else:
             qparams_shape = (weight.shape[0], -1)
 
@@ -1196,26 +1310,42 @@ class Weight48IntegerQuantizer(BaseQuantizer):
                     self.bit_settings[bit]['qmax'] = 2 ** (bit - 1) - 1
                 else:
                     self.bit_settings[bit]['qmin'] = 0
-                    self.bit_settings[bit]['qmax'] = 2 ** bit - 1
-            self.bit_settings[bit]['qmin'] = torch.tensor(self.bit_settings[bit]['qmin'])
-            self.bit_settings[bit]['qmax'] = torch.tensor(self.bit_settings[bit]['qmax'])
+                    self.bit_settings[bit]['qmax'] = 2**bit - 1
+            self.bit_settings[bit]['qmin'] = torch.tensor(
+                self.bit_settings[bit]['qmin']
+            )
+            self.bit_settings[bit]['qmax'] = torch.tensor(
+                self.bit_settings[bit]['qmax']
+            )
             if 'scales_bit' in self.bit_settings[bit]:
                 if self.bit_settings[bit]['scales_symmetric']:
-                    self.bit_settings[bit]['scales_qmin'] = -(2 ** (self.bit_settings[bit]['scales_bit'] - 1))
-                    self.bit_settings[bit]['scales_qmax'] = 2 ** (self.bit_settings[bit]['scales_bit'] - 1) - 1
+                    self.bit_settings[bit]['scales_qmin'] = -(
+                        2 ** (self.bit_settings[bit]['scales_bit'] - 1)
+                    )
+                    self.bit_settings[bit]['scales_qmax'] = (
+                        2 ** (self.bit_settings[bit]['scales_bit'] - 1) - 1
+                    )
                 else:
                     self.bit_settings[bit]['scales_qmin'] = 0
-                    self.bit_settings[bit]['scales_qmax'] = 2 ** self.bit_settings[bit]['scales_bit'] - 1
+                    self.bit_settings[bit]['scales_qmax'] = (
+                        2 ** self.bit_settings[bit]['scales_bit'] - 1
+                    )
             else:
                 self.bit_settings[bit]['scales_qmin'] = -torch.inf
                 self.bit_settings[bit]['scales_qmax'] = torch.inf
             if 'zeros_bit' in self.bit_settings[bit]:
                 if self.bit_settings[bit]['zeros_symmetric']:
-                    self.bit_settings[bit]['zeros_qmin'] = -(2 ** (self.bit_settings[bit]['scales_bit'] - 1))
-                    self.bit_settings[bit]['zeros_qmax'] = 2 ** (self.bit_settings[bit]['scales_bit'] - 1) - 1
+                    self.bit_settings[bit]['zeros_qmin'] = -(
+                        2 ** (self.bit_settings[bit]['scales_bit'] - 1)
+                    )
+                    self.bit_settings[bit]['zeros_qmax'] = (
+                        2 ** (self.bit_settings[bit]['scales_bit'] - 1) - 1
+                    )
                 else:
                     self.bit_settings[bit]['zeros_qmin'] = 0
-                    self.bit_settings[bit]['zeros_qmax'] = 2 ** self.bit_settings[bit]['scales_bit'] - 1
+                    self.bit_settings[bit]['zeros_qmax'] = (
+                        2 ** self.bit_settings[bit]['scales_bit'] - 1
+                    )
             else:
                 self.bit_settings[bit]['zeros_qmin'] = self.bit_settings[bit]['qmin']
                 self.bit_settings[bit]['zeros_qmax'] = self.bit_settings[bit]['qmax']
@@ -1247,9 +1377,13 @@ class Weight48IntegerQuantizer(BaseQuantizer):
             zeros = torch.tensor(0.0)
         else:
             scales = (max_val - min_val).clamp(min=1e-5) / (qmax - qmin)
-            zeros = (qmin - torch.round(min_val / scales))
-        scales = scales.clamp(self.bit_settings[bit]['scales_qmin'], self.bit_settings[bit]['scales_qmax'])
-        zeros = zeros.clamp(self.bit_settings[bit]['zeros_qmin'], self.bit_settings[bit]['zeros_qmax'])
+            zeros = qmin - torch.round(min_val / scales)
+        scales = scales.clamp(
+            self.bit_settings[bit]['scales_qmin'], self.bit_settings[bit]['scales_qmax']
+        )
+        zeros = zeros.clamp(
+            self.bit_settings[bit]['zeros_qmin'], self.bit_settings[bit]['zeros_qmax']
+        )
         return scales, zeros, qmax, qmin
 
     def quant(self, tensor, scales, zeros, qmax, qmin):
@@ -1271,7 +1405,9 @@ class Weight48IntegerQuantizer(BaseQuantizer):
         org_dtype16 = weight.dtype
         weight = self.reshape_tensor(weight, bit=8)
         weight_range = self.get_tensor_range(weight)
-        scales816, zeros816, qmax816, qmin816 = self.get_qparams(weight_range, weight.device, bit=8)
+        scales816, zeros816, qmax816, qmin816 = self.get_qparams(
+            weight_range, weight.device, bit=8
+        )
         weight = self.quant(weight, scales816, zeros816, qmax816, qmin816)
 
         # step 2: quantize to 4-bit
@@ -1279,7 +1415,9 @@ class Weight48IntegerQuantizer(BaseQuantizer):
         org_dtype8 = weight.dtype
         weight = self.reshape_tensor(weight, bit=4)
         weight_range = self.get_tensor_range(weight)
-        scales48, zeros48, qmax48, qmin48 = self.get_qparams(weight_range, weight.device, bit=4)
+        scales48, zeros48, qmax48, qmin48 = self.get_qparams(
+            weight_range, weight.device, bit=4
+        )
         weight = self.quant(weight, scales48, zeros48, qmax48, qmin48)
 
         # step 3: dequantize to 8-bit
@@ -1294,55 +1432,19 @@ class Weight48IntegerQuantizer(BaseQuantizer):
 
 
 if __name__ == '__main__':
-    def test_Weight48IntegerQuantizer():
-        torch.manual_seed(0)
-        torch.cuda.manual_seed(0)
+    from fp8_kernel import weight_cast_to_bf16 as weight_cast
+    from safetensors.torch import load_file
 
-        weight = torch.randn(4096, 8192).cuda()
-        print(weight)
+    # Load the model weights from the safetensors file
+    model_path = '/R1_path/model-00001-of-000163.safetensors'
+    data = load_file(model_path)
+    weight = data['model.layers.1.mlp.down_proj.weight'].cuda()
+    scales = data['model.layers.1.mlp.down_proj.weight_scale_inv'].cuda()
 
-        '''
-            weight:
-            bit: 48
-            bit4:
-                symmetric: False
-                granularity: per_group
-                group_size: 128
-                scales_bit: 8
-                scales_symmetric: True
-                zeros_bit: 8
-                zeros_symmetric: True
-            bit8:
-                symmetric: True
-                granularity: per_channel
-                int_range: [-120, 120]
-        '''
-        cfg = {
-            'bit': 48,
-            'bit4': {
-                'symmetric': False,
-                'granularity': 'per_group',
-                'group_size': 128,
-                'scales_bit': 8,
-                'scales_symmetric': True,
-                'zeros_bit': 8,
-                'zeros_symmetric': True
-            },
-            'bit8': {
-                'symmetric': True,
-                'granularity': 'per_channel',
-                'int_range': [-120, 120]
-            }
-        }
+    y1 = weight_cast(weight, scales)
+    y2 = weight_cast_to_bf16(weight, scales)
 
-        int_quant = Weight48IntegerQuantizer(**cfg)
-
-        int_weight = int_quant.fake_quant_weight_dynamic(weight)
-
-        print(int_weight)
-        from torch import nn
-        cosine_sim = nn.CosineSimilarity()
-        cos = cosine_sim(weight.float().view(1, -1), int_weight.float().view(1, -1))
-        print(cos)
-
-    test_Weight48IntegerQuantizer()
+    cosine_sim = torch.nn.CosineSimilarity()
+    cos = cosine_sim(y1.view(1, -1), y2.view(1, -1))
+    print(cos)
+    print((y1-y2).abs().max())

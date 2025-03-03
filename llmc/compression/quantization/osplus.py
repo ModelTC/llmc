@@ -14,6 +14,13 @@ from .module_utils import (_LLMC_LINEAR_TYPES_, _LLMC_LN_TYPES_,
                            _TRANSFORMERS_LN_TYPES_, FakeQuantLinear,
                            OriginFloatLinear)
 
+try:
+    from .fp8_kernel import weight_cast_to_bf16, weight_cast_to_fp8
+except Exception:
+    logger.warning(
+        'import triton error. '
+    )
+
 
 @ALGO_REGISTRY
 class OsPlus(BaseBlockwiseQuantization):
@@ -90,7 +97,10 @@ class OsPlus(BaseBlockwiseQuantization):
                 x_shift.min(), torch.tensor(0.0, dtype=x_shift.dtype).to(x_shift.device)
             )
 
-            num = max(100, int(amx / 0.5))
+            if torch.isnan(amx):
+                num = 100
+            else:
+                num = max(100, int(amx / 0.5))
 
             best_loss = None
             bounds = (1.0, max(-amn.item(), amx.item()))
@@ -120,11 +130,26 @@ class OsPlus(BaseBlockwiseQuantization):
                     if self.model.has_bias():
                         fc.bias.data += shift @ fc.weight.data.T
 
-                    fc.weight.mul_(cur_scale.view(1, -1))
+                    if fc.weight.data.dtype == torch.float8_e4m3fn:
+                        fp8_scale = fc.weight_scale_inv.data
+                        tmp_weight_data = weight_cast_to_bf16(fc.weight.data,
+                                                              fp8_scale).to(torch.bfloat16)
+                        tmp_fp8_scale = self.scaling_fp8_scale(fp8_scale,
+                                                               cur_scale,
+                                                               is_pre_layer=False)
+                    else:
+                        tmp_weight_data = fc.weight.data
 
-                    fc.weight.data = self.wquantizer.fake_quant_weight_dynamic(
-                        fc.weight.data
+                    tmp_weight_data.mul_(cur_scale.view(1, -1))
+                    tmp_weight_data = self.wquantizer.fake_quant_weight_dynamic(
+                        tmp_weight_data
                     )
+
+                    if fc.weight.data.dtype == torch.float8_e4m3fn:
+                        fc.weight.data = weight_cast_to_fp8(tmp_weight_data, tmp_fp8_scale)
+                        fc.weight_scale_inv.data = tmp_fp8_scale
+                    else:
+                        fc.weight.data = tmp_weight_data
 
                 x_shift_tmp = x_shift / cur_scale.view(1, -1)
                 q_x = self.aquantizer.fake_quant_act_dynamic(x_shift_tmp)

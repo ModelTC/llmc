@@ -1,0 +1,17 @@
+base:
+    seed: &seed 42
+model:
+    type: DeepseekV3
+    path: model_path
+    tokenizer_mode: fast
+    torch_dtype: torch.float8_e4m3fn
+quant:
+    method: RTN
+    weight:
+        bit: 4
+        symmetric: True
+        granularity: per_group
+        group_size: 128
+save:
+    save_vllm: True
+    save_path: /path/to/save/
