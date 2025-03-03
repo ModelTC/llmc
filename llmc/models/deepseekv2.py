@@ -99,9 +99,7 @@ class DeepseekV2(BaseModel):
                     'input': ['self_attn.q_b_proj'],
                     'inspect': block.self_attn.q_b_proj,
                     'has_kwargs': False,
-                    'need_rotate_alone': True,
-                    'pre_layers': [block.self_attn.q_a_proj],
-                    'post_layers': [block.self_attn.q_b_proj]
+                    'skip_rotate': True,
                 }
             )
 

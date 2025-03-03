@@ -1,0 +1,24 @@
+base:
+    seed: &seed 42
+model:
+    type: DeepseekV3
+    path: model_path
+    tokenizer_mode: fast
+    torch_dtype: torch.float8_e4m3fn
+quant:
+    method: Quarot
+    weight:
+        bit: 8
+        symmetric: False
+        granularity: per_channel
+    act:
+        bit: 8
+        symmetric: False
+        granularity: per_token
+    special:
+        rotate_mode: hadamard
+        fp32_had: True
+        online_rotate: False
+save:
+    save_vllm: True
+    save_path: /path/to/save/

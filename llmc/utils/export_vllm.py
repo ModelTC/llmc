@@ -31,6 +31,20 @@ def update_vllm_quant_config(
             with open(config_file, 'w') as file:
                 json.dump(config_vllm, file, indent=4)
             return
+        elif config.quant.weight.get('granularity', 'per_block'):
+            quant_config = {
+                'activation_scheme': 'dynamic',
+                'fmt': 'e4m3',
+                'quant_method': 'fp8',
+                'weight_block_size': [128, 128]
+            }
+            config_file = save_quant_path + '/config.json'
+            with open(config_file, 'r') as file:
+                config_vllm = json.load(file)
+            config_vllm['quantization_config'] = quant_config
+            with open(config_file, 'w') as file:
+                json.dump(config_vllm, file, indent=4)
+            return
         else:
             vllm_quant_format = 'float-quantized'
             quant_type = 'float'

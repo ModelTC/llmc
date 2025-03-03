@@ -1,0 +1,31 @@
+base:
+    seed: &seed 42
+model:
+    type: DeepseekV3
+    path: model_path
+    tokenizer_mode: fast
+    torch_dtype: torch.float8_e4m3fn
+calib:
+    name: pileval
+    download: False
+    path: calib data path
+    n_samples: 128
+    bs: 1
+    seq_len: 512
+    preproc: txt_general_preproc
+    seed: *seed
+quant:
+    method: SmoothQuant
+    weight:
+        bit: 8
+        symmetric: True
+        granularity: per_channel
+    act:
+        bit: 8
+        symmetric: True
+        granularity: per_token
+    special:
+        alpha: 0.8
+save:
+    save_vllm: True
+    save_path: /path/to/save/
