@@ -46,30 +46,38 @@ class Awq(BaseBlockwiseQuantization):
         w.mul_(scales_tmp.view(1, -1))
         return w
 
-    @torch.no_grad()
     def get_weight_scale(self, layers_dict):
         layers = list(layers_dict.values())
-        weights = self.collect_layers_weights(layers)
-        weights = torch.cat(weights, dim=0)
-        org_shape = weights.shape
+        total_scale = None
+        first_layer_name = list(layers_dict.keys())[0]
+
         wquantizer = get_wquantizer(
             self.block_idx,
-            list(layers_dict.keys())[0],
+            first_layer_name,
             self.mix_bits_map,
             self.quantizer_mix_bits,
             self.wquantizer,
         )
-        weights = wquantizer.reshape_tensor(weights)
-        scale = weights.abs() / weights.abs().amax(dim=1, keepdim=True)
-        try:
-            scale = scale.view(org_shape)
-        except RuntimeError:
-            scale = wquantizer.restore_tensor(scale, org_shape)
-        scale = scale.mean(0)
-        del weights
-        gc.collect()
-        torch.cuda.empty_cache()
-        return scale
+
+        for idx, _m in enumerate(layers):
+            if _m.weight.data.dtype == torch.float8_e4m3fn:
+                weight = weight_cast_to_bf16(_m.weight.data, _m.weight_scale_inv.data)
+            else:
+                weight = _m.weight.data.clone()
+            org_shape = weight.shape
+            reshaped = wquantizer.reshape_tensor(weight)
+            abs_weights = reshaped.abs()
+            max_vals = abs_weights.amax(dim=1, keepdim=True)
+            layer_scale = abs_weights.div_(max_vals)
+            layer_scale = layer_scale.view(org_shape)
+            if total_scale is None:
+                total_scale = layer_scale.mean(0)
+            else:
+                total_scale.add_(layer_scale.mean(0))
+            del weight, reshaped, abs_weights, max_vals, layer_scale
+            torch.cuda.empty_cache()
+
+        return total_scale.div_(len(layers))
 
     def get_act_scale(self, x):
         if x.shape[0] == self._bs:
