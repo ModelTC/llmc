@@ -13,6 +13,17 @@ from .hadamard_utils import apply_exact_had_to_linear, random_hadamard_matrix
 from .module_utils import (_LLMC_LN_TYPES_, _TRANSFORMERS_LN_TYPES_,
                            LlmcRMSNorm, RotateLinear)
 
+try:
+    from .fp8_kernel import weight_cast_to_bf16, weight_cast_to_fp8
+    logger.info(
+        'import triton successful. '
+    )
+except Exception:
+    from .quant import weight_cast_to_bf16
+    logger.warning(
+        'import triton error. '
+    )
+
 
 @ALGO_REGISTRY
 class Quarot(BaseBlockwiseQuantization):
@@ -78,14 +89,16 @@ class Quarot(BaseBlockwiseQuantization):
     def add_quant_config(self):
         self.rotate_mode = self.quant_config['special']['rotate_mode']
 
+    def random_orthogonal_matrix(self, size, device):
+        torch.cuda.empty_cache()
+        random_matrix = torch.randn(size, size, dtype=torch.float64).to(device)
+        q, r = torch.linalg.qr(random_matrix)
+        q *= torch.sign(torch.diag(r)).unsqueeze(0)
+        return q
+
     def get_orthogonal_matrix(self):
         if self.rotate_mode == 'random':
-            try:
-                return random_orthogonal_matrix(self.hidden_size, self.dev)
-            except NameError:
-                raise RuntimeError(
-                    'Function random_orthogonal_matrix is not defined.'
-                )
+            return self.random_orthogonal_matrix(self.hidden_size, self.dev)
         elif self.rotate_mode == 'hadamard':
             return random_hadamard_matrix(self.hidden_size, self.dev)
         else:
@@ -101,6 +114,7 @@ class Quarot(BaseBlockwiseQuantization):
             self.subset_transform(block, subset)
 
         self.model.replace_module_block(LlmcRMSNorm, block, self.block_idx, {})
+        gc.collect()
 
         logger.info(f'block:{block}')
         logger.info(f'End transform the {self.block_idx+1}-th block')
@@ -117,16 +131,6 @@ class Quarot(BaseBlockwiseQuantization):
 
         if 'skip_rotate' in subset and subset['skip_rotate']:
             return
-
-        if 'need_rotate_alone' in subset and subset['need_rotate_alone']:
-            assert isinstance(prev_op[0], tuple(_LLMC_LN_TYPES_ + _TRANSFORMERS_LN_TYPES_))
-            pre_layers = subset['pre_layers']
-            post_layers = subset['post_layers']
-            for layer in pre_layers + post_layers:
-                layer = layer.cuda()
-            self.fuse_ln_fcs(prev_op[0], layers)
-            self.rotate_pre_layers(pre_layers, self.Q)
-            self.rotate_post_layers(post_layers, self.Q)
 
         if isinstance(prev_op[0], tuple(_LLMC_LN_TYPES_ + _TRANSFORMERS_LN_TYPES_)):
             self.fuse_ln_fcs(prev_op[0], layers)

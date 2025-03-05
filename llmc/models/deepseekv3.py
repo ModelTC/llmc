@@ -1,14 +1,5 @@
-import json
-import os
 from collections import defaultdict
 
-import torch
-from accelerate import init_empty_weights
-from loguru import logger
-from safetensors import safe_open
-from transformers import AutoConfig, AutoModelForCausalLM
-
-from llmc.compression.quantization.module_utils import LlmcFp8Linear
 from llmc.utils.registry_factory import MODEL_REGISTRY
 
 from .base_model import BaseModel
@@ -18,56 +9,6 @@ from .base_model import BaseModel
 class DeepseekV3(BaseModel):
     def __init__(self, config, device_map=None, use_cache=False):
         super().__init__(config, device_map, use_cache)
-
-    def build_model(self):
-        self.model_config = AutoConfig.from_pretrained(
-            self.model_path, trust_remote_code=True
-        )
-        if not self.use_cache:
-            if hasattr(self.model_config, 'use_cache'):
-                self.model_config.use_cache = False
-        logger.info(f'self.model_config : {self.model_config}')
-        if self.torch_dtype == torch.float8_e4m3fn:
-            with init_empty_weights():
-                self.model = AutoModelForCausalLM.from_config(config=self.model_config,
-                                                              torch_dtype=torch.float16,
-                                                              trust_remote_code=True)
-            self.find_blocks()
-            for block_idx, block in enumerate(self.blocks):
-                self.replace_module_block(LlmcFp8Linear, block, block_idx, {})
-            self.load_fp8_weight()
-        else:
-            self.model = AutoModelForCausalLM.from_pretrained(
-                self.model_path,
-                config=self.model_config,
-                device_map=self.device_map,
-                trust_remote_code=True,
-                torch_dtype=self.torch_dtype,
-                low_cpu_mem_usage=True,
-            )
-        logger.info(f'self.model : {self.model}')
-
-    def load_fp8_weight(self):
-        state_dict = self.model.state_dict()
-        model_index_file = os.path.join(self.model_path, 'model.safetensors.index.json')
-
-        with open(model_index_file, 'r') as f:
-            model_index = json.load(f)
-        weight_map = model_index['weight_map']
-
-        shard_to_tensors = defaultdict(list)
-        for weight_name in state_dict:
-            shard_path = weight_map[weight_name]
-            shard_to_tensors[shard_path].append(weight_name)
-
-        for shard_path, tensor_names in shard_to_tensors.items():
-            full_shard_path = os.path.join(self.model_path, shard_path)
-            logger.info(f'Loading FP8 shard: {full_shard_path}')
-            with safe_open(full_shard_path, framework='pt', device='cpu') as f:
-                for weight_name in tensor_names:
-                    tensor = f.get_tensor(weight_name)
-                    state_dict[weight_name] = tensor
-        self.model.load_state_dict(state_dict, assign=True)
 
     def find_blocks(self):
         self.blocks = self.model.model.layers
@@ -160,9 +101,7 @@ class DeepseekV3(BaseModel):
                     'input': ['self_attn.q_b_proj'],
                     'inspect': block.self_attn.q_b_proj,
                     'has_kwargs': False,
-                    'need_rotate_alone': True,
-                    'pre_layers': [block.self_attn.q_a_proj],
-                    'post_layers': [block.self_attn.q_b_proj]
+                    'skip_rotate': True,
                 }
             )
 

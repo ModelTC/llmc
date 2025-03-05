@@ -1,18 +1,22 @@
 import gc
 import inspect
+import json
+import os
 from abc import ABCMeta, abstractmethod
 from collections import defaultdict
 from functools import partial
 
 import torch
 import torch.nn as nn
+from accelerate import init_empty_weights
 from loguru import logger
+from safetensors import safe_open
 from torch.nn import functional as F
 from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
 
 from llmc.compression.quantization.module_utils import (
     _LLMC_LINEAR_TYPES_, _LLMC_LN_TYPES_, _TRANSFORMERS_LINEAR_TYPES_,
-    _TRANSFORMERS_LN_TYPES_)
+    _TRANSFORMERS_LN_TYPES_, LlmcFp8Linear)
 from llmc.compression.quantization.utils import (check_do_quant, check_w_only,
                                                  get_aquantizer,
                                                  get_wquantizer)
@@ -194,15 +198,47 @@ class BaseModel(metaclass=ABCMeta):
             if hasattr(self.model_config, 'use_cache'):
                 self.model_config.use_cache = False
         logger.info(f'self.model_config : {self.model_config}')
-        self.model = AutoModelForCausalLM.from_pretrained(
-            self.model_path,
-            config=self.model_config,
-            device_map=self.device_map,
-            trust_remote_code=True,
-            torch_dtype=self.torch_dtype,
-            low_cpu_mem_usage=True,
-        )
+        if self.torch_dtype == torch.float8_e4m3fn:
+            with init_empty_weights():
+                self.model = AutoModelForCausalLM.from_config(config=self.model_config,
+                                                              torch_dtype=torch.float16,
+                                                              trust_remote_code=True)
+            self.find_blocks()
+            for block_idx, block in enumerate(self.blocks):
+                self.replace_module_block(LlmcFp8Linear, block, block_idx, {})
+            self.load_fp8_weight()
+        else:
+            self.model = AutoModelForCausalLM.from_pretrained(
+                self.model_path,
+                config=self.model_config,
+                device_map=self.device_map,
+                trust_remote_code=True,
+                torch_dtype=self.torch_dtype,
+                low_cpu_mem_usage=True,
+            )
         logger.info(f'self.model : {self.model}')
+
+    def load_fp8_weight(self):
+        state_dict = self.model.state_dict()
+        model_index_file = os.path.join(self.model_path, 'model.safetensors.index.json')
+
+        with open(model_index_file, 'r') as f:
+            model_index = json.load(f)
+        weight_map = model_index['weight_map']
+
+        shard_to_tensors = defaultdict(list)
+        for weight_name in state_dict:
+            shard_path = weight_map[weight_name]
+            shard_to_tensors[shard_path].append(weight_name)
+
+        for shard_path, tensor_names in shard_to_tensors.items():
+            full_shard_path = os.path.join(self.model_path, shard_path)
+            logger.info(f'Loading FP8 shard: {full_shard_path}')
+            with safe_open(full_shard_path, framework='pt', device='cpu') as f:
+                for weight_name in tensor_names:
+                    tensor = f.get_tensor(weight_name)
+                    state_dict[weight_name] = tensor
+        self.model.load_state_dict(state_dict, assign=True)
 
     def add_layernorms_class(self):
         ln_class_list = []
@@ -403,28 +439,27 @@ class BaseModel(metaclass=ABCMeta):
     def replace_language_module_all(self, module, params_dict, keep_device=False):
         for block_idx in range(len(self.blocks)):
             logger.info(f'Replace block index: {block_idx}/{len(self.blocks)}')
-            block = self.blocks[block_idx]
             if keep_device:
-                self.replace_module_block(module, block, block_idx, params_dict)
+                self.replace_module_block(module, self.blocks[block_idx], block_idx, params_dict)
             else:
-                block = block.cuda()
-                self.replace_module_block(module, block, block_idx, params_dict)
-                block = block.cpu()
-
-        gc.collect()
-        torch.cuda.empty_cache()
+                self.blocks[block_idx].cuda()
+                self.replace_module_block(module, self.blocks[block_idx], block_idx, params_dict)
+                self.blocks[block_idx].cpu()
+            gc.collect()
+            torch.cuda.empty_cache()
         logger.info(f'The Replaced model: {self.model}')
 
     def replace_module_block(self, module, block, block_idx, params_dict):
         if module in _LLMC_LN_TYPES_ + _TRANSFORMERS_LN_TYPES_:
-            layer_norms = self.get_layernorms_in_block(block)
             self.replace_module_layernorm(
-                module, block, layer_norms, block_idx, params_dict
+                module, block, self.get_layernorms_in_block(block), block_idx, params_dict
             )
         else:
-            subset = {}
-            subset['layers'] = self.get_block_linears(block)
-            self.replace_module_subset(module, block, subset, block_idx, params_dict)
+            self.replace_module_subset(module,
+                                       block,
+                                       {'layers': self.get_block_linears(block)},
+                                       block_idx,
+                                       params_dict)
 
     def replace_module_subset(self, module, block, subset, block_idx, params_dict):
         if module in _LLMC_LINEAR_TYPES_ + _TRANSFORMERS_LINEAR_TYPES_:
@@ -459,7 +494,13 @@ class BaseModel(metaclass=ABCMeta):
                 child_name = name_tmp[0]
 
             setattr(parent, child_name, M)
+            del M
+
             logger.info(f'replace >>> {name} in {block_idx}-th block')
+
+        del layers_dict
+        gc.collect()
+        torch.cuda.empty_cache()
 
     def replace_module_layernorm(self, module, block, lns, i, params_dict):
         for name, m in lns.items():
@@ -477,6 +518,11 @@ class BaseModel(metaclass=ABCMeta):
                 child_name = name_tmp[0]
 
             setattr(parent, child_name, M)
+            del M
+
+        del lns
+        gc.collect()
+        torch.cuda.empty_cache()
 
     def convert_dtype(self, dtype='torch.float16'):
         for i in range(len(self.blocks)):
