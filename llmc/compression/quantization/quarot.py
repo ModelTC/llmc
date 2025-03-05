@@ -114,6 +114,7 @@ class Quarot(BaseBlockwiseQuantization):
             self.subset_transform(block, subset)
 
         self.model.replace_module_block(LlmcRMSNorm, block, self.block_idx, {})
+        gc.collect()
 
         logger.info(f'block:{block}')
         logger.info(f'End transform the {self.block_idx+1}-th block')
@@ -129,10 +130,6 @@ class Quarot(BaseBlockwiseQuantization):
         layers = list(layers_dict.values())
 
         if 'skip_rotate' in subset and subset['skip_rotate']:
-            for layer in layers:
-                if layer.weight.data.dtype == torch.float8_e4m3fn:
-                    layer.weight.data = weight_cast_to_bf16(layer.weight.data,
-                                                            layer.weight_scale_inv.data)
             return
 
         if isinstance(prev_op[0], tuple(_LLMC_LN_TYPES_ + _TRANSFORMERS_LN_TYPES_)):

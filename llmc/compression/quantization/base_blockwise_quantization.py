@@ -24,7 +24,7 @@ try:
         'import triton successful. '
     )
 except Exception:
-    from .quant import weight_cast_to_bf16
+    from .quant import weight_cast_to_bf16, weight_cast_to_fp8
     logger.warning(
         'import triton error. '
     )
@@ -35,7 +35,8 @@ from .module_utils import (_LLMC_LINEAR_TYPES_, _LLMC_LN_TYPES_,
                            _TRANSFORMERS_LN_TYPES_, EffcientFakeQuantLinear,
                            FakeQuantLinear, LlmcActFn, OriginFloatLinear,
                            RotateLinear)
-from .quant import FloatQuantizer, IntegerQuantizer, Weight48IntegerQuantizer
+from .quant import (FloatQuantizer, IntegerQuantizer, Weight48IntegerQuantizer,
+                    update_block_wise_scales)
 from .utils import check_do_quant, check_w_only, get_aquantizer, get_wquantizer
 
 
@@ -860,38 +861,39 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
     def rotate_pre_layers(self, pre_layers, Q):
         for layer in pre_layers:
             if layer.weight.data.dtype == torch.float8_e4m3fn:
-                layer.weight.data = weight_cast_to_bf16(layer.weight.data,
-                                                        layer.weight_scale_inv.data)
+                layer.weight.data \
+                    = weight_cast_to_bf16(layer.weight.data,
+                                          layer.weight_scale_inv.data).to(torch.bfloat16)
             dtype = layer.weight.dtype
-            device = layer.weight.data.device
-            W = layer.weight.data.to(device=device, dtype=torch.float64)
-            layer.weight.data = torch.matmul(W, Q).to(device='cpu', dtype=dtype)
+            layer.weight.data = torch.matmul(layer.weight.data.double(), Q).to(dtype)
 
             if hasattr(layer, 'weight_scale_inv'):
-                del layer.weight_scale_inv
-            del W
+                update_block_wise_scales(layer)
+                layer.weight.data \
+                    = weight_cast_to_fp8(layer.weight.data,
+                                         layer.weight_scale_inv.data)
             torch.cuda.empty_cache()
 
     def rotate_post_layers(self, post_layers, Q, exact_had=False):
         for layer in post_layers:
             if layer.weight.data.dtype == torch.float8_e4m3fn:
-                layer.weight.data = weight_cast_to_bf16(layer.weight.data,
-                                                        layer.weight_scale_inv.data)
+                layer.weight.data \
+                    = weight_cast_to_bf16(layer.weight.data,
+                                          layer.weight_scale_inv.data).to(torch.bfloat16)
             dtype = layer.weight.dtype
-            device = layer.weight.data.device
-            W = layer.weight.data.to(device=device, dtype=torch.float64)
-            layer.weight.data = torch.matmul(Q.T, W).to(device='cpu', dtype=dtype)
+            layer.weight.data = torch.matmul(Q.T, layer.weight.data.double()).to(dtype)
 
             if exact_had and self.online_rotate:
                 apply_exact_had_to_linear(layer, had_dim=-1, output=False)
 
             if hasattr(layer, 'bias') and layer.bias is not None:
-                b = layer.bias.data.to(device=device, dtype=torch.float64)
-                layer.bias.data = torch.matmul(Q.T, b).to(device='cpu', dtype=dtype)
+                b = layer.bias.data.to(torch.float64)
+                layer.bias.data = torch.matmul(Q.T, b).to(dtype)
 
             if hasattr(layer, 'weight_scale_inv'):
-                del layer.weight_scale_inv
-            del W
+                update_block_wise_scales(layer)
+                layer.weight.data = weight_cast_to_fp8(layer.weight.data,
+                                                       layer.weight_scale_inv.data)
             torch.cuda.empty_cache()
 
     def rotate_embeddings(self, Q):
@@ -912,10 +914,13 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
     def fuse_ln_fcs(self, ln, fcs):
         for fc in fcs:
             if fc.weight.data.dtype == torch.float8_e4m3fn:
-                fc.weight.data = weight_cast_to_bf16(fc.weight.data, fc.weight_scale_inv.data)
+                fc.weight.data \
+                    = weight_cast_to_bf16(fc.weight.data,
+                                          fc.weight_scale_inv.data).to(torch.bfloat16)
             fc_dtype = fc.weight.dtype
-            W = fc.weight.data.double()
-            fc.weight.data = (W * ln.weight.double()).to(fc_dtype)
+            if hasattr(ln, 'bias') and ln.bias is not None:
+                W = fc.weight.data.double().clone()
+            fc.weight.data = (fc.weight.data.double() * ln.weight.double()).to(fc_dtype)
             if hasattr(ln, 'bias') and ln.bias is not None:
                 if fc.bias is None:
                     fc.bias = torch.nn.Parameter(
@@ -927,8 +932,9 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
                 fc.bias.data = fc.bias.data.to(fc_dtype)
 
             if hasattr(fc, 'weight_scale_inv'):
-                del fc.weight_scale_inv
-            del W
+                update_block_wise_scales(fc)
+                fc.weight.data = weight_cast_to_fp8(fc.weight.data,
+                                                    fc.weight_scale_inv.data)
             torch.cuda.empty_cache()
 
     def remove_mean_from_embed(self):

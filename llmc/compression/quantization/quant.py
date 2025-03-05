@@ -23,6 +23,29 @@ def weight_cast_to_bf16(weight, scale):
     return quantizer.block_dequant(weight.float(), scale.float()).to(torch.bfloat16)
 
 
+def weight_cast_to_fp8(weight, scale):
+    quantizer = FloatQuantizer(
+        bit='e4m3',
+        symmetric=True,
+        granularity='per_block',
+        block_size=128,
+        use_qtorch=True,
+    )
+    return quantizer.block_quant(weight.float(), scale.float()).to(torch.float8_e4m3fn)
+
+
+def update_block_wise_scales(layer):
+    quantizer = FloatQuantizer(
+        bit='e4m3',
+        symmetric=True,
+        granularity='per_block',
+        block_size=128,
+        use_qtorch=True,
+    )
+    _, llmc_scales, _, _, _  = quantizer.get_tensor_qparams(layer.weight.data)
+    layer.weight_scale_inv.data = llmc_scales
+
+
 class BaseQuantizer(object):
     def __init__(self, bit, symmetric, granularity, **kwargs):
         self.bit = bit
