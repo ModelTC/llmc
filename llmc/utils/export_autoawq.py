@@ -15,7 +15,7 @@ def update_autoawq_quant_config(
         'bits': config.quant.weight.bit,
         'group_size': group_size,
         'modules_to_not_convert': None,
-        'quant_method': config.quant.method,
+        'quant_method': 'awq',
         'version': config.quant.weight.pack_version.split('_')[0],
         'zero_point': not config.quant.weight.symmetric
     }
@@ -23,6 +23,8 @@ def update_autoawq_quant_config(
     config_file = save_quant_path + '/config.json'
     with open(config_file, 'r') as file:
         config_autoawq = json.load(file)
+    if 'quantization_config' in config_autoawq:
+        del config_autoawq['quantization_config']
     config_autoawq['quantization_config'] = quant_config
     with open(config_file, 'w') as file:
         json.dump(config_autoawq, file, indent=4)

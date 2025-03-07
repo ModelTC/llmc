@@ -875,6 +875,10 @@ class AutoawqRealQuantLinear(nn.Module):
     @classmethod
     @torch.no_grad()
     def quant_pack(cls, module, w_q, quant_config):
+        if module.weight.data.dtype == torch.float8_e4m3fn:
+            module.weight.data = weight_cast_to_bf16(
+                module.weight.data, module.weight_scale_inv.data
+            ).to(torch.bfloat16)
         weight, scales, zeros = w_q(module)
         pack_version = quant_config['weight']['pack_version']
         if pack_version == 'gemm_pack':
@@ -931,7 +935,7 @@ class AutoawqRealQuantLinear(nn.Module):
                     int_zeros[:, col] |= intzero_col << (i * bit)
         else:
             int_zeros = None
-
+        del weight
         return int_weight, scales, int_zeros
 
     @classmethod
