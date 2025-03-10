@@ -9,16 +9,11 @@ from loguru import logger
 from llmc.utils.registry_factory import ALGO_REGISTRY
 
 from .base_blockwise_quantization import BaseBlockwiseQuantization
+from .utils import is_fp8_supported_gpu
 
-try:
+if is_fp8_supported_gpu():
     from .fp8_kernel import weight_cast_to_bf16, weight_cast_to_fp8
-    logger.info(
-        'import triton successful. '
-    )
-except ImportError:
-    logger.warning(
-        'import triton error. '
-    )
+    logger.info('import fp8_kernel successful.')
 
 from .module_utils import (_LLMC_LINEAR_TYPES_, _LLMC_LN_TYPES_,
                            _TRANSFORMERS_LINEAR_TYPES_,
