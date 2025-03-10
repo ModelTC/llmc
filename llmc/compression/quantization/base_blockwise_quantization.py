@@ -17,17 +17,14 @@ from llmc.utils.registry_factory import KV_REGISTRY, TOKEN_REDUCTION_REGISTRY
 from ..blockwise_optimization import BlockwiseOpt
 from .attn_utils import _LLMC_ATTN_MAP_
 from .auto_clip import AutoClipper
+from .utils import is_fp8_supported_gpu
 
-try:
+if is_fp8_supported_gpu():
     from .fp8_kernel import weight_cast_to_bf16, weight_cast_to_fp8
-    logger.info(
-        'import triton successful. '
-    )
-except Exception:
+    logger.info('import fp8_kernel successful.')
+else:
     from .quant import weight_cast_to_bf16, weight_cast_to_fp8
-    logger.warning(
-        'import triton error. '
-    )
+    logger.info('import quant successful.')
 
 from .hadamard_utils import apply_exact_had_to_linear, get_hadK
 from .module_utils import (_LLMC_LINEAR_TYPES_, _LLMC_LN_TYPES_,

@@ -1,3 +1,6 @@
+import torch
+
+
 def get_wquantizer(
     block_idx, layer_name, mix_bits_map, quantizer_mix_bits, wquantizer_default
 ):
@@ -73,3 +76,9 @@ def calculate_zeros_width(in_features, group_size=128, pack_num=8):
     base_width = make_divisible(in_features // group_size, pack_num)
     base_width = make_divisible(base_width, size_multiplier) * size_multiplier
     return base_width
+
+
+def is_fp8_supported_gpu():
+    compute_capability = torch.cuda.get_device_capability(0)
+    major, minor = compute_capability
+    return major >= 8 and minor >= 9
