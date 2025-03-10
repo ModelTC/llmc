@@ -79,6 +79,8 @@ def calculate_zeros_width(in_features, group_size=128, pack_num=8):
 
 
 def is_fp8_supported_gpu():
+    if not torch.cuda.is_available():
+        return False
     compute_capability = torch.cuda.get_device_capability(0)
     major, minor = compute_capability
     return major >= 8 and minor >= 9
