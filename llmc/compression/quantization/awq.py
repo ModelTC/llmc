@@ -14,6 +14,9 @@ from .utils import is_fp8_supported_gpu
 if is_fp8_supported_gpu():
     from .fp8_kernel import weight_cast_to_bf16, weight_cast_to_fp8
     logger.info('import fp8_kernel successful.')
+else:
+    from .quant import weight_cast_to_bf16, weight_cast_to_fp8
+    logger.info('import quant successful.')
 
 from .module_utils import (_LLMC_LINEAR_TYPES_, _LLMC_LN_TYPES_,
                            _TRANSFORMERS_LINEAR_TYPES_,
