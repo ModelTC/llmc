@@ -329,6 +329,7 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
             assert (
                 self.config['model']['type'] in ['Opt', 'Llama']
             ), 'Please set online_rotate=False'
+            self.fp32_had = special_config.get('fp32_had', False)
         self.hidden_size = self.model.model_config.hidden_size
         self.set_model_config()
         self.modality = self.quant_config.modality
