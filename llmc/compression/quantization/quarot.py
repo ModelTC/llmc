@@ -13,17 +13,6 @@ from .hadamard_utils import apply_exact_had_to_linear, random_hadamard_matrix
 from .module_utils import (_LLMC_LN_TYPES_, _TRANSFORMERS_LN_TYPES_,
                            LlmcRMSNorm, RotateLinear)
 
-try:
-    from .fp8_kernel import weight_cast_to_bf16, weight_cast_to_fp8
-    logger.info(
-        'import triton successful. '
-    )
-except Exception:
-    from .quant import weight_cast_to_bf16
-    logger.warning(
-        'import triton error. '
-    )
-
 
 @ALGO_REGISTRY
 class Quarot(BaseBlockwiseQuantization):

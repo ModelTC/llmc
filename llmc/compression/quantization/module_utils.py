@@ -9,17 +9,13 @@ from loguru import logger
 from transformers.pytorch_utils import ALL_LAYERNORM_LAYERS
 
 from .quant import FloatQuantizer
+from .utils import is_fp8_supported_gpu
 
-try:
+if is_fp8_supported_gpu():
     from .fp8_kernel import act_quant, fp8_gemm, weight_cast_to_bf16
     USE_FP8GEMM_TRITON_KERNEL = True
-    logger.info(
-        'import triton successful. '
-    )
-except Exception:
-    logger.warning(
-        'import triton error. '
-    )
+    logger.info('import fp8_kernel successful.')
+else:
     USE_FP8GEMM_TRITON_KERNEL = False
     from .quant import weight_cast_to_bf16
 
@@ -875,6 +871,10 @@ class AutoawqRealQuantLinear(nn.Module):
     @classmethod
     @torch.no_grad()
     def quant_pack(cls, module, w_q, quant_config):
+        if module.weight.data.dtype == torch.float8_e4m3fn:
+            module.weight.data = weight_cast_to_bf16(
+                module.weight.data, module.weight_scale_inv.data
+            ).to(torch.bfloat16)
         weight, scales, zeros = w_q(module)
         pack_version = quant_config['weight']['pack_version']
         if pack_version == 'gemm_pack':
@@ -931,7 +931,7 @@ class AutoawqRealQuantLinear(nn.Module):
                     int_zeros[:, col] |= intzero_col << (i * bit)
         else:
             int_zeros = None
-
+        del weight
         return int_weight, scales, int_zeros
 
     @classmethod
