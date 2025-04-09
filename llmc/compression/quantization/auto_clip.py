@@ -164,8 +164,8 @@ class AutoClipper:
                         x = x.reshape(1, x.shape[0], -1, group_size)
                     if n_sample_token is None:
                         n_sample_token = min(x.shape[1], 512)
-                    x = x[:, 0::x.shape[1] // n_sample_token]
-
+                    step_size = max(1, x.shape[1] // n_sample_token)
+                    x = x[:, 0::step_size]
                     if i in org_out_dict:
                         org_out = org_out_dict[i]
                     else:
