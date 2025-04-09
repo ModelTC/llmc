@@ -6,7 +6,15 @@ import torch.distributed as dist
 from loguru import logger
 
 from .module_utils import _LLMC_LINEAR_TYPES_, _TRANSFORMERS_LINEAR_TYPES_
-from .utils import check_do_quant, check_w_only, get_aquantizer, get_wquantizer
+from .utils import (check_do_quant, check_w_only, get_aquantizer,
+                    get_wquantizer, is_fp8_supported_gpu)
+
+if is_fp8_supported_gpu():
+    from .kernel import weight_cast_to_bf16, weight_cast_to_fp8
+    logger.info('import kernel successful.')
+else:
+    from .quant import weight_cast_to_bf16, weight_cast_to_fp8
+    logger.info('import quant successful.')
 
 
 class AutoClipper:
@@ -37,6 +45,12 @@ class AutoClipper:
     @torch.no_grad()
     def run(self, block, block_idx, input_feat, n_sample_token):
         for n, m in block.named_modules():
+            if m.weight.data.dtype == torch.float8_e4m3fn:
+                is_fp8_weight = True
+                m.weight.data \
+                    = weight_cast_to_bf16(m.weight.data, m.weight_scale_inv.data).to(torch.bfloat16)
+            else:
+                is_fp8_weight = False
             if not check_do_quant(
                 block_idx, n, self.mix_bits_map, self.quantizer_mix_bits
             ):
@@ -70,6 +84,8 @@ class AutoClipper:
                 min_val /= int(os.environ['WORLD_SIZE'])
 
                 self.apply_clip(block_idx, m, min_val, max_val, n)
+                if is_fp8_weight:
+                    m.weight.data, m.weight_scale_inv.data = weight_cast_to_fp8(m.weight.data)
 
     @torch.no_grad()
     def auto_clip_layer(

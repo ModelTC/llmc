@@ -16,8 +16,8 @@ from .module_utils import (_LLMC_LINEAR_TYPES_, _LLMC_LN_TYPES_,
 from .utils import is_fp8_supported_gpu
 
 if is_fp8_supported_gpu():
-    from .fp8_kernel import weight_cast_to_bf16, weight_cast_to_fp8
-    logger.info('import fp8_kernel successful.')
+    from .kernel import weight_cast_to_bf16, weight_cast_to_fp8
+    logger.info('import kernel successful.')
 
 
 @ALGO_REGISTRY
@@ -129,12 +129,9 @@ class OsPlus(BaseBlockwiseQuantization):
                         fc.bias.data += shift @ fc.weight.data.T
 
                     if fc.weight.data.dtype == torch.float8_e4m3fn:
-                        fp8_scale = fc.weight_scale_inv.data
-                        tmp_weight_data = weight_cast_to_bf16(fc.weight.data,
-                                                              fp8_scale).to(torch.bfloat16)
-                        tmp_fp8_scale = self.scaling_fp8_scale(fp8_scale,
-                                                               cur_scale,
-                                                               is_pre_layer=False)
+                        tmp_weight_data \
+                            = weight_cast_to_bf16(fc.weight.data,
+                                                  fc.weight_scale_inv.data).to(torch.bfloat16)
                     else:
                         tmp_weight_data = fc.weight.data
 
@@ -144,8 +141,8 @@ class OsPlus(BaseBlockwiseQuantization):
                     )
 
                     if fc.weight.data.dtype == torch.float8_e4m3fn:
-                        fc.weight.data = weight_cast_to_fp8(tmp_weight_data, tmp_fp8_scale)
-                        fc.weight_scale_inv.data = tmp_fp8_scale
+                        fc.weight.data, fc.weight_scale_inv.data \
+                            = weight_cast_to_fp8(tmp_weight_data)
                     else:
                         fc.weight.data = tmp_weight_data
 
