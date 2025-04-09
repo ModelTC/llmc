@@ -20,8 +20,8 @@ from .auto_clip import AutoClipper
 from .utils import is_fp8_supported_gpu
 
 if is_fp8_supported_gpu():
-    from .fp8_kernel import weight_cast_to_bf16, weight_cast_to_fp8
-    logger.info('import fp8_kernel successful.')
+    from .kernel import weight_cast_to_bf16, weight_cast_to_fp8
+    logger.info('import kernel successful.')
 else:
     from .quant import weight_cast_to_bf16, weight_cast_to_fp8
     logger.info('import quant successful.')
@@ -32,8 +32,7 @@ from .module_utils import (_LLMC_LINEAR_TYPES_, _LLMC_LN_TYPES_,
                            _TRANSFORMERS_LN_TYPES_, EffcientFakeQuantLinear,
                            FakeQuantLinear, LlmcActFn, OriginFloatLinear,
                            RotateLinear)
-from .quant import (FloatQuantizer, IntegerQuantizer, Weight48IntegerQuantizer,
-                    update_block_wise_scales)
+from .quant import FloatQuantizer, IntegerQuantizer, Weight48IntegerQuantizer
 from .utils import check_do_quant, check_w_only, get_aquantizer, get_wquantizer
 
 
@@ -59,7 +58,7 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
         tmp_weight = wquantizer.fake_quant_weight_dynamic(tmp_weight, args)
 
         if module.weight.data.dtype == torch.float8_e4m3fn:
-            tmp_weight = weight_cast_to_fp8(tmp_weight, module.weight_scale_inv.data)
+            tmp_weight, module.weight_scale_inv.data = weight_cast_to_fp8(tmp_weight)
 
         return tmp_weight
 
@@ -702,16 +701,6 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
             raise NotImplementedError(f'prev_op {type(prev_op[0])} not supported yet!')
 
     @torch.no_grad()
-    def scaling_fp8_scale(self, fp8_scale, scales, is_pre_layer=True, block_size=128):
-        if is_pre_layer:
-            scales_reshaped = torch.max(scales.view(-1, 1, block_size), dim=2).values
-            fp8_scale = (fp8_scale / scales_reshaped).float()
-        else:
-            scales_reshaped = torch.max(scales.view(1, -1, block_size), dim=2).values
-            fp8_scale = (fp8_scale * scales_reshaped).float()
-        return fp8_scale
-
-    @torch.no_grad()
     def scale_fc_fc(self, fc1, fc2, scales):
         scales = scales.to(fc1.weight.device)
         if fc1.out_features == fc2.in_features * 3:
@@ -750,10 +739,8 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
                 fp8_scale = fc1.weight_scale_inv
                 tmp_weight_data = weight_cast_to_bf16(fc1.weight.data, fp8_scale).to(torch.bfloat16)
                 tmp_weight_data.div_(scales.view(-1, 1))
-                tmp_fp8_scale = self.scaling_fp8_scale(fp8_scale, scales)
 
-                fc1.weight.data = weight_cast_to_fp8(tmp_weight_data, tmp_fp8_scale)
-                fc1.weight_scale_inv.data = tmp_fp8_scale
+                fc1.weight.data, fc1.weight_scale_inv.data = weight_cast_to_fp8(tmp_weight_data)
             else:
                 fc1.weight.div_(scales.view(-1, 1))
 
@@ -774,10 +761,7 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
             fp8_scale = fc2.weight_scale_inv
             tmp_weight_data = weight_cast_to_bf16(fc2.weight.data, fp8_scale).to(torch.bfloat16)
             tmp_weight_data.mul_(scales.view(1, -1))
-            tmp_fp8_scale = self.scaling_fp8_scale(fp8_scale, scales, is_pre_layer=False)
-
-            fc2.weight.data = weight_cast_to_fp8(tmp_weight_data, tmp_fp8_scale)
-            fc2.weight_scale_inv.data = tmp_fp8_scale
+            fc2.weight.data, fc2.weight_scale_inv.data = weight_cast_to_fp8(tmp_weight_data)
         else:
             fc2.weight.mul_(scales.view(1, -1))
 
@@ -843,10 +827,7 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
                 fp8_scale = fc.weight_scale_inv.data
                 tmp_weight_data = weight_cast_to_bf16(fc.weight.data, fp8_scale).to(torch.bfloat16)
                 tmp_weight_data.mul_(scales.view(1, -1))
-                tmp_fp8_scale = self.scaling_fp8_scale(fp8_scale, scales, is_pre_layer=False)
-
-                fc.weight.data = weight_cast_to_fp8(tmp_weight_data, tmp_fp8_scale)
-                fc.weight_scale_inv.data = tmp_fp8_scale
+                fc.weight.data, fc.weight_scale_inv.data = weight_cast_to_fp8(tmp_weight_data)
             else:
                 fc.weight.mul_(scales.view(1, -1))
 
@@ -866,10 +847,8 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
             layer.weight.data = torch.matmul(layer.weight.data.double(), Q).to(dtype)
 
             if hasattr(layer, 'weight_scale_inv'):
-                update_block_wise_scales(layer)
-                layer.weight.data \
-                    = weight_cast_to_fp8(layer.weight.data,
-                                         layer.weight_scale_inv.data)
+                layer.weight.data, layer.weight_scale_inv.data \
+                    = weight_cast_to_fp8(layer.weight.data)
             torch.cuda.empty_cache()
 
     def rotate_post_layers(self, post_layers, Q, exact_had=False):
@@ -889,9 +868,8 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
                 layer.bias.data = torch.matmul(Q.T, b).to(dtype)
 
             if hasattr(layer, 'weight_scale_inv'):
-                update_block_wise_scales(layer)
-                layer.weight.data = weight_cast_to_fp8(layer.weight.data,
-                                                       layer.weight_scale_inv.data)
+                layer.weight.data, layer.weight_scale_inv.data \
+                    = weight_cast_to_fp8(layer.weight.data)
             torch.cuda.empty_cache()
 
     def rotate_embeddings(self, Q):
@@ -930,9 +908,7 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
                 fc.bias.data = fc.bias.data.to(fc_dtype)
 
             if hasattr(fc, 'weight_scale_inv'):
-                update_block_wise_scales(fc)
-                fc.weight.data = weight_cast_to_fp8(fc.weight.data,
-                                                    fc.weight_scale_inv.data)
+                fc.weight.data, fc.weight_scale_inv.data = weight_cast_to_fp8(fc.weight.data)
             torch.cuda.empty_cache()
 
     def remove_mean_from_embed(self):

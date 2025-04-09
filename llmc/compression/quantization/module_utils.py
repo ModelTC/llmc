@@ -12,9 +12,9 @@ from .quant import FloatQuantizer
 from .utils import is_fp8_supported_gpu
 
 if is_fp8_supported_gpu():
-    from .fp8_kernel import act_quant, fp8_gemm, weight_cast_to_bf16
+    from .kernel import act_quant, fp8_gemm, weight_cast_to_bf16
     USE_FP8GEMM_TRITON_KERNEL = True
-    logger.info('import fp8_kernel successful.')
+    logger.info('import kernel successful.')
 else:
     USE_FP8GEMM_TRITON_KERNEL = False
     from .quant import weight_cast_to_bf16
@@ -875,133 +875,78 @@ class AutoawqRealQuantLinear(nn.Module):
             module.weight.data = weight_cast_to_bf16(
                 module.weight.data, module.weight_scale_inv.data
             ).to(torch.bfloat16)
-        weight, scales, zeros = w_q(module)
+        _, scales, zeros = w_q(module)
         pack_version = quant_config['weight']['pack_version']
         if pack_version == 'gemm_pack':
             int_weight, scales, int_zeros = cls.gemm_pack(
-                weight, scales, zeros, quant_config
+                module.weight.data, scales, zeros, quant_config
             )
-        elif pack_version == 'gemv_pack':
-            int_weight, scales, int_zeros = cls.gemv_pack(
-                module, weight, scales, zeros, quant_config
-            )
+        else:
+            raise NotImplementedError(f'Not support {pack_version}.')
         return int_weight, scales, int_zeros
 
     @classmethod
     @torch.no_grad()
-    def gemm_pack(self, weight, scales, zeros, quant_config):
+    def gemm_pack(self, module, weight, scales, zeros, quant_config):
 
-        if zeros is not None:
-            zeros = zeros.t().contiguous()
-        scales = scales.t().contiguous()
-        weight = weight.t().contiguous()
+        assert scales is not None and zeros is not None
+        scales = scales.t().contiguous().to(torch.float16)
+        zeros = zeros.t().contiguous()
+
+        scale_zeros = zeros * scales
 
         bit = quant_config['weight']['bit']
         pack_num = 32 // bit
+        group_size = quant_config['weight']['group_size']
 
-        int_weight = torch.zeros(
-            (weight.shape[0], weight.shape[1] // 32 * bit),
+        intweight = []
+
+        awq_linear_in_features = module.in_features
+
+        for idx in range(awq_linear_in_features):
+            intweight.append(
+                torch.round(
+                    (weight.data[:, idx] + scale_zeros[idx // group_size])
+                    / scales[idx // group_size]
+                ).to(torch.int)[:, None]
+            )
+        intweight = torch.cat(intweight, dim=1)
+        intweight = intweight.t().contiguous()
+        intweight = intweight.to(dtype=torch.int32)
+        intweight = intweight.cuda()
+
+        qweight = torch.zeros(
+            (intweight.shape[0], intweight.shape[1] // 32 * bit),
             dtype=torch.int32,
-            device=weight.device,
+            device=intweight.device,
         )
-
-        for col in range(weight.shape[1] // pack_num):
+        for col in range(intweight.shape[1] // pack_num):
             if bit == 4:
                 order_map = [0, 2, 4, 6, 1, 3, 5, 7]
             else:
                 raise NotImplementedError('Only 4-bit are supported for now.')
             for i in range(pack_num):
-                int_weight_col = weight[:, col * pack_num + order_map[i]]
-                int_weight[:, col] |= int_weight_col << (i * bit)
+                qweight_col = intweight[:, col * pack_num + order_map[i]]
+                qweight[:, col] |= qweight_col << (i * bit)
 
-        if zeros is not None:
-            int_zeros = torch.zeros(
-                (zeros.shape[0], zeros.shape[1] // 32 * bit),
-                dtype=torch.int32,
-                device=zeros.device,
-            )
-
-            for col in range(zeros.shape[1] // pack_num):
-                if bit == 4:
-                    order_map = [0, 2, 4, 6, 1, 3, 5, 7]
-                else:
-                    raise NotImplementedError('Only 4-bit are supported for now.')
-                for i in range(pack_num):
-                    intzero_col = zeros[:, col * pack_num + order_map[i]]
-                    int_zeros[:, col] |= intzero_col << (i * bit)
-        else:
-            int_zeros = None
-        del weight
-        return int_weight, scales, int_zeros
-
-    @classmethod
-    @torch.no_grad()
-    def gemv_pack(self, module, weight, scales, zeros, quant_config):
-
-        bit = quant_config['weight']['bit']
-        group_size = quant_config['weight']['group_size']
-        pack_num = 32 // bit
-
-        q_scales = torch.zeros(
-            (
-                scales.shape[0],
-                calculate_zeros_width(module.in_features, group_size) * pack_num,
-            ),
-            dtype=torch.float16,
-            device=scales.device,
-        )
-        q_scales[:, : scales.shape[1]] = scales
-
-        int_weight = torch.zeros(
-            (weight.shape[0], weight.shape[1] // 32 * bit),
+        zeros = zeros.to(dtype=torch.int32, device='cuda')
+        qzeros = torch.zeros(
+            (zeros.shape[0], zeros.shape[1] // 32 * bit),
             dtype=torch.int32,
-            device=weight.device,
+            device=zeros.device,
         )
 
-        for col in range(weight.shape[1] // pack_num):
+        for col in range(zeros.shape[1] // pack_num):
             if bit == 4:
-                order_map = [0, 1, 2, 3, 4, 5, 6, 7]
+                order_map = [0, 2, 4, 6, 1, 3, 5, 7]
             else:
                 raise NotImplementedError('Only 4-bit are supported for now.')
             for i in range(pack_num):
-                int_weight_col = weight[:, col * pack_num + order_map[i]]
-                int_weight[:, col] |= int_weight_col << (i * bit)
+                qzero_col = zeros[:, col * pack_num + order_map[i]]
+                qzeros[:, col] |= qzero_col << (i * bit)
 
-        if zeros is not None:
-            int_zeros = torch.zeros(
-                (zeros.shape[0], calculate_zeros_width(module.in_features, group_size)),
-                dtype=torch.int32,
-                device=zeros.device,
-            )
-
-            for col in range(zeros.shape[1] // pack_num):
-                if bit == 4:
-                    order_map = [0, 1, 2, 3, 4, 5, 6, 7]
-                else:
-                    raise NotImplementedError('Only 4-bit are supported for now.')
-                for i in range(pack_num):
-                    if col * pack_num + order_map[i] >= zeros.shape[1]:
-                        continue
-                    int_zero_col = zeros[:, col * pack_num + order_map[i]]
-                    int_zeros[:, col] |= int_zero_col << (i * bit)
-        else:
-            int_zeros = None
-
-        return int_weight, q_scales, int_zeros
-
-    def __repr__(self):
-        return (
-            'AutoawqRealQuantLinear('
-            + f'in_features={self.in_features}, '
-            + f'out_features={self.out_features}, '
-            + f'bias={self.bias is not None}, '
-            + f'weight_shape={self.weight_shape}, '
-            + f'weight_dtype={self.weight_dtype}, '
-            + f'scales_shape={self.scales_shape}, '
-            + f'scales_dtype={self.scales_dtype}, '
-            + f'zeros_shape={self.zeros_shape}, '
-            + f'zeros_dtype={self.zeros_dtype})'
-        )
+        del weight
+        return qweight, scales, qzeros
 
 
 class MlcllmRealQuantLinear(AutoawqRealQuantLinear):

@@ -9,9 +9,9 @@ quant:
     method: RTN
     weight:
         bit: 4
-        symmetric: True
+        symmetric: False
         granularity: per_group
-        group_size: 128
+        group_size: 64
 save:
-    save_vllm: True
+    save_autoawq: True
     save_path: /path/to/save/

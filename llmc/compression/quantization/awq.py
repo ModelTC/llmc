@@ -12,8 +12,8 @@ from .base_blockwise_quantization import BaseBlockwiseQuantization
 from .utils import is_fp8_supported_gpu
 
 if is_fp8_supported_gpu():
-    from .fp8_kernel import weight_cast_to_bf16, weight_cast_to_fp8
-    logger.info('import fp8_kernel successful.')
+    from .kernel import weight_cast_to_bf16, weight_cast_to_fp8
+    logger.info('import kernel successful.')
 else:
     from .quant import weight_cast_to_bf16, weight_cast_to_fp8
     logger.info('import quant successful.')
@@ -59,7 +59,8 @@ class Awq(BaseBlockwiseQuantization):
 
         for idx, _m in enumerate(layers):
             if _m.weight.data.dtype == torch.float8_e4m3fn:
-                weight = weight_cast_to_bf16(_m.weight.data, _m.weight_scale_inv.data)
+                weight = weight_cast_to_bf16(_m.weight.data,
+                                             _m.weight_scale_inv.data).to(torch.bfloat16)
             else:
                 weight = _m.weight.data.clone()
             org_shape = weight.shape
@@ -152,9 +153,8 @@ class Awq(BaseBlockwiseQuantization):
 
     def fake_quantize_weight(self, fc, scales, is_gqa, layer_name):
         if fc.weight.data.dtype == torch.float8_e4m3fn:
-            fp8_scale = fc.weight_scale_inv.data
-            tmp_weight_data = weight_cast_to_bf16(fc.weight.data, fp8_scale).to(torch.bfloat16)
-            tmp_fp8_scale = self.scaling_fp8_scale(fp8_scale, scales, is_pre_layer=False)
+            tmp_weight_data = weight_cast_to_bf16(fc.weight.data,
+                                                  fc.weight_scale_inv.data).to(torch.bfloat16)
         else:
             tmp_weight_data = fc.weight.data
 
@@ -168,8 +168,7 @@ class Awq(BaseBlockwiseQuantization):
         ).fake_quant_weight_dynamic(tmp_weight_data)
 
         if fc.weight.data.dtype == torch.float8_e4m3fn:
-            fc.weight.data = weight_cast_to_fp8(tmp_weight_data, tmp_fp8_scale)
-            fc.weight_scale_inv.data = tmp_fp8_scale
+            fc.weight.data, fc.weight_scale_inv.data = weight_cast_to_fp8(tmp_weight_data)
         else:
             fc.weight.data = tmp_weight_data
 

@@ -20,16 +20,12 @@ quant:
         bit: 4
         symmetric: True
         granularity: per_group
-        group_size: 128
+        group_size: 64
     special:
         trans: True
-        # The options for "trans_version" include "v1" and "v2".
-        # But their results don't differ significantly.
         trans_version: v2
-        # DeepseekV3/R1 not support weight_clip now
-        weight_clip: False
-        # For 2-bit quantization, setting "clip_sym: False" will yield better results.
+        weight_clip: True
         save_mem: False
 save:
-    save_vllm: True
+    save_autoawq: True
     save_path: /path/to/save/
