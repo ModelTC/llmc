@@ -60,6 +60,12 @@ class AutoClipper:
                 )
                 continue
             if isinstance(m, tuple(_LLMC_LINEAR_TYPES_ + _TRANSFORMERS_LINEAR_TYPES_)):
+                if m.weight.data.dtype == torch.float8_e4m3fn:
+                    is_fp8_weight = True
+                    m.weight.data \
+                        = weight_cast_to_bf16(m.weight.data, m.weight_scale_inv.data).to(torch.bfloat16)
+                else:
+                    is_fp8_weight = False
                 m = m.cuda()
                 if any([_ in n for _ in ['q_', 'k_', 'query', 'key', 'Wqkv']]):
                     if self.clip_version == 'v2':
