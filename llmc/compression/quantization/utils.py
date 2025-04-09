@@ -83,7 +83,7 @@ def is_fp8_supported_gpu():
         return False
     compute_capability = torch.cuda.get_device_capability(0)
     major, minor = compute_capability
-    return major >= 8 and minor >= 9
+    return (major == 8 and minor == 9) or (major >= 9)
 
 
 def ceil_div(x, y):
