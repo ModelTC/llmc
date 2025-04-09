@@ -45,12 +45,6 @@ class AutoClipper:
     @torch.no_grad()
     def run(self, block, block_idx, input_feat, n_sample_token):
         for n, m in block.named_modules():
-            if m.weight.data.dtype == torch.float8_e4m3fn:
-                is_fp8_weight = True
-                m.weight.data \
-                    = weight_cast_to_bf16(m.weight.data, m.weight_scale_inv.data).to(torch.bfloat16)
-            else:
-                is_fp8_weight = False
             if not check_do_quant(
                 block_idx, n, self.mix_bits_map, self.quantizer_mix_bits
             ):
@@ -63,7 +57,8 @@ class AutoClipper:
                 if m.weight.data.dtype == torch.float8_e4m3fn:
                     is_fp8_weight = True
                     m.weight.data \
-                        = weight_cast_to_bf16(m.weight.data, m.weight_scale_inv.data).to(torch.bfloat16)
+                        = weight_cast_to_bf16(m.weight.data,
+                                              m.weight_scale_inv.data).to(torch.bfloat16)
                 else:
                     is_fp8_weight = False
                 m = m.cuda()
