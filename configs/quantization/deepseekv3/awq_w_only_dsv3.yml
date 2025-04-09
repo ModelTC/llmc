@@ -18,9 +18,10 @@ quant:
     method: Awq
     weight:
         bit: 4
-        symmetric: True
+        symmetric: False
         granularity: per_group
         group_size: 64
+        pack_version: gemm_pack
     special:
         trans: True
         trans_version: v2
