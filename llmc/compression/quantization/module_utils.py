@@ -879,7 +879,7 @@ class AutoawqRealQuantLinear(nn.Module):
         pack_version = quant_config['weight']['pack_version']
         if pack_version == 'gemm_pack':
             int_weight, scales, int_zeros = cls.gemm_pack(
-                module.weight.data, scales, zeros, quant_config
+                module, module.weight.data, scales, zeros, quant_config
             )
         else:
             raise NotImplementedError(f'Not support {pack_version}.')
