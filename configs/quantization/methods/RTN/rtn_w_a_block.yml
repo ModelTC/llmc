@@ -14,6 +14,13 @@ quant:
         granularity: per_block
         block_size: 128
         use_qtorch: True
+    act:
+        quant_type: float-quant
+        bit: e4m3
+        symmetric: True
+        granularity: per_group
+        group_size: 128
+        use_qtorch: True
 save:
     save_vllm: True
     save_path: /path/to/save/
