@@ -193,6 +193,8 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
         self.mix_bits = 'mix_bits' in self.quant_config
         self.mix_bits_map = [{} for _ in range(self.num_blocks)]
         self.quantizer_mix_bits = []
+        if self.model.torch_dtype == torch.float8_e4m3fn:
+            self.fp8_block_size = self.model.fp8_block_size
 
         if 'ignored_layers' in self.config:
             self.mixed_precision = True

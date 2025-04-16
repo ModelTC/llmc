@@ -46,7 +46,7 @@ class LlmcFp8Linear(nn.Module):
         self.block_size = block_size
         self.in_features = in_features
         self.out_features = out_features
-        if bias:
+        if bias is not None:
             self.bias = nn.Parameter(torch.empty(out_features))
         else:
             self.register_parameter('bias', None)
@@ -92,6 +92,7 @@ class LlmcFp8Linear(nn.Module):
             + f'bias={self.bias is not None}, '
             + f'weight_shape={self.weight.shape}, '
             + f'weight_dtype={self.weight.dtype}, '
+            + f'block_size={self.block_size}, '
             # + f"scales_shape={self.weight_scale_inv.shape}, "
             # + f"scales_dtype={self.weight_scale_inv.dtype}, "
             + f'use_fp8gemm_triton_kernel={USE_FP8GEMM_TRITON_KERNEL})'
