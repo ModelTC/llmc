@@ -41,7 +41,7 @@ def block_wise_fp8_forward_func(x, w, w_scale, block_size, bias):
 
 
 class LlmcFp8Linear(nn.Module):
-    def __init__(self, in_features, out_features, bias):
+    def __init__(self, in_features, out_features, bias, block_size):
         super().__init__()
         self.block_size = block_size
         self.in_features = in_features

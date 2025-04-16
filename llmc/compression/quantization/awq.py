@@ -170,7 +170,8 @@ class Awq(BaseBlockwiseQuantization):
         ).fake_quant_weight_dynamic(tmp_weight_data)
 
         if fc.weight.data.dtype == torch.float8_e4m3fn:
-            fc.weight.data, fc.weight_scale_inv.data = weight_cast_to_fp8(tmp_weight_data, self.fp8_block_size)
+            fc.weight.data, fc.weight_scale_inv.data \
+                = weight_cast_to_fp8(tmp_weight_data, self.fp8_block_size)
         else:
             fc.weight.data = tmp_weight_data
 

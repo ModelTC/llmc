@@ -28,7 +28,7 @@ def act_quant_kernel(x_ptr, y_ptr, s_ptr, BLOCK_SIZE: tl.constexpr):
     tl.store(s_ptr + pid, s)
 
 
-def act_quant(x, block_size= 128):
+def act_quant(x, block_size=128):
     """Quantizes the input tensor `x` using block-wise quantization.
 
     Args:
