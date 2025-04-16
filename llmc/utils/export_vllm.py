@@ -36,7 +36,10 @@ def update_vllm_quant_config(
                 'activation_scheme': 'dynamic',
                 'fmt': 'e4m3',
                 'quant_method': 'fp8',
-                'weight_block_size': [128, 128]
+                'weight_block_size': [
+                    config.quant.weight.block_size,
+                    config.quant.weight.block_size
+                ]
             }
             config_file = save_quant_path + '/config.json'
             with open(config_file, 'r') as file:

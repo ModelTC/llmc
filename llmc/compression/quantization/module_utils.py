@@ -41,12 +41,12 @@ def block_wise_fp8_forward_func(x, w, w_scale, block_size, bias):
 
 
 class LlmcFp8Linear(nn.Module):
-    def __init__(self, in_features, out_features, bias, block_size=128):
+    def __init__(self, in_features, out_features, bias, block_size):
         super().__init__()
         self.block_size = block_size
         self.in_features = in_features
         self.out_features = out_features
-        if bias:
+        if bias is not None:
             self.bias = nn.Parameter(torch.empty(out_features))
         else:
             self.register_parameter('bias', None)
@@ -65,23 +65,28 @@ class LlmcFp8Linear(nn.Module):
         if self.weight.data.dtype == torch.float8_e4m3fn:
             if USE_FP8GEMM_TRITON_KERNEL:
                 y = block_wise_fp8_forward_func(
-                    x, self.weight, self.weight_scale_inv, self.block_size, self.bias
+                    x,
+                    self.weight,
+                    self.weight_scale_inv,
+                    self.block_size,
+                    self.bias
                 )
                 return y
             else:
                 self.weight.data \
                     = weight_cast_to_bf16(self.weight.data,
-                                          self.weight_scale_inv.data).to(torch.bfloat16)
+                                          self.weight_scale_inv.data,
+                                          self.block_size).to(torch.bfloat16)
         y = torch.functional.F.linear(x, self.weight, self.bias)
         return y
 
     @classmethod
     @torch.no_grad()
-    def new(cls, module):
+    def new(cls, module, block_size):
         in_features = module.in_features
         out_features = module.out_features
         bias = module.bias
-        new_module = cls(in_features, out_features, bias)
+        new_module = cls(in_features, out_features, bias, block_size)
         return new_module
 
     def __repr__(self):
@@ -92,6 +97,7 @@ class LlmcFp8Linear(nn.Module):
             + f'bias={self.bias is not None}, '
             + f'weight_shape={self.weight.shape}, '
             + f'weight_dtype={self.weight.dtype}, '
+            + f'block_size={self.block_size}, '
             # + f"scales_shape={self.weight_scale_inv.shape}, "
             # + f"scales_dtype={self.weight_scale_inv.dtype}, "
             + f'use_fp8gemm_triton_kernel={USE_FP8GEMM_TRITON_KERNEL})'
@@ -320,7 +326,7 @@ class OriginFloatLinear(nn.Module):
         if self.weight.data.dtype == torch.float8_e4m3fn:
             self.fp8_forward = True
             self.weight_scale_inv = ori_module.weight_scale_inv
-            self.block_size = 128
+            self.block_size = ori_module.block_size
         else:
             self.fp8_forward = False
 
@@ -516,7 +522,7 @@ class FakeQuantLinear(nn.Module):
         if self.weight.data.dtype == torch.float8_e4m3fn:
             self.fp8_forward = True
             self.weight_scale_inv = ori_module.weight_scale_inv
-            self.block_size = 128
+            self.block_size = ori_module.block_size
         else:
             self.fp8_forward = False
 
@@ -606,7 +612,7 @@ class EffcientFakeQuantLinear(nn.Module):
         if self.weight.data.dtype == torch.float8_e4m3fn:
             self.fp8_forward = True
             self.weight_scale_inv = ori_module.weight_scale_inv
-            self.block_size = 128
+            self.block_size = ori_module.block_size
         else:
             self.fp8_forward = False
 
@@ -730,7 +736,9 @@ class VllmRealQuantLinear(nn.Module):
     def quant_pack(cls, module, w_q, quant_config):
         if module.weight.data.dtype == torch.float8_e4m3fn:
             module.weight.data = weight_cast_to_bf16(
-                module.weight.data, module.weight_scale_inv.data
+                module.weight.data,
+                module.weight_scale_inv.data,
+                module.block_size
             ).to(torch.bfloat16)
         weight, scales, zeros = w_q(module)
         need_pack = quant_config['weight'].get('need_pack', False)
@@ -873,7 +881,9 @@ class AutoawqRealQuantLinear(nn.Module):
     def quant_pack(cls, module, w_q, quant_config):
         if module.weight.data.dtype == torch.float8_e4m3fn:
             module.weight.data = weight_cast_to_bf16(
-                module.weight.data, module.weight_scale_inv.data
+                module.weight.data,
+                module.weight_scale_inv.data,
+                module.block_size
             ).to(torch.bfloat16)
         _, scales, zeros = w_q(module)
         pack_version = quant_config['weight']['pack_version']

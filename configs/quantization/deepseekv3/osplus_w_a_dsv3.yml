@@ -2,7 +2,7 @@ base:
     seed: &seed 42
 model:
     type: DeepseekV3
-    path: model_path
+    path: Deepseekv3-fp8-path
     tokenizer_mode: fast
     torch_dtype: torch.float8_e4m3fn
 calib:

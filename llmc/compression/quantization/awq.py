@@ -20,7 +20,8 @@ else:
 
 from .module_utils import (_LLMC_LINEAR_TYPES_, _LLMC_LN_TYPES_,
                            _TRANSFORMERS_LINEAR_TYPES_,
-                           _TRANSFORMERS_LN_TYPES_, FakeQuantLinear)
+                           _TRANSFORMERS_LN_TYPES_, FakeQuantLinear,
+                           LlmcFp8Linear)
 from .utils import check_do_quant, check_w_only, get_aquantizer, get_wquantizer
 
 
@@ -60,7 +61,8 @@ class Awq(BaseBlockwiseQuantization):
         for idx, _m in enumerate(layers):
             if _m.weight.data.dtype == torch.float8_e4m3fn:
                 weight = weight_cast_to_bf16(_m.weight.data,
-                                             _m.weight_scale_inv.data).to(torch.bfloat16)
+                                             _m.weight_scale_inv.data,
+                                             self.fp8_block_size).to(torch.bfloat16)
             else:
                 weight = _m.weight.data.clone()
             org_shape = weight.shape
@@ -154,7 +156,8 @@ class Awq(BaseBlockwiseQuantization):
     def fake_quantize_weight(self, fc, scales, is_gqa, layer_name):
         if fc.weight.data.dtype == torch.float8_e4m3fn:
             tmp_weight_data = weight_cast_to_bf16(fc.weight.data,
-                                                  fc.weight_scale_inv.data).to(torch.bfloat16)
+                                                  fc.weight_scale_inv.data,
+                                                  self.fp8_block_size).to(torch.bfloat16)
         else:
             tmp_weight_data = fc.weight.data
 
@@ -168,7 +171,8 @@ class Awq(BaseBlockwiseQuantization):
         ).fake_quant_weight_dynamic(tmp_weight_data)
 
         if fc.weight.data.dtype == torch.float8_e4m3fn:
-            fc.weight.data, fc.weight_scale_inv.data = weight_cast_to_fp8(tmp_weight_data)
+            fc.weight.data, fc.weight_scale_inv.data \
+                = weight_cast_to_fp8(tmp_weight_data, self.fp8_block_size)
         else:
             fc.weight.data = tmp_weight_data
 
@@ -375,7 +379,7 @@ class Awq(BaseBlockwiseQuantization):
             layers = list(layers_dict.values())
 
             if (
-                isinstance(prev_op[0], (nn.Linear, FakeQuantLinear))
+                isinstance(prev_op[0], (nn.Linear, FakeQuantLinear, LlmcFp8Linear))
                 and prev_op[0].out_features != layers[0].in_features * 3
                 and prev_op[0].out_features != layers[0].in_features * 2
                 and prev_op[0].out_features != layers[0].in_features

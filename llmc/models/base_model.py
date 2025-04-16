@@ -204,9 +204,16 @@ class BaseModel(metaclass=ABCMeta):
                                                               torch_dtype=torch.float16,
                                                               trust_remote_code=True)
             self.find_blocks()
+            self.fp8_block_size \
+                = self.model_config.quantization_config['weight_block_size'][0]
             for block_idx, block in enumerate(self.blocks):
-                self.replace_module_block(LlmcFp8Linear, block, block_idx, {})
+                self.replace_module_block(LlmcFp8Linear,
+                                          block,
+                                          block_idx,
+                                          {'block_size': self.fp8_block_size})
             self.load_fp8_weight()
+
+            logger.info(f'fp8 block size: {self.fp8_block_size}')
         else:
             self.model = AutoModelForCausalLM.from_pretrained(
                 self.model_path,
