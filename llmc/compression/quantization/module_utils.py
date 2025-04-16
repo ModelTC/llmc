@@ -41,7 +41,7 @@ def block_wise_fp8_forward_func(x, w, w_scale, block_size, bias):
 
 
 class LlmcFp8Linear(nn.Module):
-    def __init__(self, in_features, out_features, bias, block_size=128):
+    def __init__(self, in_features, out_features, bias):
         super().__init__()
         self.block_size = block_size
         self.in_features = in_features
@@ -77,11 +77,11 @@ class LlmcFp8Linear(nn.Module):
 
     @classmethod
     @torch.no_grad()
-    def new(cls, module):
+    def new(cls, module, block_size):
         in_features = module.in_features
         out_features = module.out_features
         bias = module.bias
-        new_module = cls(in_features, out_features, bias)
+        new_module = cls(in_features, out_features, bias, block_size)
         return new_module
 
     def __repr__(self):
@@ -320,7 +320,7 @@ class OriginFloatLinear(nn.Module):
         if self.weight.data.dtype == torch.float8_e4m3fn:
             self.fp8_forward = True
             self.weight_scale_inv = ori_module.weight_scale_inv
-            self.block_size = 128
+            self.block_size = ori_module.block_size
         else:
             self.fp8_forward = False
 
@@ -516,7 +516,7 @@ class FakeQuantLinear(nn.Module):
         if self.weight.data.dtype == torch.float8_e4m3fn:
             self.fp8_forward = True
             self.weight_scale_inv = ori_module.weight_scale_inv
-            self.block_size = 128
+            self.block_size = ori_module.block_size
         else:
             self.fp8_forward = False
 
@@ -606,7 +606,7 @@ class EffcientFakeQuantLinear(nn.Module):
         if self.weight.data.dtype == torch.float8_e4m3fn:
             self.fp8_forward = True
             self.weight_scale_inv = ori_module.weight_scale_inv
-            self.block_size = 128
+            self.block_size = ori_module.block_size
         else:
             self.fp8_forward = False
 

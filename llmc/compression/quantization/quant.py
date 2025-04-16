@@ -15,12 +15,12 @@ except Exception:
     float_quantize = None
 
 
-def weight_cast_to_bf16(weight, scale):
+def weight_cast_to_bf16(weight, scale, block_size):
     quantizer = FloatQuantizer(
         bit='e4m3',
         symmetric=True,
         granularity='per_block',
-        block_size=128,
+        block_size=block_size,
         use_qtorch=True,
     )
     scale = scale.view(scale.shape[0], 1, scale.shape[1], 1)
@@ -31,12 +31,12 @@ def weight_cast_to_bf16(weight, scale):
     return weight.to(torch.bfloat16)
 
 
-def weight_cast_to_fp8(weight):
+def weight_cast_to_fp8(weight, block_size):
     quantizer = FloatQuantizer(
         bit='e4m3',
         symmetric=True,
         granularity='per_block',
-        block_size=128,
+        block_size=block_size,
         use_qtorch=True,
     )
     fp8_weight, fp8_scale, _ = quantizer.real_quant_weight_dynamic(weight)
@@ -59,7 +59,6 @@ class BaseQuantizer(object):
         elif self.granularity == 'per_block':
             assert self.calib_algo == 'minmax' and self.sym
             self.block_size = self.kwargs['block_size']
-            assert self.block_size == 128
 
         if self.kwargs.get('ste', False):
             self.round_func = lambda x: (x.round() - x).detach() + x
@@ -650,7 +649,10 @@ class BaseQuantizer(object):
         if tensor.shape == shape:
             t = tensor
         elif self.granularity == 'per_block':
-            t = tensor.reshape(-1, shape[-1])[:shape[0], :]
+            try:
+                t = tensor.reshape(-1, shape[-1])[:shape[0], :]
+            except RuntimeError:
+                t = tensor.reshape(shape[0], -1)[:, :shape[1]]
         else:
             try:
                 t = tensor.reshape(shape)
@@ -658,45 +660,6 @@ class BaseQuantizer(object):
                 deficiency = self.group_size - shape[1] % self.group_size
                 t = tensor.reshape(*shape[:-1], -1)[..., :-deficiency]
         return t
-
-    def block_quant(self, tensor, scales):
-        N, M = tensor.shape
-        unfolded_tensor = tensor.unfold(0, self.block_size, self.block_size).unfold(
-            1, self.block_size, self.block_size
-        )
-        num_blocks_x, num_blocks_y = unfolded_tensor.shape[:2]
-        quantized_tensor = torch.zeros_like(tensor)
-        for i in range(num_blocks_x):
-            for j in range(num_blocks_y):
-                block = unfolded_tensor[i, j, :, :]
-                block_scale = scales[i, j]
-                quantized_block = torch.clip(
-                    block / block_scale, self.qmin.cuda(), self.qmax.cuda()
-                )
-                quantized_tensor[
-                    i * self.block_size : (i + 1) * self.block_size,
-                    j * self.block_size : (j + 1) * self.block_size,
-                ] = quantized_block
-
-        return quantized_tensor
-
-    def block_dequant(self, quantized_tensor, scales):
-        N, M = quantized_tensor.shape
-        unfolded_tensor = quantized_tensor.unfold(
-            0, self.block_size, self.block_size
-        ).unfold(1, self.block_size, self.block_size)
-        num_blocks_x, num_blocks_y = unfolded_tensor.shape[:2]
-        dequantized_tensor = torch.zeros_like(quantized_tensor)
-        for i in range(num_blocks_x):
-            for j in range(num_blocks_y):
-                block = unfolded_tensor[i, j, :, :]
-                block_scale = scales[i, j]
-                dequantized_block = block * block_scale
-                dequantized_tensor[
-                    i * self.block_size : (i + 1) * self.block_size,
-                    j * self.block_size : (j + 1) * self.block_size,
-                ] = dequantized_block
-        return dequantized_tensor
 
 
 class IntegerQuantizer(BaseQuantizer):
@@ -1409,39 +1372,38 @@ class Weight48IntegerQuantizer(BaseQuantizer):
 
         return weight
 
+# if __name__ == '__main__':
+#     from kernel import weight_cast_to_bf16 as weight_cast_to_bf16_triton
+#     from kernel import weight_cast_to_fp8 as weight_cast_to_fp8_triton
+#     from safetensors.torch import load_file
 
-if __name__ == '__main__':
-    from kernel import weight_cast_to_bf16 as weight_cast_to_bf16_triton
-    from kernel import weight_cast_to_fp8 as weight_cast_to_fp8_triton
-    from safetensors.torch import load_file
+#     cosine_sim = torch.nn.CosineSimilarity()
+#     # Load the model weights from the safetensors file
+#     bf16_model_path = '/path/DeepSeek-R1-bf16/model-00001-of-000163.safetensors'
+#     data = load_file(bf16_model_path)
+#     bf16_weight = data['model.layers.3.self_attn.kv_a_proj_with_mqa.weight'].cuda().clone()
 
-    cosine_sim = torch.nn.CosineSimilarity()
-    # Load the model weights from the safetensors file
-    bf16_model_path = '/path/DeepSeek-R1-bf16/model-00001-of-000163.safetensors'
-    data = load_file(bf16_model_path)
-    bf16_weight = data['model.layers.3.self_attn.kv_a_proj_with_mqa.weight'].cuda().clone()
-
-    fp8_model_path = '/path/DeepSeek-R1/model-00001-of-000163.safetensors'
-    data = load_file(fp8_model_path)
-    fp8_weight = data['model.layers.3.self_attn.kv_a_proj_with_mqa.weight'].cuda()
-    fp8_scale = data['model.layers.3.self_attn.kv_a_proj_with_mqa.weight_scale_inv'].cuda()
+#     fp8_model_path = '/path/DeepSeek-R1/model-00001-of-000163.safetensors'
+#     data = load_file(fp8_model_path)
+#     fp8_weight = data['model.layers.3.self_attn.kv_a_proj_with_mqa.weight'].cuda()
+#     fp8_scale = data['model.layers.3.self_attn.kv_a_proj_with_mqa.weight_scale_inv'].cuda()
 
 
-    fp8_weight_1, fp8_scale_1 = weight_cast_to_fp8_triton(bf16_weight)
-    fp8_weight_2, fp8_scale_2 = weight_cast_to_fp8(bf16_weight)
+#     fp8_weight_1, fp8_scale_1 = weight_cast_to_fp8_triton(bf16_weight)
+#     fp8_weight_2, fp8_scale_2 = weight_cast_to_fp8(bf16_weight)
 
-    print(cosine_sim(fp8_scale.view(1, -1), fp8_scale_1.view(1, -1)))
-    print(cosine_sim(fp8_scale.view(1, -1), fp8_scale_2.view(1, -1)))
-    print(cosine_sim(fp8_weight.float().view(1, -1), fp8_weight_1.float().view(1, -1)))
-    print(cosine_sim(fp8_weight.float().view(1, -1), fp8_weight_2.float().view(1, -1)))
+#     print(cosine_sim(fp8_scale.view(1, -1), fp8_scale_1.view(1, -1)))
+#     print(cosine_sim(fp8_scale.view(1, -1), fp8_scale_2.view(1, -1)))
+#     print(cosine_sim(fp8_weight.float().view(1, -1), fp8_weight_1.float().view(1, -1)))
+#     print(cosine_sim(fp8_weight.float().view(1, -1), fp8_weight_2.float().view(1, -1)))
 
-    bf16_weight_1 = weight_cast_to_bf16_triton(fp8_weight_1, fp8_scale_1).to(torch.bfloat16)
-    bf16_weight_2 = weight_cast_to_bf16(fp8_weight_2, fp8_scale_2)
+#     bf16_weight_1 = weight_cast_to_bf16_triton(fp8_weight_1, fp8_scale_1).to(torch.bfloat16)
+#     bf16_weight_2 = weight_cast_to_bf16(fp8_weight_2, fp8_scale_2)
 
-    print(bf16_weight.min(), bf16_weight.max())
-    print(bf16_weight_1.min(), bf16_weight_1.max())
-    print(bf16_weight_2.min(), bf16_weight_2.max())
+#     print(bf16_weight.min(), bf16_weight.max())
+#     print(bf16_weight_1.min(), bf16_weight_1.max())
+#     print(bf16_weight_2.min(), bf16_weight_2.max())
 
-    print(cosine_sim(bf16_weight.float().view(1, -1), bf16_weight_1.float().view(1, -1)))
-    print(cosine_sim(bf16_weight.float().view(1, -1), bf16_weight_2.float().view(1, -1)))
-    print(cosine_sim(bf16_weight_1.float().view(1, -1), bf16_weight_2.float().view(1, -1)))
+#     print(cosine_sim(bf16_weight.float().view(1, -1), bf16_weight_1.float().view(1, -1)))
+#     print(cosine_sim(bf16_weight.float().view(1, -1), bf16_weight_2.float().view(1, -1)))
+#     print(cosine_sim(bf16_weight_1.float().view(1, -1), bf16_weight_2.float().view(1, -1)))

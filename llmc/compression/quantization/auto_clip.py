@@ -58,7 +58,8 @@ class AutoClipper:
                     is_fp8_weight = True
                     m.weight.data \
                         = weight_cast_to_bf16(m.weight.data,
-                                              m.weight_scale_inv.data).to(torch.bfloat16)
+                                              m.weight_scale_inv.data,
+                                              self.fp8_block_size).to(torch.bfloat16)
                 else:
                     is_fp8_weight = False
                 m = m.cuda()
@@ -86,7 +87,7 @@ class AutoClipper:
 
                 self.apply_clip(block_idx, m, min_val, max_val, n)
                 if is_fp8_weight:
-                    m.weight.data, m.weight_scale_inv.data = weight_cast_to_fp8(m.weight.data)
+                    m.weight.data, m.weight_scale_inv.data = weight_cast_to_fp8(m.weight.data, self.fp8_block_size)
 
     @torch.no_grad()
     def auto_clip_layer(

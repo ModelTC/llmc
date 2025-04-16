@@ -131,7 +131,8 @@ class OsPlus(BaseBlockwiseQuantization):
                     if fc.weight.data.dtype == torch.float8_e4m3fn:
                         tmp_weight_data \
                             = weight_cast_to_bf16(fc.weight.data,
-                                                  fc.weight_scale_inv.data).to(torch.bfloat16)
+                                                  fc.weight_scale_inv.data,
+                                                  self.fp8_block_size).to(torch.bfloat16)
                     else:
                         tmp_weight_data = fc.weight.data
 
@@ -142,7 +143,7 @@ class OsPlus(BaseBlockwiseQuantization):
 
                     if fc.weight.data.dtype == torch.float8_e4m3fn:
                         fc.weight.data, fc.weight_scale_inv.data \
-                            = weight_cast_to_fp8(tmp_weight_data)
+                            = weight_cast_to_fp8(tmp_weight_data, self.fp8_block_size)
                     else:
                         fc.weight.data = tmp_weight_data
 

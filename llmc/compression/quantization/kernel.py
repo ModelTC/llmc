@@ -1,5 +1,3 @@
-from typing import Tuple
-
 import torch
 import triton
 import triton.language as tl
@@ -30,9 +28,7 @@ def act_quant_kernel(x_ptr, y_ptr, s_ptr, BLOCK_SIZE: tl.constexpr):
     tl.store(s_ptr + pid, s)
 
 
-def act_quant(
-    x: torch.Tensor, block_size: int = 128
-) -> Tuple[torch.Tensor, torch.Tensor]:
+def act_quant(x, block_size= 128):
     """Quantizes the input tensor `x` using block-wise quantization.
 
     Args:
@@ -116,9 +112,7 @@ def weight_cast_to_bf16_kernel(x_ptr, s_ptr, y_ptr, M, N, BLOCK_SIZE: tl.constex
     tl.store(y_ptr + offs, y, mask=mask)
 
 
-def weight_cast_to_bf16(
-    x: torch.Tensor, s: torch.Tensor, block_size: int = 128
-) -> torch.Tensor:
+def weight_cast_to_bf16(x, s, block_size=128):
     """Dequantizes the given weight tensor using the provided scale tensor.
 
     Args:
@@ -246,33 +240,3 @@ def fp8_gemm(a: torch.Tensor, a_s: torch.Tensor, b: torch.Tensor, b_s: torch.Ten
     )
     fp8_gemm_kernel[grid](a, b, c, a_s, b_s, M, N, K)
     return c
-
-
-@triton.jit
-def weight_quant_kernel(x_ptr, y_ptr, s_ptr, M, N, BLOCK_SIZE: tl.constexpr):
-    pid_m = tl.program_id(axis=0)
-    pid_n = tl.program_id(axis=1)
-    n = tl.cdiv(N, BLOCK_SIZE)
-    offs_m = pid_m * BLOCK_SIZE + tl.arange(0, BLOCK_SIZE)
-    offs_n = pid_n * BLOCK_SIZE + tl.arange(0, BLOCK_SIZE)
-    offs = offs_m[:, None] * N + offs_n[None, :]
-    mask = (offs_m[:, None] < M) & (offs_n[None, :] < N)
-    x = tl.load(x_ptr + offs, mask=mask).to(tl.float32)
-    s = tl.max(tl.abs(x)) / 127.
-    y = x / s
-    y = y.to(y_ptr.dtype.element_ty)
-    tl.store(y_ptr + offs, y, mask=mask)
-    tl.store(s_ptr + pid_m * n + pid_n, s)
-
-
-def weight_quant(x: torch.Tensor, block_size: int = 128) -> Tuple[torch.Tensor, torch.Tensor]:
-    assert x.is_contiguous()
-    assert x.dim() == 2
-    M, N = x.size()
-    y = torch.empty_like(x, dtype=torch.int8)
-    sM = torch.tensor(1.0 * M / block_size).ceil().int()
-    sN = torch.tensor(1.0 * N / block_size).ceil().int()
-    s = x.new_empty(sM, sN, dtype=torch.float32)
-    grid = lambda meta: (triton.cdiv(M, meta['BLOCK_SIZE']), triton.cdiv(N, meta['BLOCK_SIZE'])) # noqa
-    weight_quant_kernel[grid](x, y, s, M, N, BLOCK_SIZE=block_size)
-    return y, s

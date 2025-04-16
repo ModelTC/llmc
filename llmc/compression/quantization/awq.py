@@ -60,7 +60,8 @@ class Awq(BaseBlockwiseQuantization):
         for idx, _m in enumerate(layers):
             if _m.weight.data.dtype == torch.float8_e4m3fn:
                 weight = weight_cast_to_bf16(_m.weight.data,
-                                             _m.weight_scale_inv.data).to(torch.bfloat16)
+                                             _m.weight_scale_inv.data,
+                                             self.fp8_block_size).to(torch.bfloat16)
             else:
                 weight = _m.weight.data.clone()
             org_shape = weight.shape
@@ -154,7 +155,8 @@ class Awq(BaseBlockwiseQuantization):
     def fake_quantize_weight(self, fc, scales, is_gqa, layer_name):
         if fc.weight.data.dtype == torch.float8_e4m3fn:
             tmp_weight_data = weight_cast_to_bf16(fc.weight.data,
-                                                  fc.weight_scale_inv.data).to(torch.bfloat16)
+                                                  fc.weight_scale_inv.data,
+                                                  self.fp8_block_size).to(torch.bfloat16)
         else:
             tmp_weight_data = fc.weight.data
 
@@ -168,7 +170,7 @@ class Awq(BaseBlockwiseQuantization):
         ).fake_quant_weight_dynamic(tmp_weight_data)
 
         if fc.weight.data.dtype == torch.float8_e4m3fn:
-            fc.weight.data, fc.weight_scale_inv.data = weight_cast_to_fp8(tmp_weight_data)
+            fc.weight.data, fc.weight_scale_inv.data = weight_cast_to_fp8(tmp_weight_data, self.fp8_block_size)
         else:
             fc.weight.data = tmp_weight_data
 
