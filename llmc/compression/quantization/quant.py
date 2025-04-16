@@ -1371,39 +1371,3 @@ class Weight48IntegerQuantizer(BaseQuantizer):
         weight = self.restore_tensor(weight, org_shape16).to(org_dtype16)
 
         return weight
-
-# if __name__ == '__main__':
-#     from kernel import weight_cast_to_bf16 as weight_cast_to_bf16_triton
-#     from kernel import weight_cast_to_fp8 as weight_cast_to_fp8_triton
-#     from safetensors.torch import load_file
-
-#     cosine_sim = torch.nn.CosineSimilarity()
-#     # Load the model weights from the safetensors file
-#     bf16_model_path = '/path/DeepSeek-R1-bf16/model-00001-of-000163.safetensors'
-#     data = load_file(bf16_model_path)
-#     bf16_weight = data['model.layers.3.self_attn.kv_a_proj_with_mqa.weight'].cuda().clone()
-
-#     fp8_model_path = '/path/DeepSeek-R1/model-00001-of-000163.safetensors'
-#     data = load_file(fp8_model_path)
-#     fp8_weight = data['model.layers.3.self_attn.kv_a_proj_with_mqa.weight'].cuda()
-#     fp8_scale = data['model.layers.3.self_attn.kv_a_proj_with_mqa.weight_scale_inv'].cuda()
-
-
-#     fp8_weight_1, fp8_scale_1 = weight_cast_to_fp8_triton(bf16_weight)
-#     fp8_weight_2, fp8_scale_2 = weight_cast_to_fp8(bf16_weight)
-
-#     print(cosine_sim(fp8_scale.view(1, -1), fp8_scale_1.view(1, -1)))
-#     print(cosine_sim(fp8_scale.view(1, -1), fp8_scale_2.view(1, -1)))
-#     print(cosine_sim(fp8_weight.float().view(1, -1), fp8_weight_1.float().view(1, -1)))
-#     print(cosine_sim(fp8_weight.float().view(1, -1), fp8_weight_2.float().view(1, -1)))
-
-#     bf16_weight_1 = weight_cast_to_bf16_triton(fp8_weight_1, fp8_scale_1).to(torch.bfloat16)
-#     bf16_weight_2 = weight_cast_to_bf16(fp8_weight_2, fp8_scale_2)
-
-#     print(bf16_weight.min(), bf16_weight.max())
-#     print(bf16_weight_1.min(), bf16_weight_1.max())
-#     print(bf16_weight_2.min(), bf16_weight_2.max())
-
-#     print(cosine_sim(bf16_weight.float().view(1, -1), bf16_weight_1.float().view(1, -1)))
-#     print(cosine_sim(bf16_weight.float().view(1, -1), bf16_weight_2.float().view(1, -1)))
-#     print(cosine_sim(bf16_weight_1.float().view(1, -1), bf16_weight_2.float().view(1, -1)))

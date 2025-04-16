@@ -65,13 +65,18 @@ class LlmcFp8Linear(nn.Module):
         if self.weight.data.dtype == torch.float8_e4m3fn:
             if USE_FP8GEMM_TRITON_KERNEL:
                 y = block_wise_fp8_forward_func(
-                    x, self.weight, self.weight_scale_inv, self.block_size, self.bias
+                    x,
+                    self.weight,
+                    self.weight_scale_inv,
+                    self.block_size,
+                    self.bias
                 )
                 return y
             else:
                 self.weight.data \
                     = weight_cast_to_bf16(self.weight.data,
-                                          self.weight_scale_inv.data).to(torch.bfloat16)
+                                          self.weight_scale_inv.data,
+                                          self.block_size).to(torch.bfloat16)
         y = torch.functional.F.linear(x, self.weight, self.bias)
         return y
 
@@ -731,7 +736,9 @@ class VllmRealQuantLinear(nn.Module):
     def quant_pack(cls, module, w_q, quant_config):
         if module.weight.data.dtype == torch.float8_e4m3fn:
             module.weight.data = weight_cast_to_bf16(
-                module.weight.data, module.weight_scale_inv.data
+                module.weight.data,
+                module.weight_scale_inv.data,
+                module.block_size
             ).to(torch.bfloat16)
         weight, scales, zeros = w_q(module)
         need_pack = quant_config['weight'].get('need_pack', False)
@@ -874,7 +881,9 @@ class AutoawqRealQuantLinear(nn.Module):
     def quant_pack(cls, module, w_q, quant_config):
         if module.weight.data.dtype == torch.float8_e4m3fn:
             module.weight.data = weight_cast_to_bf16(
-                module.weight.data, module.weight_scale_inv.data
+                module.weight.data,
+                module.weight_scale_inv.data,
+                module.block_size
             ).to(torch.bfloat16)
         _, scales, zeros = w_q(module)
         pack_version = quant_config['weight']['pack_version']

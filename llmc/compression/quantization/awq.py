@@ -20,7 +20,8 @@ else:
 
 from .module_utils import (_LLMC_LINEAR_TYPES_, _LLMC_LN_TYPES_,
                            _TRANSFORMERS_LINEAR_TYPES_,
-                           _TRANSFORMERS_LN_TYPES_, FakeQuantLinear)
+                           _TRANSFORMERS_LN_TYPES_, FakeQuantLinear,
+                           LlmcFp8Linear)
 from .utils import check_do_quant, check_w_only, get_aquantizer, get_wquantizer
 
 
@@ -378,7 +379,7 @@ class Awq(BaseBlockwiseQuantization):
             layers = list(layers_dict.values())
 
             if (
-                isinstance(prev_op[0], (nn.Linear, FakeQuantLinear))
+                isinstance(prev_op[0], (nn.Linear, FakeQuantLinear, LlmcFp8Linear))
                 and prev_op[0].out_features != layers[0].in_features * 3
                 and prev_op[0].out_features != layers[0].in_features * 2
                 and prev_op[0].out_features != layers[0].in_features
