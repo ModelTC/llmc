@@ -1,6 +1,6 @@
-# VLM Quantization and Image-Text Datasets
+# VLM Quantization and custom_mm Datasets
 
-llmc currently supports calibrating and quantizing VLM models using image-text datasets.
+llmc currently supports calibrating and quantizing VLM models using custom_mm datasets.
 
 ## VLM Quantization
 The currently supported models are:  
@@ -11,7 +11,7 @@ The currently supported models are:
 
 More VLM models are under development.
 
-Here is an example configuration:
+Here is an example configuration. You can refer to the [Calibration Dataset Template](https://github.com/user-attachments/files/18433608/general_custom_data_examples.zip) on GitHub.:
 
 ```yaml
 model:
@@ -20,20 +20,19 @@ model:
     tokenizer_mode: slow
     torch_dtype: auto
 calib:
-    name: vlm_datasets
-    type: img_txt
+    name: custom_mm
     download: False
-    path: datasets path
-    n_samples: 32
-    bs: 1
+    path: calib data path
+    apply_chat_template: True
+    add_answer: True # Defalut is False. If set it to Ture, calib data will add answers.
+    n_samples: 8
+    bs: -1
     seq_len: 512
-    preproc: vlm_general
     padding: True
-    seed: *seed
 ```
 
-## img-txt datatsets
-The format of the img-txt dataset is as follows:
+## custom_mm datatsets
+The format of the custom_mm dataset is as follows:
 ```
 img_txt-datasets/
 ├── images/
@@ -48,19 +47,24 @@ Example format of img_qa.json:
 ```json
 [
     {
-        "img": "images/00000000.jpg",
-        "question": "Is this picture captured in a place of ice floe? Please answer yes or no.",
+        "image": "images/0a3035bfca2ab920.jpg",
+        "question": "Is this an image of Ortigia? Please answer yes or no.",
         "answer": "Yes"
     },
     {
-        "img": "images/00000000.jpg",
-        "question": "Is this picture captured in a place of closet? Please answer yes or no.",
+        "image": "images/0a3035bfca2ab920.jpg",
+        "question": "Is this an image of Montmayeur castle? Please answer yes or no.",
         "answer": "No"
     },
+    {
+        "image": "images/0ab2ed007db301d5.jpg",
+        "question": "Is this a picture of Highgate Cemetery? Please answer yes or no.",
+        "answer": "Yes"
+    }
 ]
 ```
 The "answer" field is optional.
-The img-txt dataset can include calibration data that contains only text (except for llama3.2).
+The custom_mm dataset can include calibration data that contains only text (except for llama3.2).
 
 ## VLM Evaluation
 

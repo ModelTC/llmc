@@ -1,4 +1,4 @@
-# VLM quant and img-txt datatsets
+# VLM quant and custom_mm datatsets
 
 llmc目前支持对VLM模型使用图像-文本数据集进行校准并量化
 
@@ -14,7 +14,7 @@ llmc目前支持对VLM模型使用图像-文本数据集进行校准并量化
 
 更多的vlm正在实现中
 
-下面是一个配置的例子
+下面是一个配置的例子，可以参考GitHub上的[校准数据集模板](https://github.com/user-attachments/files/18433608/general_custom_data_examples.zip)。
 
 ```yaml
 model:
@@ -23,22 +23,21 @@ model:
     tokenizer_mode: slow
     torch_dtype: auto
 calib:
-    name: vlm_datastes
-    type: img_txt
+    name: custom_mm
     download: False
-    path: datastes path
-    n_samples: 32
-    bs: 1
+    path: calib data path
+    apply_chat_template: True
+    add_answer: True # Defalut is False. If set it to Ture, calib data will add answers.
+    n_samples: 8
+    bs: -1
     seq_len: 512
-    preproc: vlm_general
     padding: True
-    seed: *seed
 ```
 
-## img-txt datatsets
-img-txt 数据集格式如下：
+## custom_mm datatsets
+custom_mm 数据集格式如下：
 ```
-img_txt-datasets/
+custom_mm-datasets/
 ├── images/
 │   ├── image1.jpg
 │   ├── image2.jpg
@@ -51,20 +50,25 @@ img_qa.json 格式示例：
 ```json
 [
     {
-        "img": "images/00000000.jpg",
-        "question": "Is this picture captured in a place of ice floe? Please answer yes or no.",
+        "image": "images/0a3035bfca2ab920.jpg",
+        "question": "Is this an image of Ortigia? Please answer yes or no.",
         "answer": "Yes"
     },
     {
-        "img": "images/00000000.jpg",
-        "question": "Is this picture captured in a place of closet? Please answer yes or no.",
+        "image": "images/0a3035bfca2ab920.jpg",
+        "question": "Is this an image of Montmayeur castle? Please answer yes or no.",
         "answer": "No"
     },
+    {
+        "image": "images/0ab2ed007db301d5.jpg",
+        "question": "Is this a picture of Highgate Cemetery? Please answer yes or no.",
+        "answer": "Yes"
+    }
 ]
 ```
 "answer" 可以不需要
 
-img-txt数据集中可以存在仅有文本的校准数据（当前llama3.2除外）
+custom_mm数据集中可以存在仅有文本的校准数据（当前llama3.2除外）
 
 ## VLM 测评
 
