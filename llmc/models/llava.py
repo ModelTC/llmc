@@ -42,7 +42,10 @@ class Llava(Llama):
         self.model_config = self.vlm_model_config.text_config
         self.pruning_config = {
             'image_token_start_index': 5,
-            'image_token_length': 576
+            'image_token_length': 576,
+            'select_layer': self.vlm_model_config.vision_feature_layer,
+            'select_feature': self.vlm_model_config.vision_feature_select_strategy,
+            'image_token_index': self.vlm_model_config.image_token_index
         }
 
         self.processor = AutoProcessor.from_pretrained(self.model_path)
