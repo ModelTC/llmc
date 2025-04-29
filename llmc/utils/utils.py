@@ -20,7 +20,7 @@ def seed_all(seed):
 
 def check_config(config):
     if config.get('sparse', False):
-        logger.info('Use sparsificatino method')
+        logger.info('Use sparsification method')
     else:
 
         def check_weight_setting(weight_setting):
