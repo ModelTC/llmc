@@ -27,6 +27,7 @@ class VQAEval:
     def eval(
         self,
         llmc_model,
+        eval_class: Optional[str] = None,
         model_args: Optional[Union[str, dict]] = None,
         tasks: Optional[List[Union[str, dict, object]]] = None,
         num_fewshot: Optional[int] = None,

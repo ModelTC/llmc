@@ -31,7 +31,7 @@ class AccuracyEval:
         )
         return val_loader
 
-    def eval(self, model):
+    def eval(self, model, eval_pos=None):
         self.model = model.get_model()
         self.processor = model.processor
         self.model.eval()

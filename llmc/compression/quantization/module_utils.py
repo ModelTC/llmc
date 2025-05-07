@@ -40,6 +40,88 @@ def block_wise_fp8_forward_func(x, w, w_scale, block_size, bias):
     return y
 
 
+class FakeAffineLayerNorm(nn.Module):
+    def __init__(self, norm, shape):
+        super().__init__()
+        self.register_parameter('weight', nn.Parameter(torch.ones(shape, dtype=torch.float)))
+        self.register_parameter('bias', nn.Parameter(torch.ones(shape, dtype=torch.float)))
+        self.norm = norm
+
+    def forward(self, x):
+        return self.norm(x)
+
+    def extra_repr(self):
+        return f'affine=True (emulated), shape={self.weight.shape}'
+
+
+class LlmcWanTransformerBlock(nn.Module):
+    def __init__(self, module):
+        super().__init__()
+
+        self.norm1 = FakeAffineLayerNorm(module.norm1, module.scale_shift_table.shape[-1])
+        self.attn1 = module.attn1
+
+        self.attn2 = module.attn2
+        self.norm2 = module.norm2
+
+        self.norm3 = FakeAffineLayerNorm(module.norm1, module.scale_shift_table.shape[-1])
+        self.ffn = module.ffn
+        self.scale_shift_table = module.scale_shift_table
+
+    def forward(
+        self,
+        hidden_states,
+        encoder_hidden_states,
+        temb,
+        rotary_emb,
+    ):
+        shift_msa, scale_msa, gate_msa, c_shift_msa, c_scale_msa, c_gate_msa = (
+            self.scale_shift_table + temb
+        ).chunk(6, dim=1)
+
+        # 1. Self-attention
+        norm1_weight = (1 + scale_msa) * self.norm1.weight
+        norm1_bias = shift_msa * self.norm1.bias
+
+        norm_hidden_states = (
+            self.norm1(hidden_states.float()) * norm1_weight + norm1_bias
+        ).type_as(hidden_states)
+        attn_output = self.attn1(
+            hidden_states=norm_hidden_states, rotary_emb=rotary_emb
+        )
+        hidden_states = (hidden_states.float() + attn_output * gate_msa).type_as(
+            hidden_states
+        )
+
+        # 2. Cross-attention
+        norm_hidden_states = self.norm2(hidden_states.float()).type_as(hidden_states)
+        attn_output = self.attn2(
+            hidden_states=norm_hidden_states,
+            encoder_hidden_states=encoder_hidden_states,
+        )
+        hidden_states = hidden_states + attn_output
+
+        # 3. Feed-forward
+        norm3_weight = (1 + c_scale_msa) * self.norm3.weight
+        norm3_bias = c_shift_msa * self.norm3.bias
+
+        norm_hidden_states = (
+            self.norm3(hidden_states.float()) * norm3_weight + norm3_bias
+        ).type_as(hidden_states)
+        ff_output = self.ffn(norm_hidden_states)
+        hidden_states = (
+            hidden_states.float() + ff_output.float() * c_gate_msa
+        ).type_as(hidden_states)
+
+        return hidden_states
+
+    @classmethod
+    @torch.no_grad()
+    def new(cls, module):
+        new_module = cls(module)
+        return new_module
+
+
 class LlmcFp8Linear(nn.Module):
     def __init__(self, in_features, out_features, bias, block_size):
         super().__init__()

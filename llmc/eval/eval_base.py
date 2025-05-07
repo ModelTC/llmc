@@ -30,7 +30,8 @@ class BaseEval:
             'mme',
             'custom_ppl',
             'custom_gen',
-        ], 'Eval only support wikitext2, c4, ptb, custom, human_eval dataset now.'
+            'custom_t2v'
+        ], f'Not support {self.dataset} dataset now.'
         self.seq_len = self.eval_cfg.get('seq_len', None)
         self.num_samples = self.eval_cfg.get('num_samples', None)
         self.num_eval_tokens = self.eval_cfg.get('num_eval_tokens', None)
@@ -66,7 +67,7 @@ class BaseEval:
                         'ptb_text_only', 'penn_treebank', split='test'
                     )
             else:
-                if self.dataset == 'custom_gen' or self.dataset == 'custom_ppl':
+                if self.dataset in ['custom_gen', 'custom_ppl', 'custom_t2v']:
                     testdata = self.get_cutomdata(self.eval_dataset_path)
                 else:
                     assert self.eval_dataset_path, 'Please set path in eval_cfg.'
@@ -125,6 +126,8 @@ class BaseEval:
                                 apply_chat_template=self.apply_chat_template
                             )
                         )
+            elif self.dataset == 'custom_t2v':
+                testenc = self.testdata
         return testenc
 
     def get_cutomdata(self, custom_dataset):
@@ -160,6 +163,10 @@ class BaseEval:
                 custom_data_samples[idx]['question'] = ''
             if 'answer' not in custom_data_samples[idx]:
                 custom_data_samples[idx]['answer'] = ''
+            if 'prompt' not in custom_data_samples[idx]:
+                custom_data_samples[idx]['prompt'] = ''
+            if 'negative_prompt' not in custom_data_samples[idx]:
+                custom_data_samples[idx]['negative_prompt'] = ''
         return custom_data_samples
 
     @torch.no_grad()

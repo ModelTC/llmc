@@ -249,8 +249,8 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
                 self.config['model']['type'] in ['Opt', 'Llama']
             ), 'Please set online_rotate=False'
             self.fp32_had = special_config.get('fp32_had', False)
-        self.hidden_size = self.model.model_config.hidden_size
-        self.set_model_config()
+        if self.quant_config.modality != 'video_gen':
+            self.set_model_config()
         self.modality = self.quant_config.modality
         logger.info(f'self.quant_objects : {self.quant_config.modality}')
 
@@ -373,12 +373,12 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
                 if torch.is_tensor(self.input['kwargs'][i][k]):
                     self.input['kwargs'][i][k] = self.input['kwargs'][i][k].to(
                         device=next(block.parameters()).device
-                    )  # noqa
+                    )
                 if isinstance(self.input['kwargs'][i][k], tuple):
                     self.input['kwargs'][i][k] = tuple(
                         tmp.to(device=next(block.parameters()).device)
                         for tmp in self.input['kwargs'][i][k]
-                    )  # noqa
+                    )
             with torch.no_grad():
                 out = block(input_data[i], **self.input['kwargs'][i])
                 if isinstance(out, tuple):
@@ -474,9 +474,10 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
             inspect_has_kwargs = subset['has_kwargs']
             if inspect_has_kwargs:
                 if 'sub_keys' in subset:
-                    subset_kwargs = [
-                        {k: block_kwargs[0][v] for k, v in subset['sub_keys'].items()}
-                    ]
+                    subset_kwargs = []
+                    for i in range(len(block_kwargs)):
+                        for k, v in subset['sub_keys'].items():
+                            subset_kwargs.append({k: block_kwargs[i][v]})
                 else:
                     subset_kwargs = block_kwargs
             else:
@@ -746,7 +747,10 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
     def scale_ln_fcs(self, ln, fcs, scales):
         if not isinstance(fcs, list):
             fcs = [fcs]
+
         scales = scales.to(ln.weight.device)
+        scales = scales.to(ln.weight.dtype)
+
         ln.weight.div_(scales)
 
         if hasattr(ln, 'bias') and ln.bias is not None:
@@ -954,6 +958,13 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
                 self.get_replacement_params(mode=quant_format, w_only=self.w_only),
                 keep_device=keep_device,
             )
+        if self.modality == 'video_gen':
+            self.model.replace_video_gen_module_all(
+                module,
+                self.get_replacement_params(mode=quant_format, w_only=self.w_only),
+                keep_device=keep_device,
+            )
+
         self.set_non_linear_mode(quant_format, self.model.model, False)
 
         if self.quant_kvcache:
@@ -973,8 +984,11 @@ class BaseBlockwiseQuantization(BlockwiseOpt):
 
     @torch.no_grad()
     def copy_tokenizer(self, path):
-        self.model.tokenizer.save_pretrained(path)
-        logger.info('copy tokenizer done --')
+        if self.model.tokenizer is not None:
+            self.model.tokenizer.save_pretrained(path)
+            logger.info('copy tokenizer done --')
+        else:
+            logger.info('no tokenizer, skip --')
 
     @torch.no_grad()
     def contiguous_params(self):

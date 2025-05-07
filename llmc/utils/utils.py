@@ -81,7 +81,7 @@ def get_modality(config):
     modalities = []
     modality_configs = []
     compression_config = config.quant if 'quant' in config else config.sparse
-    for modality in ['vision', 'language']:
+    for modality in ['vision', 'language', 'video_gen']:
         if modality in compression_config:
             compression_config[modality].modality = modality
             modalities.append(modality)
