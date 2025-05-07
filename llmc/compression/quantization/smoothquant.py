@@ -55,7 +55,7 @@ class SmoothQuant(BaseBlockwiseQuantization):
         w_max = self.get_weight_scale(layers)
         x_max = self.get_act_scale(tensors)
         x_max = x_max.to(dtype=w_max.dtype, device=w_max.device)
-        scale = (x_max.pow(self.alpha) / w_max.pow(self.alpha)).clamp(min=1e-5)
+        scale = (x_max.pow(self.alpha) / w_max.pow(1 - self.alpha)).clamp(min=1e-5)
         return scale
 
     @torch.no_grad()

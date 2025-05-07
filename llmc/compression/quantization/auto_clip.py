@@ -6,8 +6,7 @@ import torch.distributed as dist
 from loguru import logger
 
 from .module_utils import _LLMC_LINEAR_TYPES_, _TRANSFORMERS_LINEAR_TYPES_
-from .utils import (check_do_quant, check_w_only, get_aquantizer,
-                    get_wquantizer, is_fp8_supported_gpu)
+from .utils import is_fp8_supported_gpu
 
 if is_fp8_supported_gpu():
     from .kernel import weight_cast_to_bf16, weight_cast_to_fp8
@@ -21,8 +20,6 @@ class AutoClipper:
     def __init__(
         self,
         w_only,
-        mix_bits_map,
-        quantizer_mix_bits,
         wquantizer,
         aquantizer,
         clip_version,
@@ -30,8 +27,6 @@ class AutoClipper:
         save_clip,
         padding_mask,
     ):
-        self.mix_bits_map = mix_bits_map
-        self.quantizer_mix_bits = quantizer_mix_bits
         self.wquantizer = wquantizer
         self.aquantizer = aquantizer
         self.clip_version = clip_version
@@ -45,14 +40,6 @@ class AutoClipper:
     @torch.no_grad()
     def run(self, block, block_idx, input_feat, n_sample_token):
         for n, m in block.named_modules():
-            if not check_do_quant(
-                block_idx, n, self.mix_bits_map, self.quantizer_mix_bits
-            ):
-                logger.info(
-                    f'This layer {n} in {block_idx}-th block is set to float.'
-                    f'No need to clip this layer.'
-                )
-                continue
             if isinstance(m, tuple(_LLMC_LINEAR_TYPES_ + _TRANSFORMERS_LINEAR_TYPES_)):
                 if m.weight.data.dtype == torch.float8_e4m3fn:
                     is_fp8_weight = True
@@ -105,15 +92,8 @@ class AutoClipper:
 
         assert w.dim() == 2
 
-        wquantizer = get_wquantizer(
-            block_idx,
-            layer_name,
-            self.mix_bits_map,
-            self.quantizer_mix_bits,
-            self.wquantizer,
-        )
-        if wquantizer.granularity == 'per_group':
-            group_size = wquantizer.group_size
+        if self.wquantizer.granularity == 'per_group':
+            group_size = self.wquantizer.group_size
         else:
             group_size = w.shape[1]
 
@@ -143,13 +123,7 @@ class AutoClipper:
             org_out_dict = {}
             for i_s in range(int(max_shrink * n_grid)):
                 if i_s == 0:
-                    if self.clip_version == 'v2' and not check_w_only(
-                        block_idx,
-                        layer_name,
-                        self.mix_bits_map,
-                        self.quantizer_mix_bits,
-                        self.w_only,
-                    ):
+                    if self.clip_version == 'v2' and not self.w_only:
                         i_s += eps
                 err_mean = 0
                 for i in range(len(inputs)):
@@ -254,15 +228,8 @@ class AutoClipper:
             raise Exception('Not support other clip version')
 
     def get_clip_factor(self, block_idx, layer, min_val, max_val, layer_name):
-        wquantizer = get_wquantizer(
-            block_idx,
-            layer_name,
-            self.mix_bits_map,
-            self.quantizer_mix_bits,
-            self.wquantizer,
-        )
-        org_min_val, org_max_val = wquantizer.get_minmax_range(
-            wquantizer.reshape_tensor(layer.weight.data)
+        org_min_val, org_max_val = self.wquantizer.get_minmax_range(
+            self.wquantizer.reshape_tensor(layer.weight.data)
         )
         org_val_shape = org_max_val.shape
 
@@ -304,20 +271,8 @@ class AutoClipper:
         return q_w
 
     def fake_quantize_input(self, block_idx, x, layer_name):
-        if not check_w_only(
-            block_idx,
-            layer_name,
-            self.mix_bits_map,
-            self.quantizer_mix_bits,
-            self.w_only,
-        ):
-            q_x = get_aquantizer(
-                block_idx,
-                layer_name,
-                self.mix_bits_map,
-                self.quantizer_mix_bits,
-                self.aquantizer,
-            ).fake_quant_act_dynamic(x)
+        if not self.w_only:
+            q_x = self.aquantizer.fake_quant_act_dynamic(x)
         else:
             q_x = x
         return q_x
