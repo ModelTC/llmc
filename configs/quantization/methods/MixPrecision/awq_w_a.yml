@@ -1,0 +1,52 @@
+base:
+    seed: &seed 42
+model:
+    type: DeepseekV2
+    path: /path/to/DeepseekV2
+    torch_dtype: auto
+calib:
+    name: pileval
+    download: False
+    path: /path/to/pileval
+    n_samples: 128
+    bs: -1
+    seq_len: 512
+    preproc: pileval_awq
+    seed: *seed
+eval:
+    eval_pos: [fake_quant]
+    name: wikitext2
+    download: False
+    path: /path/to/wikitext2
+    seq_len: 2048
+    bs: 1
+    inference_per_block: False
+quant:
+    method: Awq
+    weight:
+        bit: 8
+        symmetric: True
+        granularity: per_channel
+        group_size: -1
+    act:
+        bit: 8
+        symmetric: True
+        granularity: per_token
+    special:
+        trans: True
+        trans_version: v2
+        weight_clip: False
+        clip_sym: True
+ignored_layers:
+    # block_ids and layer_names together determine which layers use high precision (such as bf16 or fp16) for computation.
+    # For example, '4' and 'self_attn.q_proj' represent the model.layers.4.mlp.self_attn.q_proj layer using high precision,
+    # while '15-23' and 'self_attn.kv_b_proj' represent layers 15 to 23 of self_attn.kv_b_proj not being quantized.
+    block_ids: [4, 5, 6, 15-23]
+    layer_names: ["self_attn.q_proj", "self_attn.kv_a_proj_with_mqa", "self_attn.kv_b_proj", "self_attn.o_proj"]
+    # You can also specify certain layers for high precision computation using speical_names,
+    # but you must provide the full name of the layer
+    speical_names: ["model.layers.0.mlp.down_proj"]
+save:
+    save_vllm: False
+    save_fake: False
+    save_path: /path/to/save/

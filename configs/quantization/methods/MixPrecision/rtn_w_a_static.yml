@@ -1,0 +1,44 @@
+base:
+    seed: &seed 42
+model:
+    type: DeepseekV2
+    path: /path/to/DeepseekV2
+    torch_dtype: auto
+calib:
+    name: pileval
+    download: False
+    path: /path/to/pileval
+    n_samples: 128
+    bs: 1
+    seq_len: 2048
+    preproc: txt_general_preproc
+    seed: *seed
+eval:
+    eval_pos: [fake_quant]
+    name: wikitext2
+    download: False
+    path: /path/to/wikitext2
+    seq_len: 2048
+    bs: 1
+    inference_per_block: False
+quant:
+    method: RTN
+    weight:
+        bit: 8
+        symmetric: True
+        granularity: per_channel
+        group_size: -1
+    act:
+        bit: 8
+        symmetric: True
+        granularity: per_tensor
+        static: True
+        calib_algo: static_hist
+ignored_layers:
+    block_ids: [0-26]
+    layer_names: ["self_attn.q_proj", "self_attn.kv_a_proj_with_mqa", "self_attn.kv_b_proj", "self_attn.o_proj"]
+    speical_names: []
+save:
+    save_vllm: False
+    save_fake: False
+    save_path: /path/to/save/

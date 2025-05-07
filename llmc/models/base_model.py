@@ -17,9 +17,6 @@ from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
 from llmc.compression.quantization.module_utils import (
     _LLMC_LINEAR_TYPES_, _LLMC_LN_TYPES_, _TRANSFORMERS_LINEAR_TYPES_,
     _TRANSFORMERS_LN_TYPES_, LlmcFp8Linear)
-from llmc.compression.quantization.utils import (check_do_quant, check_w_only,
-                                                 get_aquantizer,
-                                                 get_wquantizer)
 
 
 class BaseModel(metaclass=ABCMeta):
@@ -362,67 +359,6 @@ class BaseModel(metaclass=ABCMeta):
     def get_moe_gate(self, block):
         return None
 
-    def set_mix_bits_params_dict(self, block_idx, name, params_dict):
-
-        logger.info('set_mix_bits_params_dict')
-
-        if not check_do_quant(
-            block_idx,
-            name,
-            params_dict['mix_bits_map'],
-            params_dict['quantizer_mix_bits'],
-        ):
-            logger.info(
-                f'This layer {name} in {block_idx}-th block is set to float.'
-                'No need to replace this layer.'
-            )
-            return params_dict
-
-        params_mix_dict = {}
-        params_mix_dict['debug_print'] = {}
-        wquantizer = get_wquantizer(
-            block_idx,
-            name,
-            params_dict['mix_bits_map'],
-            params_dict['quantizer_mix_bits'],
-            params_dict['wquantizer_default'],
-        )
-        params_mix_dict['w_qdq'] = partial(params_dict['w_qdq'], wquantizer=wquantizer)
-        params_mix_dict['debug_print']['weight'] = {}
-        params_mix_dict['debug_print']['weight']['bit'] = wquantizer.bit
-        params_mix_dict['debug_print']['weight']['sym'] = wquantizer.sym
-        params_mix_dict['debug_print']['weight']['granularity'] = wquantizer.granularity
-        if wquantizer.granularity == 'per_group':
-            params_mix_dict['debug_print']['weight'][
-                'group_size'
-            ] = wquantizer.group_size
-        if not check_w_only(
-            block_idx,
-            name,
-            params_dict['mix_bits_map'],
-            params_dict['quantizer_mix_bits'],
-            params_dict['w_only_default'],
-        ):
-            aquantizer = get_aquantizer(
-                block_idx,
-                name,
-                params_dict['mix_bits_map'],
-                params_dict['quantizer_mix_bits'],
-                params_dict['aquantizer_default'],
-            )
-            params_mix_dict['a_qdq'] = partial(
-                params_dict['a_qdq'], aquantizer=aquantizer
-            )
-            params_mix_dict['debug_print']['act'] = {}
-            params_mix_dict['debug_print']['act']['bit'] = aquantizer.bit
-            params_mix_dict['debug_print']['act']['sym'] = aquantizer.sym
-            params_mix_dict['debug_print']['act'][
-                'granularity'
-            ] = aquantizer.granularity
-        else:
-            params_mix_dict['a_qdq'] = None
-        return params_mix_dict
-
     def replace_vision_module_all(self, module, params_dict, keep_device=False):
         vision_model_linears = self.get_block_linears(self.vision_model)
         for name, m in vision_model_linears.items():
@@ -480,16 +416,8 @@ class BaseModel(metaclass=ABCMeta):
         for name, m in layers_dict.items():
             if hasattr(m, 'no_quant') and m.no_quant:
                 continue
-            # mix bits
-            params_tmp_dict = {}
-            if 'mix_bits' in params_dict and params_dict['mix_bits']:
-                params_tmp_dict = self.set_mix_bits_params_dict(
-                    block_idx, name, params_dict
-                )
-            else:
-                params_tmp_dict = params_dict
 
-            M = module.new(m, **params_tmp_dict)
+            M = module.new(m, **params_dict)
 
             name_tmp = name.rsplit('.', 1)
             if len(name_tmp) == 2:
