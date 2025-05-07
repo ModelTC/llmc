@@ -28,3 +28,4 @@ from .stablelm import StableLm
 from .starcoder import Starcoder
 from .vila import Vila
 from .vit import Vit
+from .wan_t2v import WanT2V

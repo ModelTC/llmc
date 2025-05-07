@@ -39,12 +39,16 @@ class BaseModel(metaclass=ABCMeta):
         self.kvcache_buffer = []
         self.build_tokenizer()
         self.build_model()
-        self.model.eval()
+        try:
+            self.model.eval()
+        except: # noqa
+            pass
+        self.update_key_info()
         if self.mm_model:
             self.mm_model.eval()
 
     def set_modality(self, modality='language'):
-        assert modality in ['audio', 'vision', 'language']
+        assert modality in ['audio', 'vision', 'language', 'video_gen']
         self.modality = modality
         self.update_key_info()
 
@@ -112,7 +116,7 @@ class BaseModel(metaclass=ABCMeta):
         pass
 
     def build_tokenizer(self):
-        if self.model_type not in ['Vit']:
+        if self.model_type not in ['Vit', 'WanT2V', 'WanI2V']:
             assert self.tokenizer_mode in ['fast', 'slow']
             self.tokenizer = AutoTokenizer.from_pretrained(
                 self.model_path, use_fast=self.tokenizer_mode, trust_remote_code=True
@@ -380,6 +384,19 @@ class BaseModel(metaclass=ABCMeta):
         logger.info(f'The Replaced vision_model: {self.vision_model}')
 
     def replace_language_module_all(self, module, params_dict, keep_device=False):
+        for block_idx in range(len(self.blocks)):
+            logger.info(f'Replace block index: {block_idx}/{len(self.blocks)}')
+            if keep_device:
+                self.replace_module_block(module, self.blocks[block_idx], block_idx, params_dict)
+            else:
+                self.blocks[block_idx].cuda()
+                self.replace_module_block(module, self.blocks[block_idx], block_idx, params_dict)
+                self.blocks[block_idx].cpu()
+            gc.collect()
+            torch.cuda.empty_cache()
+        logger.info(f'The Replaced model: {self.model}')
+
+    def replace_video_gen_module_all(self, module, params_dict, keep_device=False):
         for block_idx in range(len(self.blocks)):
             logger.info(f'Replace block index: {block_idx}/{len(self.blocks)}')
             if keep_device:

@@ -1,0 +1,46 @@
+base:
+    seed: &seed 42
+model:
+    type: WanT2V
+    path: /path/to/wan_t2v
+    torch_dtype: auto
+calib:
+    name: custom_t2v
+    download: False
+    path: ../assets/wan_t2v/calib/
+    sample_steps: 20
+    bs: 1
+    target_height: 480
+    target_width: 832
+    num_frames: 81
+    guidance_scale: 5.0
+    seed: *seed
+eval:
+    eval_pos: [transformed, fake_quant]
+    type: video_gen
+    name: custom_t2v
+    download: False
+    path: ../assets/wan_t2v/calib/
+    bs: 1
+    target_height: 480
+    target_width: 832
+    num_frames: 81
+    guidance_scale: 5.0
+    output_video_path: ./output_videos_sq/
+quant:
+    video_gen:
+        method: SmoothQuant
+        weight:
+            bit: 6
+            symmetric: True
+            granularity: per_channel
+        act:
+            bit: 6
+            symmetric: True
+            granularity: per_token
+        special:
+            alpha: 0.7
+save:
+    save_trans: False
+    save_fake: False
+    save_path: /path/to/save/

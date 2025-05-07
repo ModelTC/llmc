@@ -43,8 +43,8 @@ class DGQ(BaseBlockwiseQuantization):
             self.quant_out = True
         else:
             self.quant_out = False
-        self.quant_type = self.quant_config.get('quant_type', 'int_quant')
-        assert self.quant_type != 'float_quant', 'DGQ do not support Float quant now.'
+        self.quant_type = self.quant_config.get('quant_type', 'int-quant')
+        assert self.quant_type != 'float-quant', 'DGQ do not support Float quant now.'
         # set weight quant config
         self.wquantizer_w4 = IntegerQuantizer(**self.quant_config['weight']['w_1'])
         perchannel_setting = {
