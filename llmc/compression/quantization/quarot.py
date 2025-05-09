@@ -53,19 +53,21 @@ class Quarot(BaseBlockwiseQuantization):
         for rot_layer in self.model.get_extra_rot_module_besides_embed_layers():
             logger.info('For multimodal model, quarot need rotate last layer in projector.')
             logger.info(f'rot_layer : {rot_layer}')
+            # docformatter: off
             """
             txt_input     img_input
                 |             |
-            Embeding      vision_projector
+            Embedding      vision_projector
                 |             |
                        |
                   input_embeds
                        |
                        Y
             Therefore:
-            X_txt ~ W_embeding * Q = X_txt ~ (W_embeding * Q)
+            X_txt ~ W_embedding * Q = X_txt ~ (W_embedding * Q)
             X_proj * W_proj.t() * Q = X_proj * (Q.t() * W_proj).t()
             """
+            # docformatter: on
             dtype = rot_layer.weight.dtype
             device = self.Q.device
             W = rot_layer.weight.data.to(device=device, dtype=torch.float64)

@@ -224,7 +224,7 @@ class RectifiedSigmoid(nn.Module):
         )
 
     def inverse(self, y):
-        """return x that satisfies y = RectifiedSigmoid(x)"""
+        """Return x that satisfies y = RectifiedSigmoid(x)"""
         return -torch.log((self.zeta - self.gamma) / (y - self.gamma) - 1)
 
 
