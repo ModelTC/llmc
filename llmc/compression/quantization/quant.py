@@ -265,10 +265,8 @@ class BaseQuantizer(object):
     def get_norm(
         self, delta_begin: torch.Tensor, delta_end: torch.Tensor, density: torch.Tensor
     ) -> torch.Tensor:
-        r"""
-        Compute the norm of the values uniformaly distributed between
-        delta_begin and delta_end.
-        Currently only L2 norm is supported.
+        r"""Compute the norm of the values uniformaly distributed between
+        delta_begin and delta_end. Currently only L2 norm is supported.
 
         norm = density * (integral_{begin, end} x^2)
              = density * (end^3 - begin^3) / 3
@@ -281,10 +279,8 @@ class BaseQuantizer(object):
     def get_quantization_error(
         self, histogram, min_val, max_val, next_start_bin, next_end_bin
     ):
-        r"""
-        Compute the quantization error if we use start_bin to end_bin as the
-        min and max to do the quantization.
-        """
+        r"""Compute the quantization error if we use start_bin to end_bin as
+        the min and max to do the quantization."""
         bin_width = (max_val.item() - min_val.item()) / self.bins
 
         dst_bin_width = bin_width * (next_end_bin - next_start_bin + 1) / self.dst_nbins

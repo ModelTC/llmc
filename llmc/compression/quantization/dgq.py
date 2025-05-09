@@ -157,6 +157,7 @@ class DGQ(BaseBlockwiseQuantization):
             weight_OxG = weight_tmp[
                 :, group_index * w4_group_size: (group_index + 1) * w4_group_size
             ]
+            # docformatter: off
             """
             For each pair of (inp_LxG weight_OxG),
             we can all consider it as per channel quantization.
@@ -177,6 +178,7 @@ class DGQ(BaseBlockwiseQuantization):
             input x weight is per group quantization.
             The scale shape is [out * (in/G)].
             """
+            # docformatter: on
             org_out_LxO = inp_LxG @ (weight_OxG.t())
             grid = 20
             best_loss = torch.full(

@@ -121,7 +121,7 @@ class VQAEval:
 
                 else:
                     task_obj = task_dict[task_name]
-                    if type(task_obj) == tuple:
+                    if isinstance(task_obj, tuple):
                         group, task_obj = task_obj
                         if task_obj is None:
                             continue
