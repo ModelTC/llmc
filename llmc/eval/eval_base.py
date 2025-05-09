@@ -19,9 +19,9 @@ class BaseEval:
         self.eval_cfg = config.eval
         self.model_type = config.model.type
         logger.info(f'eval_cfg : {self.eval_cfg}')
-        self.dataset = self.eval_cfg['name']
+        self.eval_dataset_name = self.eval_cfg['name']
         self.dataset_type = self.eval_cfg.get('type', 'ppl')
-        assert self.dataset in [
+        assert self.eval_dataset_name in [
             'wikitext2',
             'c4',
             'ptb',
@@ -30,7 +30,8 @@ class BaseEval:
             'mme',
             'custom_ppl',
             'custom_gen',
-            'custom_t2v'
+            't2v',
+            'i2v',
         ], f'Not support {self.dataset} dataset now.'
         self.seq_len = self.eval_cfg.get('seq_len', None)
         self.num_samples = self.eval_cfg.get('num_samples', None)
@@ -46,15 +47,15 @@ class BaseEval:
     @torch.no_grad()
     def build_data(self):
         # load data
-        if self.dataset == 'human_eval':
+        if self.eval_dataset_name == 'human_eval':
             testenc = read_problems()
         else:
             if self.download:
-                if self.dataset == 'wikitext2':
+                if self.eval_dataset_name == 'wikitext2':
                     testdata = load_dataset(
                         'wikitext', 'wikitext-2-raw-v1', split='test'
                     )
-                elif self.dataset == 'c4':
+                elif self.eval_dataset_name == 'c4':
                     testdata = load_dataset(
                         'allenai/c4',
                         data_files={
@@ -62,12 +63,12 @@ class BaseEval:
                         },
                         split='validation',
                     )
-                elif self.dataset == 'ptb':
+                elif self.eval_dataset_name == 'ptb':
                     testdata = load_dataset(
                         'ptb_text_only', 'penn_treebank', split='test'
                     )
             else:
-                if self.dataset in ['custom_gen', 'custom_ppl', 'custom_t2v']:
+                if self.eval_dataset_name in ['custom_gen', 'custom_ppl', 't2v', 'i2v']:
                     testdata = self.get_cutomdata(self.eval_dataset_path)
                 else:
                     assert self.eval_dataset_path, 'Please set path in eval_cfg.'
@@ -75,27 +76,27 @@ class BaseEval:
             self.testdata = testdata
             # encode data
             if self.dataset_type == 'decode_ppl':
-                assert self.dataset == 'wikitext2'
+                assert self.eval_dataset_name == 'wikitext2'
                 testenc = testdata['text']
-            elif self.dataset == 'wikitext2':
+            elif self.eval_dataset_name == 'wikitext2':
                 testenc = self.tokenizer(
                     '\n\n'.join(testdata['text']), return_tensors='pt'
                 )
-            elif self.dataset == 'c4':
+            elif self.eval_dataset_name == 'c4':
                 testenc = self.tokenizer(
                     ' '.join(testdata[:1100]['text']), return_tensors='pt'
                 )
                 testenc.input_ids = testenc.input_ids[:, : (256 * self.seq_len)]
-            elif self.dataset == 'ptb':
+            elif self.eval_dataset_name == 'ptb':
                 testenc = self.tokenizer(
                     ' '.join(testdata['sentence']), return_tensors='pt'
                 )
-            elif self.dataset == 'custom_ppl':
+            elif self.eval_dataset_name == 'custom_ppl':
                 testenc = self.tokenizer(
                     '\n'.join([data['question'] + data['answer'] if 'answer' in data else data['question'] for data in testdata]), # noqa
                     return_tensors='pt',
                 )
-            elif self.dataset == 'custom_gen':
+            elif self.eval_dataset_name == 'custom_gen':
                 testenc = []
                 if self.eval_dataset_bs < 0:
                     testenc.append(
@@ -126,7 +127,7 @@ class BaseEval:
                                 apply_chat_template=self.apply_chat_template
                             )
                         )
-            elif self.dataset == 'custom_t2v':
+            elif self.eval_dataset_name in ['t2v', 'i2v']:
                 testenc = self.testdata
         return testenc
 

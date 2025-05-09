@@ -56,14 +56,14 @@ class Quarot(BaseBlockwiseQuantization):
             """
             txt_input     img_input
                 |             |
-            Embeding      vision_projector
+            Embedding      vision_projector
                 |             |
                        |
                   input_embeds
                        |
                        Y
             Therefore:
-            X_txt ~ W_embeding * Q = X_txt ~ (W_embeding * Q)
+            X_txt ~ W_embedding * Q = X_txt ~ (W_embedding * Q)
             X_proj * W_proj.t() * Q = X_proj * (Q.t() * W_proj).t()
             """
             dtype = rot_layer.weight.dtype

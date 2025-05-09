@@ -1,15 +1,15 @@
 base:
     seed: &seed 42
 model:
-    type: WanT2V
-    path: /path/to/wan_t2v
+    type: WanI2V
+    path: /path/to/model
     torch_dtype: auto
 eval:
-    eval_pos: [transformed, fake_quant]
+    eval_pos: [fake_quant]
     type: video_gen
-    name: t2v
+    name: i2v
     download: False
-    path: ../assets/wan_t2v/eval/
+    path: ../assets/wan_i2v/eval/
     bs: 1
     target_height: 480
     target_width: 832
@@ -20,11 +20,11 @@ quant:
     video_gen:
         method: RTN
         weight:
-            bit: 6
+            bit: 8
             symmetric: True
             granularity: per_channel
         act:
-            bit: 6
+            bit: 8
             symmetric: True
             granularity: per_token
 save:

@@ -321,7 +321,7 @@ class SpQR(BaseBlockwiseQuantization):
 
     @torch.no_grad()
     def get_group_qparams(self, c_tensor, idx):
-        """get qparams for a group, idx is the index of a column within a
+        """Get qparams for a group, idx is the index of a column within a
         group, c_tensor is a group."""
         _, s, z, qmax, qmin = self.wquantizer.get_tensor_qparams(c_tensor)
         _, ss, zs, Ps, Ns = self.scale_quantizer.get_tensor_qparams(s)

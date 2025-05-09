@@ -14,10 +14,15 @@ from .utils import is_fp8_supported_gpu
 if is_fp8_supported_gpu():
     from .kernel import act_quant, fp8_gemm, weight_cast_to_bf16
     USE_FP8GEMM_TRITON_KERNEL = True
-    logger.info('import kernel successful.')
+    logger.info('Successfully imported Triton kernel.')
 else:
     USE_FP8GEMM_TRITON_KERNEL = False
     from .quant import weight_cast_to_bf16
+    logger.info(
+        'Triton kernel not available: non-Hopper GPU detected.\n'
+        'Using LLMC Quantizer implementation instead.'
+    )
+
 
 try:
     import fast_hadamard_transform
@@ -58,13 +63,13 @@ class LlmcWanTransformerBlock(nn.Module):
     def __init__(self, module):
         super().__init__()
 
-        self.norm1 = FakeAffineLayerNorm(module.norm1, module.scale_shift_table.shape[-1])
+        self.affine_norm1 = FakeAffineLayerNorm(module.norm1, module.scale_shift_table.shape[-1])
         self.attn1 = module.attn1
 
         self.attn2 = module.attn2
         self.norm2 = module.norm2
 
-        self.norm3 = FakeAffineLayerNorm(module.norm1, module.scale_shift_table.shape[-1])
+        self.affine_norm3 = FakeAffineLayerNorm(module.norm1, module.scale_shift_table.shape[-1])
         self.ffn = module.ffn
         self.scale_shift_table = module.scale_shift_table
 
@@ -80,11 +85,11 @@ class LlmcWanTransformerBlock(nn.Module):
         ).chunk(6, dim=1)
 
         # 1. Self-attention
-        norm1_weight = (1 + scale_msa) * self.norm1.weight
-        norm1_bias = shift_msa * self.norm1.bias
+        norm1_weight = (1 + scale_msa) * self.affine_norm1.weight
+        norm1_bias = shift_msa * self.affine_norm1.bias
 
         norm_hidden_states = (
-            self.norm1(hidden_states.float()) * norm1_weight + norm1_bias
+            self.affine_norm1(hidden_states.float()) * norm1_weight + norm1_bias
         ).type_as(hidden_states)
         attn_output = self.attn1(
             hidden_states=norm_hidden_states, rotary_emb=rotary_emb
@@ -102,11 +107,11 @@ class LlmcWanTransformerBlock(nn.Module):
         hidden_states = hidden_states + attn_output
 
         # 3. Feed-forward
-        norm3_weight = (1 + c_scale_msa) * self.norm3.weight
-        norm3_bias = c_shift_msa * self.norm3.bias
+        norm3_weight = (1 + c_scale_msa) * self.affine_norm3.weight
+        norm3_bias = c_shift_msa * self.affine_norm3.bias
 
         norm_hidden_states = (
-            self.norm3(hidden_states.float()) * norm3_weight + norm3_bias
+            self.affine_norm3(hidden_states.float()) * norm3_weight + norm3_bias
         ).type_as(hidden_states)
         ff_output = self.ffn(norm_hidden_states)
         hidden_states = (
@@ -224,7 +229,7 @@ class RectifiedSigmoid(nn.Module):
         )
 
     def inverse(self, y):
-        """return x that satisfies y = RectifiedSigmoid(x)"""
+        """Return x that satisfies y = RectifiedSigmoid(x)"""
         return -torch.log((self.zeta - self.gamma) / (y - self.gamma) - 1)
 
 
@@ -872,8 +877,8 @@ class VllmRealQuantLinear(nn.Module):
 
 
 class LightllmRealQuantLinear(VllmRealQuantLinear):
-    def __init__(self, weight, bias, scales, input_scale, need_pack):
-        super().__init__(weight, bias, scales, input_scale, need_pack)
+    def __init__(self, weight, bias, scales, input_scale, need_pack, scales_name):
+        super().__init__(weight, bias, scales, input_scale, need_pack, scales_name)
 
     def __repr__(self):
         return (
@@ -890,9 +895,28 @@ class LightllmRealQuantLinear(VllmRealQuantLinear):
         )
 
 
+class Lightx2vRealQuantLinear(VllmRealQuantLinear):
+    def __init__(self, weight, bias, scales, input_scale, need_pack, scales_name):
+        super().__init__(weight, bias, scales, input_scale, need_pack, scales_name)
+
+    def __repr__(self):
+        return (
+            'Lightx2vRealQuantLinear('
+            + f'in_features={self.in_features}, '
+            + f'out_features={self.out_features}, '
+            + f'bias={self.bias is not None}, '
+            + f'weight_shape={self.weight_shape}, '
+            + f'weight_dtype={self.weight_dtype}, '
+            + f'scales_shape={self.scales_shape}, '
+            + f'scales_dtype={self.scales_dtype}, '
+            + f'zeros_shape={self.zeros_shape}, '
+            + f'zeros_dtype={self.zeros_dtype})'
+        )
+
+
 class SglRealQuantLinear(VllmRealQuantLinear):
-    def __init__(self, weight, bias, scales, input_scale, need_pack):
-        super().__init__(weight, bias, scales, input_scale, need_pack)
+    def __init__(self, weight, bias, scales, input_scale, need_pack, scales_name):
+        super().__init__(weight, bias, scales, input_scale, need_pack, scales_name)
 
     def __repr__(self):
         return (
@@ -1110,4 +1134,5 @@ _REALQUANT_LINEAR_MAP_ = {
     'sgl_quant': SglRealQuantLinear,
     'autoawq_quant': AutoawqRealQuantLinear,
     'mlcllm_quant': MlcllmRealQuantLinear,
+    'lightx2v_quant': Lightx2vRealQuantLinear,
 }

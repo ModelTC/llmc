@@ -155,7 +155,7 @@ class Qwen2VL(Qwen2):
                         'attn.qkv': block.attn.qkv,
                     },
                     'prev_op': [block.norm1],
-                    'input':['attn.qkv'],
+                    'input': ['attn.qkv'],
                     'inspect': block.attn,
                     'has_kwargs': True,
                 },

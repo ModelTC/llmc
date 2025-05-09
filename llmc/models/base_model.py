@@ -35,7 +35,7 @@ class BaseModel(metaclass=ABCMeta):
         self.vision_projector = None
         self.audio_model = None
         self.audio_projector = None
-        self.modality = None
+        self.modality = 'language'
         self.kvcache_buffer = []
         self.build_tokenizer()
         self.build_model()

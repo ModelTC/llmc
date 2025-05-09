@@ -33,3 +33,4 @@ librosa
 human_eval
 lmms-eval
 imageio
+diffusers
