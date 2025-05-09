@@ -5,7 +5,7 @@ model:
     path: /path/to/wan_t2v
     torch_dtype: auto
 calib:
-    name: custom_t2v
+    name: t2v
     download: False
     path: ../assets/wan_t2v/calib/
     sample_steps: 20
@@ -18,7 +18,7 @@ calib:
 eval:
     eval_pos: [transformed, fake_quant]
     type: video_gen
-    name: custom_t2v
+    name: t2v
     download: False
     path: ../assets/wan_t2v/calib/
     bs: 1
@@ -41,6 +41,5 @@ quant:
         special:
             alpha: 0.7
 save:
-    save_trans: False
-    save_fake: False
-    save_path: /path/to/save/
+    save_lightx2v: True
+    save_path: /path/to/x2v/

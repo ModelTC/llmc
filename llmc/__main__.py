@@ -121,39 +121,43 @@ def main(config):
 
                 if config.save.get('save_vllm', False):
                     deploy_all_modality(blockwise_opts, 'vllm_quant')
-                if config.save.get('save_lightllm', False):
+                elif config.save.get('save_lightllm', False):
                     deploy_all_modality(blockwise_opts, 'lightllm_quant')
-                if config.save.get('save_sgl', False):
+                elif config.save.get('save_sgl', False):
                     deploy_all_modality(blockwise_opts, 'sgl_quant')
 
                 blockwise_opt.save_model(save_quant_path)
                 update_vllm_quant_config(blockwise_opt.model, config, save_quant_path)
 
-        if 'save' in config and config.save.get('save_autoawq', False):
-            for modality_config in modality_configs:
-                assert (
-                    modality_config.weight.bit in [4] and 'act' not in modality_config
-                ), 'AutoAWQ supports only 4-bit weight-only quantization.'
-                assert (
-                    not modality_config.weight.symmetric
-                ), 'Only asymmetric quant is supported.'
+            elif config.save.get('save_autoawq', False):
+                for modality_config in modality_configs:
+                    assert (
+                        modality_config.weight.bit in [4] and 'act' not in modality_config
+                    ), 'AutoAWQ supports only 4-bit weight-only quantization.'
+                    assert (
+                        not modality_config.weight.symmetric
+                    ), 'Only asymmetric quant is supported.'
 
-            deploy_all_modality(blockwise_opts, 'autoawq_quant')
-            blockwise_opt.save_model(save_quant_path)
-            update_autoawq_quant_config(config, save_quant_path)
+                deploy_all_modality(blockwise_opts, 'autoawq_quant')
+                blockwise_opt.save_model(save_quant_path)
+                update_autoawq_quant_config(config, save_quant_path)
 
-        if 'save' in config and config.save.get('save_mlcllm', False):
-            for modality_config in modality_configs:
-                assert (
-                    modality_config.weight.bit in [4] and 'act' not in modality_config
-                ), 'MlcLLM supports only 4-bit weight-only quantization.'
-                assert (
-                    not modality_config.weight.symmetric
-                ), 'Only asymmetric quant is supported.'
+            elif config.save.get('save_mlcllm', False):
+                for modality_config in modality_configs:
+                    assert (
+                        modality_config.weight.bit in [4] and 'act' not in modality_config
+                    ), 'MlcLLM supports only 4-bit weight-only quantization.'
+                    assert (
+                        not modality_config.weight.symmetric
+                    ), 'Only asymmetric quant is supported.'
 
-            deploy_all_modality(blockwise_opts, 'mlcllm_quant')
-            blockwise_opt.save_model(save_quant_path)
-            update_autoawq_quant_config(config, save_quant_path)
+                deploy_all_modality(blockwise_opts, 'mlcllm_quant')
+                blockwise_opt.save_model(save_quant_path)
+                update_autoawq_quant_config(config, save_quant_path)
+
+            elif config.save.get('save_lightx2v', False):
+                deploy_all_modality(blockwise_opts, 'lightx2v_quant')
+                blockwise_opt.save_model(save_quant_path)
 
         if 'opencompass' in config:
             assert config.save.get('save_trans', False)
@@ -238,6 +242,11 @@ if __name__ == '__main__':
             if config.save.get('save_mlcllm', False):
                 save_quant_path = os.path.join(
                     config.save.save_path, 'mlcllm_quant_model'
+                )
+                mkdirs(save_quant_path)
+            if config.save.get('save_lightx2v', False):
+                save_quant_path = os.path.join(
+                    config.save.save_path, 'lightx2v_quant_model'
                 )
                 mkdirs(save_quant_path)
             if config.save.get('save_fake', False):

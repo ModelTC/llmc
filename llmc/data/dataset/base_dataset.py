@@ -27,7 +27,7 @@ class BaseDataset(metaclass=ABCMeta):
         self.apply_chat_template = calib_cfg.get('apply_chat_template', False)
         self.n_samples = calib_cfg.get('seq_len', None)
         self.calib_bs = calib_cfg['bs']
-        if self.calib_dataset_name == 'custom_t2v':
+        if self.calib_dataset_name in ['t2v', 'i2v']:
             assert self.calib_bs == 1
         self.seq_len = calib_cfg.get('seq_len', None)
         self.preproc = calib_cfg.get('preproc', False)
@@ -36,14 +36,14 @@ class BaseDataset(metaclass=ABCMeta):
         if self.preproc == 'original_txt':
             assert self.seq_len is None
         self.seed = calib_cfg['seed']
-        self.dataset_key = {
+        self.calib_dataset_field_map = {
             'pileval': 'text',
             'c4': 'text',
             'wikitext2': 'text',
             'ptb': 'sentence',
         }
-        if self.calib_dataset_name in self.dataset_key:
-            self.key = self.dataset_key[self.calib_dataset_name]
+        if self.calib_dataset_name in self.calib_dataset_field_map:
+            self.key = self.calib_dataset_field_map[self.calib_dataset_name]
         self.build_calib_dataset()
 
     def build_calib_dataset(self):
@@ -77,15 +77,16 @@ class BaseDataset(metaclass=ABCMeta):
                 'custom_txt',
                 'custom_mm',
                 'images',
-                'custom_t2v',
+                't2v',
+                'i2v',
             ]:
-                self.calib_dataset = self.get_cutomdata(self.calib_dataset_path)
+                self.calib_dataset = self.get_custom_dataset(self.calib_dataset_path)
             else:
                 self.calib_dataset = load_from_disk(self.calib_dataset_path)
 
     def get_calib_model_inputs(self, samples):
         if not self.padding:
-            if self.calib_dataset_name in ['custom_t2v']:
+            if self.calib_dataset_name in ['t2v', 'i2v']:
                 calib_model_inputs = samples
             elif self.calib_dataset_name == 'images':
                 calib_model_inputs = self.get_batch_process(samples)
@@ -182,8 +183,8 @@ class BaseDataset(metaclass=ABCMeta):
             padding_mask = None
         return calib_model_inputs, padding_mask
 
-    def get_cutomdata(self, custom_dataset):
-        audio_img_qa_json = os.path.join(custom_dataset, 'samples.json')
+    def get_custom_dataset(self, custom_dataset_path):
+        audio_img_qa_json = os.path.join(custom_dataset_path, 'samples.json')
         fp = open(audio_img_qa_json)
         custom_data_samples = json.load(fp)
         for idx in range(len(custom_data_samples)):
@@ -191,11 +192,11 @@ class BaseDataset(metaclass=ABCMeta):
                 if isinstance(custom_data_samples[idx]['audio'], list):
                     for audio_idx in range(len(custom_data_samples[idx]['audio'])):
                         custom_data_samples[idx]['audio'][audio_idx] = os.path.join(
-                            custom_dataset, custom_data_samples[idx]['audio'][audio_idx]
+                            custom_dataset_path, custom_data_samples[idx]['audio'][audio_idx]
                         )
                 else:
                     custom_data_samples[idx]['audio'] = os.path.join(
-                        custom_dataset, custom_data_samples[idx]['audio']
+                        custom_dataset_path, custom_data_samples[idx]['audio']
                     )
             else:
                 custom_data_samples[idx]['audio'] = None
@@ -203,11 +204,11 @@ class BaseDataset(metaclass=ABCMeta):
                 if isinstance(custom_data_samples[idx]['image'], list):
                     for img_idx in range(len(custom_data_samples[idx]['image'])):
                         custom_data_samples[idx]['image'][img_idx] = os.path.join(
-                            custom_dataset, custom_data_samples[idx]['image'][img_idx]
+                            custom_dataset_path, custom_data_samples[idx]['image'][img_idx]
                         )
                 else:
                     custom_data_samples[idx]['image'] = os.path.join(
-                        custom_dataset, custom_data_samples[idx]['image']
+                        custom_dataset_path, custom_data_samples[idx]['image']
                     )
             else:
                 custom_data_samples[idx]['image'] = None

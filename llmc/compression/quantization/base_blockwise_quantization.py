@@ -21,10 +21,13 @@ from .utils import is_fp8_supported_gpu
 
 if is_fp8_supported_gpu():
     from .kernel import weight_cast_to_bf16, weight_cast_to_fp8
-    logger.info('import kernel successful.')
+    logger.info('Successfully imported Triton kernel.')
 else:
     from .quant import weight_cast_to_bf16, weight_cast_to_fp8
-    logger.info('import quant successful.')
+    logger.info(
+        'Triton kernel not available: non-Hopper GPU detected.\n'
+        'Using LLMC Quantizer implementation instead.'
+    )
 
 from .hadamard_utils import apply_exact_had_to_linear, get_hadK
 from .module_utils import (_LLMC_LINEAR_TYPES_, _LLMC_LN_TYPES_,

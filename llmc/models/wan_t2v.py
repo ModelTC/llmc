@@ -112,9 +112,9 @@ class WanT2V(BaseModel):
 
     def get_layernorms_in_block(self, block):
         return {
-            'norm1': block.norm1,
+            'affine_norm1': block.affine_norm1,
             'norm2': block.norm2,
-            'norm3': block.norm3,
+            'affine_norm3': block.affine_norm3,
         }
 
     def get_subsets_in_block(self, block):
@@ -125,7 +125,7 @@ class WanT2V(BaseModel):
                     'attn1.to_k': block.attn1.to_k,
                     'attn1.to_v': block.attn1.to_v,
                 },
-                'prev_op': [block.norm1],
+                'prev_op': [block.affine_norm1],
                 'input': ['attn1.to_q'],
                 'inspect': block.attn1,
                 'has_kwargs': True,
@@ -145,7 +145,7 @@ class WanT2V(BaseModel):
                 'layers': {
                     'ffn.net.0.proj': block.ffn.net[0].proj,
                 },
-                'prev_op': [block.norm3],
+                'prev_op': [block.affine_norm3],
                 'input': ['ffn.net.0.proj'],
                 'inspect': block.ffn,
                 'has_kwargs': True,
