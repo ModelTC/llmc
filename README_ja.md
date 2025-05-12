@@ -48,7 +48,9 @@ docker pull registry.cn-hangzhou.aliyuncs.com/yongyang/llmcompression:pure-lates
 
 ## 最新情報
 
-- V 🔥 私たちは現在、671Bパラメータを持つ大規模な **`MOE`** モデル、例えば **`DeepSeekv3`**、**`DeepSeek-R1`**、および **`DeepSeek-R1-zero`** の量子化を完全にサポートしています。今すぐFP8ウェイトを追加の変換なしで直接読み込むことができます。AWQおよびRTN量子化は、1枚の80GB GPUで実行でき、さらに、真の量子化された **INT4/INT8** ウェイトのエクスポートにも対応しています。
+- **2025年5月12日：** 🔥 **`Wan2.1`** シリーズのビデオ生成モデルの量子化を完全にサポートし、実際に量子化された **INT8/FP8** 重みのエクスポートにも対応しました。これらは [lightx2v](https://github.com/ModelTC/lightx2v) 推論フレームワークと互換性があります。詳細は [lightx2v ドキュメント](https://llmc-en.readthedocs.io/en/latest/backend/lightx2v.html) をご参照ください。
+
+- **2025年2月7日:** 🔥 私たちは現在、671Bパラメータを持つ大規模な **`MOE`** モデル、例えば **`DeepSeekv3`**、**`DeepSeek-R1`**、および **`DeepSeek-R1-zero`** の量子化を完全にサポートしています。今すぐFP8ウェイトを追加の変換なしで直接読み込むことができます。AWQおよびRTN量子化は、1枚の80GB GPUで実行でき、さらに、真の量子化された **INT4/INT8** ウェイトのエクスポートにも対応しています。
 
 - **2024年11月20日:** 🔥 私たちは現在、✨`DeepSeekv2(2.5)`などの`MOE`モデルおよび✨`Qwen2VL`、`Llama3.2`などの`VLM`モデルの量子化を完全にサポートしています。対応する量子化手法には、✅整数量子化、✅浮動小数点量子化、さらに✅AWQ、✅GPTQ、✅SmoothQuant、✅Quarotといった高度なアルゴリズムが含まれます。
 
