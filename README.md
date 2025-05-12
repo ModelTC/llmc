@@ -48,6 +48,8 @@ docker pull registry.cn-hangzhou.aliyuncs.com/yongyang/llmcompression:pure-lates
 
 ## Latest News
 
+- **May 12, 2025:** 🔥 We now fully support quantization for the **`Wan2.1`** series of video generation models and provide export of truly quantized **INT8/FP8** weights, compatible with the [lightx2v](https://github.com/ModelTC/lightx2v) inference framework. For details, please refer to the [lightx2v documentation](https://llmc-en.readthedocs.io/en/latest/backend/lightx2v.html).
+
 - **Feb 7, 2025:** 🔥 We now fully support quantization of large-scale **`MOE`** models like **`DeepSeekv3`**, **`DeepSeek-R1`**, and **`DeepSeek-R1-zero`** with **`671B`** parameters. You can now directly load FP8 weights without any extra conversion. AWQ and RTN quantization can run on a single 80GB GPU, and we also support the export of true quantized **INT4/INT8** weights.
 
 - **Nov 20, 2024:** 🔥 We now fully support the quantization of ✨`DeepSeekv2(2.5)` and other `MOE` models, as well as ✨`Qwen2VL`, `Llama3.2`, and other `VLM` models. Supported quantization methods include ✅integer quantization, ✅floating-point quantization, and advanced algorithms like ✅AWQ, ✅GPTQ, ✅SmoothQuant, and ✅Quarot.

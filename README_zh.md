@@ -48,6 +48,8 @@ docker pull registry.cn-hangzhou.aliyuncs.com/yongyang/llmcompression:pure-lates
 
 ## 最新消息
 
+- **2025年5月12日：** 🔥 我们现已全面支持 **`Wan2.1`** 系列视频生成模型的量化，并支持导出真实量化的 **INT8/FP8** 权重，兼容 [lightx2v](https://github.com/ModelTC/lightx2v) 推理框架。详情请参考 [lightx2v 使用文档](https://llmc-zhcn.readthedocs.io/en/latest/backend/lightx2v.html)。
+
 - **2025年2月7日:** 🔥 我们现已全面支持 **`DeepSeekv3`**、**`DeepSeek-R1`** 和 **`DeepSeek-R1-zero`** 等 671B 大规模 **`MOE`** 模型的量化。 您可以直接加载 `FP8` 权重，无需额外转换，使用单张 80G 显存的 GPU 即可运行 `AWQ` 和 `RTN` 量化，同时还支持导出真实量化的 **INT4/INT8** 权重
 
 - **2024年11月20日:** 🔥 我们现已全面支持✨`DeepSeekv2(2.5)`等`MOE`模型以及✨`Qwen2VL`、`Llama3.2`等`VLM`模型的量化。支持的量化方案包括✅整型量化、✅浮点量化，以及✅AWQ、✅GPTQ、✅SmoothQuant 和 ✅Quarot 等先进算法。
