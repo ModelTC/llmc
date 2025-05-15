@@ -19,8 +19,8 @@ class VQAEval:
         self.eval_config = config.eval
         self.model_path = config.model.path
         self.eval_dataset_name = self.eval_config['name']
-        if not isinstance(self.dataset, list):
-            self.eval_dataset_name = [self.dataset, ]
+        if not isinstance(self.eval_dataset_name, list):
+            self.eval_dataset_name = [self.eval_dataset_name, ]
         self.eval_dataset_path = self.eval_config['path']
         self.eval_bs = self.eval_config['bs']
 
@@ -62,7 +62,7 @@ class VQAEval:
         model = llmc_model.eval_name
         model_args = 'pretrained=' + self.model_path + ',device_map=auto'
         batch_size = self.eval_bs
-        tasks = self.dataset
+        tasks = self.eval_dataset_name
         num_fewshot = 0
 
         seed_message = []
