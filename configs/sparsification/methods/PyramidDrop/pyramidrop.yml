@@ -1,0 +1,24 @@
+base:
+    seed: &seed 42
+model:
+    type: Llava
+    path: model path
+    torch_dtype: auto
+eval:
+    eval_pos: [transformed]
+    type: vqa
+    name: [mme]
+    download: False
+    path: MME dataset path
+    bs: 1
+    inference_per_block: False
+sparse:
+    method: TokenReduction
+    special:
+        method: PyramidDrop
+        image_token_ratio_list: [0.5, 0.25, 0.125]
+        layer_list: [8, 16, 24]
+save:
+    save_trans: False
+    save_fake: False
+    save_path: /path/to/save/
