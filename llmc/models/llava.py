@@ -41,11 +41,12 @@ class Llava(Llama):
         self.model = self.vlm_model.language_model
         self.model_config = self.vlm_model_config.text_config
         self.pruning_config = {
+            'is_video_model': False,
             'image_token_start_index': 5,
-            'image_token_length': 576,
+            'image_token_length': self.vlm_model_config.image_seq_length,
             'select_layer': self.vlm_model_config.vision_feature_layer,
             'select_feature': self.vlm_model_config.vision_feature_select_strategy,
-            'image_token_index': self.vlm_model_config.image_token_index
+            'image_token_index': self.vlm_model_config.image_token_index,
         }
 
         self.processor = AutoProcessor.from_pretrained(self.model_path)
@@ -53,7 +54,13 @@ class Llava(Llama):
     def get_extra_rot_module_besides_embed_layers(self):
         return [self.vision_projector.linear_2]
 
-    def batch_process(self, img_qas, calib_or_eval='eval', apply_chat_template=True, return_inputs=True): # noqa
+    def batch_process(
+        self,
+        img_qas,
+        calib_or_eval='eval',
+        apply_chat_template=True,
+        return_inputs=True,
+    ):  # noqa
         assert calib_or_eval == 'calib' or calib_or_eval == 'eval'
         assert apply_chat_template
         messages = []
@@ -68,8 +75,8 @@ class Llava(Llama):
                         'role': 'user',
                         'content': [
                             {'type': 'image'},
-                            {'type': 'text', 'text': img_qas[idx]['question']}
-                        ]
+                            {'type': 'text', 'text': img_qas[idx]['question']},
+                        ],
                     }
                 ]
                 images.append(image)
@@ -77,9 +84,7 @@ class Llava(Llama):
                 message = [
                     {
                         'role': 'user',
-                        'content': [
-                            {'type': 'text', 'text': img_qas[idx]['question']}
-                        ]
+                        'content': [{'type': 'text', 'text': img_qas[idx]['question']}],
                     }
                 ]
             messages.append(message)
@@ -89,10 +94,7 @@ class Llava(Llama):
             for n in range(len(messages))
         ]
         if calib_or_eval == 'calib' and self.config['calib'].get('add_answer', False):
-            texts = [
-                texts[n] + ' ' + answers[n]
-                for n in range(len(texts))
-            ]
+            texts = [texts[n] + ' ' + answers[n] for n in range(len(texts))]
         if calib_or_eval == 'calib':
             logger.info(f'Calib data is:\n{texts}')
         if not return_inputs:
@@ -101,8 +103,10 @@ class Llava(Llama):
             text=texts,
             images=images if len(images) else None,
             padding=True,
-            return_tensors='pt'
-        ).to(next(self.vlm_model.parameters()).dtype) # noqa
+            return_tensors='pt',
+        ).to(
+            next(self.vlm_model.parameters()).dtype
+        )  # noqa
         return inputs
 
     def find_blocks(self):
@@ -162,7 +166,7 @@ class Llava(Llama):
                     'inspect': block.mlp.fc2,
                     'has_kwargs': False,
                     'is_mlp': True,
-                    'do_trans': False
+                    'do_trans': False,
                 },
             ]
         else:
@@ -204,8 +208,9 @@ class LlavaHfEval(LlavaHf):
 
         self._model = llmc_model.cuda()
         self.pretrained = pretrained
-        self._image_processor = AutoProcessor.from_pretrained(pretrained, revision=revision,
-                                                              trust_remote_code=trust_remote_code)
+        self._image_processor = AutoProcessor.from_pretrained(
+            pretrained, revision=revision, trust_remote_code=trust_remote_code
+        )
         # Pad from left for batched generation:
         # https://huggingface.co/docs/transformers/v4.39.3/en/model_doc/llava#usage-tips
         self._image_processor.tokenizer.padding_side = 'left'
@@ -218,24 +223,36 @@ class LlavaHfEval(LlavaHf):
             if accelerator.distributed_type == DistributedType.DEEPSPEED:
                 kwargs = {
                     'train_micro_batch_size_per_gpu': self.batch_size_per_gpu,
-                    'train_batch_size': self.batch_size_per_gpu * accelerator.num_processes,
+                    'train_batch_size': self.batch_size_per_gpu
+                    * accelerator.num_processes,
                 }
                 AcceleratorState().deepspeed_plugin.deepspeed_config_process(
-                    must_match=True, **kwargs)
-                logger.info('Detected that you are using DistributedType.DEEPSPEED. \
-                            Make sure you run `accelerate config` and set zero stage to 0')
-            if accelerator.distributed_type == DistributedType.FSDP or \
-                    accelerator.distributed_type == DistributedType.DEEPSPEED:
+                    must_match=True, **kwargs
+                )
+                logger.info(
+                    'Detected that you are using DistributedType.DEEPSPEED. \
+                            Make sure you run `accelerate config` and set zero stage to 0'
+                )
+            if (
+                accelerator.distributed_type == DistributedType.FSDP
+                or accelerator.distributed_type == DistributedType.DEEPSPEED
+            ):
                 self._model = accelerator.prepare(self.model)
             else:
-                self._model = accelerator.prepare_model(self.model, evaluation_mode=True)
+                self._model = accelerator.prepare_model(
+                    self.model, evaluation_mode=True
+                )
             self.accelerator = accelerator
             if self.accelerator.is_local_main_process:
-                logger.info(f'Using {accelerator.num_processes} devices with data parallelism')
+                logger.info(
+                    f'Using {accelerator.num_processes} devices with data parallelism'
+                )
             self._rank = self.accelerator.local_process_index
             self._world_size = self.accelerator.num_processes
         elif accelerator.num_processes == 1 and device_map == 'auto':
-            logger.info(f'Using {accelerator.num_processes} devices with pipeline parallelism')
+            logger.info(
+                f'Using {accelerator.num_processes} devices with pipeline parallelism'
+            )
             self._rank = 0
             self._word_size = 1
         else:

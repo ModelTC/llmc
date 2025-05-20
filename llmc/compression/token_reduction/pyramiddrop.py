@@ -30,9 +30,24 @@ class PyramidDrop(TokenReductionModule):
             'tokenizer_padding_side',
             'right',
         )
-        special_config['image_token_index'] = self.model.pruning_config[
-            'image_token_index'
-        ]
+        special_config['is_video_model'] = self.model.pruning_config['is_video_model']
+
+        # vision_token can be image or video
+        if special_config['is_video_model']:
+            special_config['vision_token_index'] = self.model.pruning_config[
+                'video_token_index'
+            ]
+            special_config['vision_token_length'] = self.model.pruning_config[
+                'video_token_length'
+            ]
+        else:
+            special_config['vision_token_index'] = self.model.pruning_config[
+                'image_token_index'
+            ]
+            special_config['vision_token_length'] = self.model.pruning_config[
+                'image_token_length'
+            ]
+
         self.model.model.parameters = special_config
 
     def register_reduction_modules(self):
@@ -55,6 +70,10 @@ class PyramidDrop(TokenReductionModule):
             image_tokens_list = pruning_pars['image_tokens']
             image_token_posi = pruning_pars['image_token_posi']
             image_token_ratio_list = pruning_pars['image_token_ratio_list']
+
+            # for decoding stage
+            if features.shape[1] == 1:
+                return args, kwargs
 
             if position_ids is None:
                 position_ids = torch.arange(
@@ -297,26 +316,31 @@ class PyramidDrop(TokenReductionModule):
                 return (new_input_embeds,), kwargs
 
         def input_hook(module, input_args, pruning_pars):
+            # for the decoding stage
+            if input_args[0].shape[1] == 1:
+                return input_args
             input_ids = input_args[0]
             pre_prompt_length_list = []
             image_token_posi = []
-            image_tokens = []
-            IMAGE_TOKEN_INDEX = pruning_pars['image_token_index']
+            vision_tokens = []
+            VISION_TOKEN_INDEX = pruning_pars['vision_token_index']
 
             # find the position of the first image token
             for seq in input_ids:
-                image_token_idxs = (seq == IMAGE_TOKEN_INDEX).nonzero(as_tuple=True)[0]
-                image_tokens.append(image_token_idxs.shape[0])
+                image_token_idxs = (seq == VISION_TOKEN_INDEX).nonzero(as_tuple=True)[0]
+                vision_tokens.append(pruning_pars['vision_token_length'])
                 image_token_posi.append(image_token_idxs[0].item())
                 pre_prompt_length_list.append(seq.shape[0] - image_token_idxs.shape[0])
 
             pruning_pars['prompt_len'] = pre_prompt_length_list
             pruning_pars['image_token_posi'] = image_token_posi
-            pruning_pars['image_tokens'] = image_tokens
+            pruning_pars['image_tokens'] = vision_tokens
 
             return input_args
 
         def read_parameter_hook(module, args, kwargs, pruning_pars):
+            if args[0].shape[1] == 1:
+                return args, kwargs
             kwargs['attention_mask'] = pruning_pars['attention_mask']
             # kwargs['cache_position'] = pruning_pars['cache_position']
             kwargs['position_ids'] = pruning_pars['position_ids']
