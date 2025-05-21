@@ -26,6 +26,7 @@ from .qwen2vl import Qwen2VL
 from .smollm import SmolLM
 from .stablelm import StableLm
 from .starcoder import Starcoder
+from .videollava import VideoLLaVA
 from .vila import Vila
 from .vit import Vit
 from .wan_i2v import WanI2V
