@@ -10,6 +10,7 @@ from .internomni import InternOmni
 from .internvl2 import InternVL2
 from .llama import Llama
 from .llava import Llava
+from .llava_lht import LlavaLHT
 from .minicpm import MiniCPM
 from .minicpmv import MiniCPMV
 from .mistral import Mistral

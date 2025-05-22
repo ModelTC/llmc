@@ -1,9 +1,10 @@
-torch>=2.1.0
+torch>=2.2.0
 torchvision
 timm
 pillow
 loguru
 transformers>=4.45.2
+lmms-eval
 huggingface-hub
 sentencepiece
 protobuf
@@ -31,6 +32,5 @@ qwen-vl-utils
 tiktoken
 librosa
 human_eval
-lmms-eval
 imageio
 diffusers
