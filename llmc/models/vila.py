@@ -302,7 +302,7 @@ class VilaEval(lmms):
                 f'Using {accelerator.num_processes} devices with tensor parallelism'
             )
             self._rank = 0
-            self._word_size = 1
+            self._world_size = 1
         else:
             logger.info(f'Using single device: {self._device}')
             self._model.to(self._device)
