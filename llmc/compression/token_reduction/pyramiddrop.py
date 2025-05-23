@@ -10,6 +10,7 @@ from transformers.models.llama.modeling_llama import apply_rotary_pos_emb
 from llmc.utils.registry_factory import TOKEN_REDUCTION_REGISTRY
 
 from .token_reduction_module import TokenReductionModule
+from .utils import prefill_wrapper
 
 
 @TOKEN_REDUCTION_REGISTRY.register('PyramidDrop')
@@ -20,38 +21,21 @@ class PyramidDrop(TokenReductionModule):
         self.register_reduction_modules()
 
     def add_sparse_config(self):
-        special_config = self.config.get('special', {})
-        self.pruning_loc = special_config['layer_list']
-        image_token_ratio_list = special_config['image_token_ratio_list']
+
+        self.pruning_loc = self.special_config['layer_list']
+        image_token_ratio_list = self.special_config['image_token_ratio_list']
         image_token_ratio_list.insert(0, 1.0)
-        special_config['image_token_ratio_list'] = image_token_ratio_list
-        special_config['tokenizer_padding_side'] = getattr(
+        self.special_config['image_token_ratio_list'] = image_token_ratio_list
+        self.special_config['tokenizer_padding_side'] = getattr(
             self.model.vlm_model.language_model.model.config,
             'tokenizer_padding_side',
             'right',
         )
-        special_config['is_video_model'] = self.model.pruning_config['is_video_model']
 
-        # vision_token can be image or video
-        if special_config['is_video_model']:
-            special_config['vision_token_index'] = self.model.pruning_config[
-                'video_token_index'
-            ]
-            special_config['vision_token_length'] = self.model.pruning_config[
-                'video_token_length'
-            ]
-        else:
-            special_config['vision_token_index'] = self.model.pruning_config[
-                'image_token_index'
-            ]
-            special_config['vision_token_length'] = self.model.pruning_config[
-                'image_token_length'
-            ]
-
-        self.model.model.parameters = special_config
+        self.model.model.parameters = self.special_config
 
     def register_reduction_modules(self):
-
+        @prefill_wrapper
         def pruning_hook(module, args, kwargs, pruning_pars, cur_num, layer_idx):
 
             if layer_idx == self.pruning_loc[0]:
@@ -315,10 +299,9 @@ class PyramidDrop(TokenReductionModule):
 
                 return (new_input_embeds,), kwargs
 
+        @prefill_wrapper
         def input_hook(module, input_args, pruning_pars):
-            # for the decoding stage
-            if input_args[0].shape[1] == 1:
-                return input_args
+
             input_ids = input_args[0]
             pre_prompt_length_list = []
             image_token_posi = []
@@ -338,9 +321,8 @@ class PyramidDrop(TokenReductionModule):
 
             return input_args
 
+        @prefill_wrapper
         def read_parameter_hook(module, args, kwargs, pruning_pars):
-            if args[0].shape[1] == 1:
-                return args, kwargs
             kwargs['attention_mask'] = pruning_pars['attention_mask']
             # kwargs['cache_position'] = pruning_pars['cache_position']
             kwargs['position_ids'] = pruning_pars['position_ids']

@@ -6,6 +6,7 @@ from llmc.compression.sparsification.attn_utils import _update_causal_mask
 from llmc.utils.registry_factory import TOKEN_REDUCTION_REGISTRY
 
 from .token_reduction_module import TokenReductionModule
+from .utils import prefill_wrapper
 
 
 @TOKEN_REDUCTION_REGISTRY.register('FastV')
@@ -16,17 +17,24 @@ class FastV(TokenReductionModule):
         self.register_reduction_modules()
 
     def add_sparse_config(self):
-        special_config = self.config.get('special', {})
-        self.pruning_loc = special_config['pruning_loc']
-        special_config['image_token_start_index'] = \
-            self.model.pruning_config['image_token_start_index']
-        special_config['image_token_length'] = \
-            self.model.pruning_config['image_token_length']
-        special_config['attn_scores'] = None
 
-        self.model.model.parameters = special_config
+        self.pruning_loc = self.special_config['pruning_loc']
+        self.special_config['image_token_length'] = \
+            self.model.pruning_config['image_token_length']
+        self.special_config['attn_scores'] = None
+
+        self.model.model.parameters = self.special_config
 
     def register_reduction_modules(self):
+
+        @prefill_wrapper
+        def input_hook(module, input_args, pruning_pars):
+            input_ids = input_args[0]
+            image_token_idxs = (input_ids[0] ==
+                                pruning_pars['vision_token_index']).nonzero(as_tuple=True)[0]
+            pruning_pars['image_token_start_index'] = image_token_idxs[0].item()
+
+            return input_args
 
         def update_output_attentions_hook(module, args, kwargs):
             kwargs['output_attentions'] = True
@@ -36,6 +44,7 @@ class FastV(TokenReductionModule):
             layer_attention = layer_outputs[1]
             pruning_pars['attn_scores'] = layer_attention
 
+        @prefill_wrapper
         def fastv_pruning_hook(module, args, kwargs, pruning_pars):
 
             rate = pruning_pars['rate']
@@ -96,6 +105,7 @@ class FastV(TokenReductionModule):
 
             return (hidden_states,), kwargs
 
+        @prefill_wrapper
         def read_parameter_hook(module, args, kwargs, pruning_pars):
             kwargs['attention_mask'] = pruning_pars['attention_mask']
             kwargs['cache_position'] = pruning_pars['cache_position']
@@ -103,6 +113,10 @@ class FastV(TokenReductionModule):
             kwargs['position_embeddings'] = pruning_pars['position_embeddings']
 
             return args, kwargs
+
+        self.model.embed_tokens.register_forward_pre_hook(
+            functools.partial(input_hook, pruning_pars=self.model.model.parameters)
+        )
 
         self.blocks[self.pruning_loc - 1].register_forward_pre_hook(
             update_output_attentions_hook,

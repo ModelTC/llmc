@@ -96,7 +96,7 @@ class Llava(Llama):
         self.model = self.vlm_model
         self.model_config = self.vlm_model_config.text_config
         self.pruning_config = {
-            'image_token_start_index': 5,
+            'is_video_model': False,
             'image_token_length': self.vlm_model_config.image_seq_length,
             'select_layer': self.vlm_model_config.vision_feature_layer,
             'select_feature': self.vlm_model_config.vision_feature_select_strategy,
