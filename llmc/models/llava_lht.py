@@ -34,26 +34,27 @@ class LlavaLHT(Llama):
         pass
 
     def build_model(self):
-        self.llava_llama_config = LlavaConfig.from_pretrained(
+        self.llava_config = LlavaConfig.from_pretrained(
             self.model_path, trust_remote_code=True
         )
         self.vlm_model_config = AutoConfig.from_pretrained(
             self.model_path, trust_remote_code=True
         )
         if not self.use_cache:
-            self.llava_llama_config.use_cache = False
+            self.llava_config.use_cache = False
             self.vlm_model_config.use_cache = False
         logger.info(f'self.vlm_model_config : {self.vlm_model_config}')
-        self.tokenizer, self.vlm_model, self.image_processor, context_len = load_pretrained_model(
+        self.tokenizer, self.vlm_model, image_processor, context_len = load_pretrained_model(
             self.model_path,
             None,
             get_model_name_from_path(self.model_path),
             load_8bit=False,
             load_4bit=False,
-            torch_dtype=self.torch_dtype,
             device='cpu',
-            config=self.llava_llama_config,
+            torch_dtype=self.torch_dtype,
+            config=self.llava_config,
         )
+
         # llava-lht forward not support "cache_position"
         ori_forward = self.vlm_model.forward
 
@@ -62,6 +63,7 @@ class LlavaLHT(Llama):
             kwargs.pop('cache_position', None)
             return ori_forward(*args, **kwargs)
         self.vlm_model.forward = safe_forward
+
         # llava-lht generate use "inputs" instead of "input_ids"
         ori_generate = self.vlm_model.generate
 
@@ -190,7 +192,7 @@ class LlavaLHTEval(Llava):
         conv_template='vicuna_v1',
         use_cache: bool = False,
         tie_weights: bool = True,
-        truncate_context=False,  # set it False for LLaVA-1.6
+        truncate_context=False,  # set it False for LLaVA-1.6 no matter truncate
         customized_config=None,  # ends in json
         **kwargs,
     ) -> None:
@@ -221,6 +223,7 @@ class LlavaLHTEval(Llava):
         if 'use_flash_attention_2' in kwargs:
             llava_model_args['use_flash_attention_2'] = kwargs['use_flash_attention_2']
         model_name = model_name if model_name is not None else get_model_name_from_path(pretrained)
+
         self._model = llmc_model.cuda()
         self._config = self._model.config
         self._tokenizer = AutoTokenizer.from_pretrained(pretrained, use_fast=False)
@@ -240,6 +243,7 @@ class LlavaLHTEval(Llava):
             self._max_length = self._config.max_sequence_length
         else:
             self._max_length = 2048
+
         self.model.eval()
         if tie_weights:
             self.model.tie_weights()
