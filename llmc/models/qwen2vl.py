@@ -275,7 +275,7 @@ try:
                 self._world_size = self.accelerator.num_processes
             else:
                 self._rank = 0
-                self._word_size = 1
+                self._world_size = 1
 except Exception:
     logger.warning(
         'Can not import lmms_eval. '
