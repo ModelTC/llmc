@@ -6,6 +6,7 @@ import torch
 from llmc.utils.registry_factory import TOKEN_REDUCTION_REGISTRY
 
 from .token_reduction_module import TokenReductionModule
+from .utils import prefill_wrapper, prefill_wrapper_model
 
 
 @TOKEN_REDUCTION_REGISTRY.register('SparseVLM')
@@ -29,7 +30,7 @@ class SparseVLM(TokenReductionModule):
         self.model.model.parameters = special_config
 
     def register_reduction_modules(self):
-
+        @prefill_wrapper
         def input_hook(module, input_args, pruning_pars):
             input_ids = input_args[0]
             pre_prompt_length_list = []
@@ -51,6 +52,7 @@ class SparseVLM(TokenReductionModule):
 
             return input_args
 
+        @prefill_wrapper_model
         def register_module_pars(module, args, kwargs, pruning_pars):
             pre_prompt_length_list = pruning_pars['pre_prompt_length_list']
             inputs_embeds = kwargs['inputs_embeds']
@@ -92,6 +94,7 @@ class SparseVLM(TokenReductionModule):
                 kwargs['position_embeddings'] = pruning_pars['position_embeddings']
             return args, kwargs
 
+        @prefill_wrapper
         def decoder_attn_hook(module, inputs, kwargs, layer_outputs, pruning_pars, layer_idx):
 
             attn_logits = layer_outputs[1]
@@ -195,6 +198,7 @@ class SparseVLM(TokenReductionModule):
 
             return new_output
 
+        @prefill_wrapper
         def read_parameter_hook(module, args, kwargs, pruning_pars):
             kwargs['position_ids'] = pruning_pars['position_ids']
             kwargs['cache_position'] = pruning_pars['cache_position']
