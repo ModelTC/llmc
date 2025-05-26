@@ -1,8 +1,33 @@
+from functools import wraps
 from typing import Any, List, Optional, Tuple, Union
 
 import torch
 import torch.nn as nn
 from transformers.models.clip.modeling_clip import CLIPEncoderLayer
+
+
+def prefill_wrapper(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        # for the decoding stage
+        if len(args) > 1:
+            input_args = args[1]
+            if hasattr(input_args[0], 'shape') and input_args[0].shape[1] == 1:
+                return None
+        return func(*args, **kwargs)
+    return wrapper
+
+
+def prefill_wrapper_model(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        # for the decoding stage
+        if len(args) > 1:
+            input_args = args[2]['inputs_embeds']
+            if hasattr(input_args, 'shape') and input_args.shape[1] == 1:
+                return None
+        return func(*args, **kwargs)
+    return wrapper
 
 
 def parse_r(num_layers: int, r: Union[List[int], Tuple[int, float], int]) -> List[int]:
