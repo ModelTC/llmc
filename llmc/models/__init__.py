@@ -11,6 +11,7 @@ from .internvl2 import InternVL2
 from .llama import Llama
 from .llava import Llava
 from .llava_hf import LlavaHf
+from .llava_onevision import Llava_OneVision
 from .minicpm import MiniCPM
 from .minicpmv import MiniCPMV
 from .mistral import Mistral

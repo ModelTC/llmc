@@ -4,8 +4,15 @@ from typing import Callable, Optional, Tuple
 
 import torch
 import torch.nn.functional as F
+from loguru import logger
 from transformers.models.clip.modeling_clip import CLIPEncoderLayer
-from transformers.models.qwen2_vl.modeling_qwen2_vl import Qwen2VLVisionBlock
+
+try:
+    from transformers.models.qwen2_vl.modeling_qwen2_vl import \
+        Qwen2VLVisionBlock
+except ModuleNotFoundError:
+    logger.info('Qwen2VLVisionBlock not found, if need, please upgrade transformers first.')
+    Qwen2VLVisionBlock = None
 
 from llmc.utils.registry_factory import TOKEN_REDUCTION_REGISTRY
 
