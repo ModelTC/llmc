@@ -40,7 +40,7 @@ class BaseBlockwiseSparsification(BlockwiseOpt):
             if 'sparsity' in self.sparsity_config['weight']:
                 self.sparsity = self.sparsity_config['weight']['sparsity']
                 self.W_mask = None
-            elif 'n_prune_layers' in self.sparsity_config:
+            elif 'n_prune_layers' in self.sparsity_config['weight']:
                 self.n_prune_layers = self.sparsity_config['weight']['n_prune_layers']
 
     def set_kv_sparse_config(self):
