@@ -105,6 +105,14 @@ class Llava_OneVision(Llama):
 
         self.processor = None
 
+    def find_blocks(self):
+        if self.get_modality() == 'language':
+            super().find_blocks()
+        elif self.get_modality() == 'vision':
+            self.blocks = self.vision_model.vision_tower.vision_model.encoder.layers
+        else:
+            raise Exception(f'Llava_OneVision do not support {self.get_modality()} modality.')
+
 
 @MODEL_REGISTRY
 class Llava_OneVision_Eval(LLaVA_OV):
