@@ -93,3 +93,13 @@ def apply_info(model, dominant_num, contextual_num):
     for module in model.modules():
         if isinstance(module, CLIPEncoderLayer):
             module.self_attn.k_proj._info = model._info
+
+
+def add_post_hook_to_get_2dPool(model, post_hook_fn, pruning_paras):
+    original_fn = model.get_2dPool
+
+    def wrapped_fn(*args, **kwargs):
+        result = original_fn(*args, **kwargs)
+        return post_hook_fn(result, pruning_paras)
+
+    model.get_2dPool = wrapped_fn
