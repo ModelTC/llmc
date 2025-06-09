@@ -14,7 +14,7 @@ from transformers.cache_utils import Cache, DynamicCache
 from llmc.utils.registry_factory import TOKEN_REDUCTION_REGISTRY
 
 from .token_reduction_module import TokenReductionModule
-from .utils import prefill_wrapper
+from .utils import add_post_hook_to_get_2dPool
 
 
 def dycole_ttm(image_feature, pruning_paras):
@@ -102,16 +102,6 @@ def dycole_ttm(image_feature, pruning_paras):
     return combined_tokens
 
 
-def add_dycole_ttm_to_get_2dPool(model, post_hook_fn, pruning_paras):
-    original_fn = model.get_2dPool
-
-    def wrapped_fn(*args, **kwargs):
-        result = original_fn(*args, **kwargs)
-        return post_hook_fn(result, pruning_paras)
-
-    model.get_2dPool = wrapped_fn
-
-
 @TOKEN_REDUCTION_REGISTRY.register('DyCoke')
 class DyCoke(TokenReductionModule):
     def __init__(self, config, model, blocks):
@@ -127,6 +117,6 @@ class DyCoke(TokenReductionModule):
     def register_reduction_modules(self):
 
         if isinstance(self.model.model, LlavaMetaForCausalLM):
-            add_dycole_ttm_to_get_2dPool(
+            add_post_hook_to_get_2dPool(
                 self.model.model, dycole_ttm, self.model.model.pruning_paras
             )
