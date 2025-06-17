@@ -13,31 +13,17 @@
 [![Doc](https://img.shields.io/badge/docs-English-99cc2)](https://llmc-en.readthedocs.io/en/latest/)
 [![Doc](https://img.shields.io/badge/文档-中文-99cc2)](https://llmc-zhcn.readthedocs.io/en/latest/)
 
+**\[ [English](README.md) | 中文 | [日本語](README_ja.md) \]**
+
 </div>
 
-**\[ English | [中文](README_zh.md) | [日本語](README_ja.md) \]**
+**LLMC** 是一个开箱即用的工具，专为压缩LLM设计，利用最先进的压缩算法提高效率并减少模型体积，同时不影响预测精度。你可以通过以下命令下载可以运行llmc的docker镜像，中国大陆用户推荐使用阿里云docker。
 
-**LLMC** 是一个开箱即用的工具，专为压缩LLM设计，利用最先进的压缩算法提高效率并减少模型体积，同时不影响预测精度。
-
-**英文文档**在[此处](https://llmc-en.readthedocs.io/en/latest/)。
-
-**中文文档**在[此处](https://llmc-zhcn.readthedocs.io/en/latest/)。
-
-**Docker hub**在[此处](https://hub.docker.com/r/llmcompression/llmc)。
-
-**阿里云docker**: `registry.cn-hangzhou.aliyuncs.com/yongyang/llmcompression:[tag]`
-
-你可以通过以下命令下载可以运行llmc的docker镜像，中国大陆用户推荐使用阿里云docker。
-
-docker hub
-
-```
+```shell
+# docker hub: https://hub.docker.com/r/llmcompression/llmc
 docker pull llmcompression/llmc:pure-latest
-```
 
-阿里云docker
-
-```
+# 阿里云docker: registry.cn-hangzhou.aliyuncs.com/yongyang/llmcompression:[tag]
 docker pull registry.cn-hangzhou.aliyuncs.com/yongyang/llmcompression:pure-latest
 ```
 
@@ -45,6 +31,11 @@ docker pull registry.cn-hangzhou.aliyuncs.com/yongyang/llmcompression:pure-lates
 
 - [Discord 服务器](https://discord.com/invite/NfJzbkK3jY)
 - [腾讯QQ群](http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=I9IGPWWj8uuRXWH3_ELWjouf6gkIMgUl&authKey=GA3WbFAsm90ePJf%2FCbc7ZyXXq4ShQktlBaLxgqS5yuSPAsr3%2BDKMRdosUiLYoilO&noverify=0&group_code=526192592)
+
+**文档**:
+
+- [英文](https://llmc-en.readthedocs.io/en/latest/)
+- [中文](https://llmc-zhcn.readthedocs.io/en/latest/)
 
 ## 最新消息
 

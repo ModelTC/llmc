@@ -13,31 +13,17 @@
 [![Doc](https://img.shields.io/badge/docs-English-99cc2)](https://llmc-en.readthedocs.io/en/latest/)
 [![Doc](https://img.shields.io/badge/文档-中文-99cc2)](https://llmc-zhcn.readthedocs.io/en/latest/)
 
+**\[ [English](README.md) | [中文](README_zh.md) | 日本語 \]**
+
 </div>
 
-**\[ English | [中文](README_zh.md) | [日本語](README_ja.md) \]**
+**LLMC** は、大規模言語モデル（LLM）の圧縮を目的とした、最新の圧縮アルゴリズムを活用して、パフォーマンスを損なうことなく効率を向上させ、モデルサイズを削減するためのツールです。以下のコマンドを使用して、llmcを実行できるDockerイメージをダウンロードできます。中国大陸のユーザーは、阿里云Dockerを使用することを推奨します。
 
-**LLMC** は、大規模言語モデル（LLM）の圧縮を目的とした、最新の圧縮アルゴリズムを活用して、パフォーマンスを損なうことなく効率を向上させ、モデルサイズを削減するためのツールです。
-
-**英語のドキュメント**は[こちら](https://llmc-en.readthedocs.io/en/latest/)。
-
-**中国語のドキュメント**は[こちら](https://llmc-zhcn.readthedocs.io/en/latest/)。
-
-**Docker Hub**は[こちら](https://hub.docker.com/r/llmcompression/llmc)。
-
-**aliyun docker**: `registry.cn-hangzhou.aliyuncs.com/yongyang/llmcompression:[tag]`
-
-以下のコマンドを使用して、llmcを実行できるDockerイメージをダウンロードできます。中国大陸のユーザーは、阿里云Dockerを使用することを推奨します。
-
-docker hub
-
-```
+```shell
+# docker hub: https://hub.docker.com/r/llmcompression/llmc
 docker pull llmcompression/llmc:pure-latest
-```
 
-阿里云Docker
-
-```
+# 阿里云Docker: registry.cn-hangzhou.aliyuncs.com/yongyang/llmcompression:[tag]
 docker pull registry.cn-hangzhou.aliyuncs.com/yongyang/llmcompression:pure-latest
 ```
 
@@ -45,6 +31,11 @@ docker pull registry.cn-hangzhou.aliyuncs.com/yongyang/llmcompression:pure-lates
 
 - [Discordサーバー](https://discord.com/invite/NfJzbkK3jY)
 - [Tencent QQグループ](http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=I9IGPWWj8uuRXWH3_ELWjouf6gkIMgUl&authKey=GA3WbFAsm90ePJf%2FCbc7ZyXXq4ShQktlBaLxgqS5yuSPAsr3%2BDKMRdosUiLYoilO&noverify=0&group_code=526192592)
+
+**Docs**:
+
+- [英語](https://llmc-en.readthedocs.io/en/latest/)
+- [中国語](https://llmc-zhcn.readthedocs.io/en/latest/)
 
 ## 最新情報
 
