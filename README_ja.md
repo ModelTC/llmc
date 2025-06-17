@@ -32,7 +32,7 @@ docker pull registry.cn-hangzhou.aliyuncs.com/yongyang/llmcompression:pure-lates
 - [Discordサーバー](https://discord.com/invite/NfJzbkK3jY)
 - [Tencent QQグループ](http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=I9IGPWWj8uuRXWH3_ELWjouf6gkIMgUl&authKey=GA3WbFAsm90ePJf%2FCbc7ZyXXq4ShQktlBaLxgqS5yuSPAsr3%2BDKMRdosUiLYoilO&noverify=0&group_code=526192592)
 
-**Docs**:
+**ドキュメント**:
 
 - [英語](https://llmc-en.readthedocs.io/en/latest/)
 - [中国語](https://llmc-zhcn.readthedocs.io/en/latest/)
