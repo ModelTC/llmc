@@ -13,31 +13,17 @@
 [![Doc](https://img.shields.io/badge/docs-English-99cc2)](https://llmc-en.readthedocs.io/en/latest/)
 [![Doc](https://img.shields.io/badge/文档-中文-99cc2)](https://llmc-zhcn.readthedocs.io/en/latest/)
 
-</div>
-
 **\[ English | [中文](README_zh.md) | [日本語](README_ja.md) \]**
 
-**LLMC** is an off-the-shell tool designed for compressing LLM, leveraging state-of-the-art compression algorithms to enhance efficiency and reduce model size without compromising performance.
+</div>
 
-**English doc** is [here](https://llmc-en.readthedocs.io/en/latest/).
+**LLMC** is an off-the-shell tool designed for compressing LLM, leveraging state-of-the-art compression algorithms to enhance efficiency and reduce model size without compromising performance. You can download the Docker image that can run llmc with the following command. Users in mainland China are recommended to use Alibaba Cloud Docker.
 
-**Chinese doc** is [here](https://llmc-zhcn.readthedocs.io/en/latest/).
-
-**Docker hub** is [here](https://hub.docker.com/r/llmcompression/llmc).
-
-**Aliyun docker**: `registry.cn-hangzhou.aliyuncs.com/yongyang/llmcompression:[tag]`
-
-You can download the Docker image that can run llmc with the following command. Users in mainland China are recommended to use Alibaba Cloud Docker.
-
-docker hub
-
-```
+```shell
+# docker hub: https://hub.docker.com/r/llmcompression/llmc
 docker pull llmcompression/llmc:pure-latest
-```
 
-aliyun docker
-
-```
+# aliyun docker: registry.cn-hangzhou.aliyuncs.com/yongyang/llmcompression:[tag]
 docker pull registry.cn-hangzhou.aliyuncs.com/yongyang/llmcompression:pure-latest
 ```
 
@@ -45,6 +31,11 @@ docker pull registry.cn-hangzhou.aliyuncs.com/yongyang/llmcompression:pure-lates
 
 - [Discord Server](https://discord.com/invite/NfJzbkK3jY)
 - [Tencent QQ Group](http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=I9IGPWWj8uuRXWH3_ELWjouf6gkIMgUl&authKey=GA3WbFAsm90ePJf%2FCbc7ZyXXq4ShQktlBaLxgqS5yuSPAsr3%2BDKMRdosUiLYoilO&noverify=0&group_code=526192592)
+
+**Docs**:
+
+- [English](https://llmc-en.readthedocs.io/en/latest/)
+- [Chinese](https://llmc-zhcn.readthedocs.io/en/latest/)
 
 ## Latest News
 
