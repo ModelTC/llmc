@@ -24,7 +24,9 @@ class FasterVLM(TokenReductionModule):
         special_config['select_feature'] = self.model.pruning_config['select_feature']
         special_config['image_token_index'] = self.model.pruning_config['image_token_index']
 
-        self.model.model.parameters = special_config
+        special_config['image_attentions_list'] = []
+
+        self.pruning_paras = special_config
 
     def register_reduction_modules(self):
 
@@ -32,20 +34,29 @@ class FasterVLM(TokenReductionModule):
             kwargs['output_attentions'] = True
             return args, kwargs
 
-        def store_attention_hook(m, x, image_forward_outs, pruning_pars):
-            image_attentions = image_forward_outs.attentions[pruning_pars['select_layer']]
-            if pruning_pars['select_feature'] == 'default':  # patch
-                image_attentions = image_attentions[:, :, 0, 1:]
-            elif pruning_pars['select_feature'] == 'full':
-                image_attentions = image_attentions
+        def clear_attentions_hook(m, x, pruning_paras):
+            pruning_paras['image_attentions_list'].clear()
+
+        def store_attention_hook(m, x, image_forward_outs, pruning_paras):
+            image_attentions = image_forward_outs.attentions[pruning_paras['select_layer']]
+            if pruning_paras['select_feature'] in ('default', 'patch'):
+                image_attention = image_attentions[:, :, 0, 1:]
+            elif pruning_paras['select_feature'] in ('full', 'cls_patch'):
+                image_attention = image_attentions
             else:
                 raise ValueError(f'Unexpected select feature: {self.select_feature}')
-            pruning_pars['image_attentions'] = image_attentions
+            pruning_paras['image_attentions_list'].append(image_attention.to(x[0].dtype))
 
-        def pruning_hook(module, args, kwargs, pruning_pars):
+        def update_attentions_hook(m, x, outs, pruning_paras):
+            if len(pruning_paras['image_attentions_list']) == 1:
+                pruning_paras['image_attentions'] = pruning_paras['image_attentions_list'][0]
+            else:
+                pruning_paras['image_attentions'] = pruning_paras['image_attentions_list']
+
+        def pruning_hook(module, args, kwargs, pruning_paras):
 
             image_features = args[0]
-            image_attentions = pruning_pars['image_attentions']
+            image_attentions = pruning_paras['image_attentions']
 
             # image_attentions = image_attentions.max(dim=1)[0] # (B, N) = (1, 576)
             image_attentions = image_attentions.mean(dim=1)  # (B, N) = (1, 576)
@@ -66,22 +77,22 @@ class FasterVLM(TokenReductionModule):
             index_mask = torch.zeros(B, N, dtype=torch.bool, device=image_features.device)  # (B, N)
             index_mask.scatter_(1, token_indices, True)  # (B, N)
 
-            pruning_pars['index_mask'] = index_mask
-            pruning_pars['image_attentions'] = image_attentions
+            pruning_paras['index_mask'] = index_mask
+            pruning_paras['image_attentions'] = image_attentions
 
             return (image_features,), kwargs
 
-        def get_image_mask_hook(module, args, kwargs, pruning_pars):
-            pruning_pars['image_mask'] = (
-                kwargs['input_ids'] == pruning_pars['image_token_index']
+        def get_image_mask_hook(module, args, kwargs, pruning_paras):
+            pruning_paras['image_mask'] = (
+                kwargs['input_ids'] == pruning_paras['image_token_index']
             )  # (B, len)
 
-        def prepare_inputs_for_llm_hook(module, args, kwargs, pruning_pars):
+        def prepare_inputs_for_llm_hook(module, args, kwargs, pruning_paras):
 
             # Only batch size 1 is currently supported.
             inputs_embeds = kwargs['inputs_embeds']
-            image_mask = pruning_pars['image_mask'][0]
-            index_mask = pruning_pars['index_mask'][0]
+            image_mask = pruning_paras['image_mask'][0]
+            index_mask = pruning_paras['index_mask'][0]
 
             B, L = inputs_embeds.shape[:2]
             device = inputs_embeds.device
@@ -109,28 +120,67 @@ class FasterVLM(TokenReductionModule):
 
             return args, kwargs
 
-        self.model.vision_model.register_forward_pre_hook(
-            update_output_attentions_hook,
-            with_kwargs=True
-        )
+        def prepare_inputs_hook(module, inputs, outputs, pruning_paras):
 
-        self.model.vision_model.register_forward_hook(
-            functools.partial(store_attention_hook, pruning_pars=self.model.model.parameters),
-        )
+            image_features = outputs
+            index_masks = pruning_paras['index_mask']
+            # image_attentions = pruning_paras['image_attentions']
+            new_image_features = []
+            for image_feature, index_mask in zip(image_features, index_masks):
+                image_feature = image_feature[index_mask]
+                new_image_features.append(image_feature)
+            image_features = torch.stack(new_image_features, dim=0)
+
+            outputs = image_features
+            pruning_paras['image_features_shape'] = image_features[0].shape[0]
+
+            return outputs
+
+        if self.model.__class__.__name__ == 'LlavaHf':
+            self.model.vision_model.register_forward_pre_hook(
+                update_output_attentions_hook,
+                with_kwargs=True
+            )
+
+            self.model.vision_model.register_forward_hook(
+                functools.partial(store_attention_hook, pruning_paras=self.pruning_paras),
+            )
+        elif self.model.__class__.__name__ == 'Llava':
+            self.model.vision_model.register_forward_pre_hook(
+                functools.partial(clear_attentions_hook, pruning_paras=self.pruning_paras),
+            )
+
+            self.model.vision_model.register_forward_hook(
+                functools.partial(update_attentions_hook, pruning_paras=self.pruning_paras),
+            )
+
+            self.model.vision_model.vision_tower.register_forward_pre_hook(
+                update_output_attentions_hook,
+                with_kwargs=True
+            )
+
+            self.model.vision_model.vision_tower.register_forward_hook(
+                functools.partial(store_attention_hook, pruning_paras=self.pruning_paras),
+            )
 
         self.model.vision_projector.register_forward_pre_hook(
-            functools.partial(pruning_hook, pruning_pars=self.model.model.parameters),
+            functools.partial(pruning_hook, pruning_paras=self.pruning_paras),
             with_kwargs=True
         )
 
-        self.model.vlm_model.register_forward_pre_hook(
-            functools.partial(get_image_mask_hook, pruning_pars=self.model.model.parameters),
-            with_kwargs=True
-        )
+        if self.model.__class__.__name__ == 'LlavaHf':
+            self.model.vlm_model.register_forward_pre_hook(
+                functools.partial(get_image_mask_hook, pruning_paras=self.pruning_paras),
+                with_kwargs=True
+            )
 
-        self.model.model.register_forward_pre_hook(
-            functools.partial(
-                prepare_inputs_for_llm_hook, pruning_pars=self.model.model.parameters
-            ),
-            with_kwargs=True
-        )
+            self.model.model.register_forward_pre_hook(
+                functools.partial(
+                    prepare_inputs_for_llm_hook, pruning_paras=self.pruning_paras
+                ),
+                with_kwargs=True
+            )
+        elif self.model.__class__.__name__ == 'Llava':
+            self.model.vision_projector.register_forward_hook(
+                functools.partial(prepare_inputs_hook, pruning_paras=self.pruning_paras),
+            )

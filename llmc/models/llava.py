@@ -40,9 +40,9 @@ class Llava(Llama):
         self.vlm_model_config = AutoConfig.from_pretrained(
             self.model_path, trust_remote_code=True
         )
-        if not self.use_cache:
-            self.llava_config.use_cache = False
-            self.vlm_model_config.use_cache = False
+        # llava need: use_cache
+        self.llava_config.use_cache = True
+        self.vlm_model_config.use_cache = True
         logger.info(f'self.vlm_model_config : {self.vlm_model_config}')
         self.tokenizer, self.vlm_model, image_processor, context_len = load_pretrained_model(
             self.model_path,
@@ -59,7 +59,6 @@ class Llava(Llama):
         ori_forward = self.vlm_model.forward
 
         def safe_forward(*args, **kwargs):
-            kwargs['use_cache'] = False
             kwargs.pop('cache_position', None)
             return ori_forward(*args, **kwargs)
         self.vlm_model.forward = safe_forward

@@ -1,4 +1,5 @@
 import functools
+from types import MethodType
 
 import torch
 
@@ -7,6 +8,8 @@ from llmc.utils.registry_factory import TOKEN_REDUCTION_REGISTRY
 
 from .token_reduction_module import TokenReductionModule
 from .utils import prefill_wrapper
+
+IMAGE_TOKEN_INDEX = -200
 
 
 @TOKEN_REDUCTION_REGISTRY.register('FastV')
@@ -23,33 +26,53 @@ class FastV(TokenReductionModule):
             self.model.pruning_config['image_token_length']
         self.special_config['attn_scores'] = None
 
-        self.model.model.parameters = self.special_config
+        self.pruning_paras = self.special_config
 
     def register_reduction_modules(self):
 
         @prefill_wrapper
-        def input_hook(module, input_args, pruning_pars):
+        def input_hook(module, input_args, pruning_paras):
             input_ids = input_args[0]
             image_token_idxs = (input_ids[0] ==
-                                pruning_pars['vision_token_index']).nonzero(as_tuple=True)[0]
-            pruning_pars['image_token_start_index'] = image_token_idxs[0].item()
+                                pruning_paras['vision_token_index']).nonzero(as_tuple=True)[0]
+            pruning_paras['image_token_start_index'] = image_token_idxs[0].item()
 
             return input_args
+
+        def make_hook_prepare_inputs_labels_for_multimodal(pruning_paras):
+            def hook_prepare_inputs_labels_for_multimodal(
+                self,
+                input_ids,
+                position_ids,
+                attention_mask,
+                past_key_values,
+                labels,
+                images,
+                image_sizes
+            ):
+                if 'image_token_start_index' not in pruning_paras:
+                    token_indices = input_ids[0][attention_mask[0]] == IMAGE_TOKEN_INDEX
+                    pruning_paras['image_token_start_index'] = torch.where(token_indices)[0].item()
+                return self._original_prepare_inputs_labels_for_multimodal(
+                    input_ids, position_ids, attention_mask,
+                    past_key_values, labels, images, image_sizes
+                )
+            return hook_prepare_inputs_labels_for_multimodal
 
         def update_output_attentions_hook(module, args, kwargs):
             kwargs['output_attentions'] = True
             return args, kwargs
 
-        def store_attention_hook(m, x, layer_outputs, pruning_pars):
+        def store_attention_hook(m, x, layer_outputs, pruning_paras):
             layer_attention = layer_outputs[1]
-            pruning_pars['attn_scores'] = layer_attention
+            pruning_paras['attn_scores'] = layer_attention
 
         @prefill_wrapper
-        def fastv_pruning_hook(module, args, kwargs, pruning_pars):
+        def fastv_pruning_hook(module, args, kwargs, pruning_paras):
 
-            rate = pruning_pars['rate']
-            image_token_start_index = pruning_pars['image_token_start_index']
-            image_token_length = pruning_pars['image_token_length']
+            rate = pruning_paras['rate']
+            image_token_start_index = pruning_paras['image_token_start_index']
+            image_token_length = pruning_paras['image_token_length']
 
             hidden_states = args[0]
             causal_mask = kwargs['attention_mask']
@@ -57,7 +80,7 @@ class FastV(TokenReductionModule):
 
             device = hidden_states.device
             # last_layer_attention = layer_outputs[1]
-            last_layer_attention = pruning_pars['attn_scores']
+            last_layer_attention = pruning_paras['attn_scores']
             # compute average attention over different head
             last_layer_attention_avg = torch.mean(last_layer_attention, dim=1)[0]
             # generate new attention mask based on the average attention,
@@ -98,25 +121,34 @@ class FastV(TokenReductionModule):
             kwargs['cache_position'] = cache_position[:new_seq_length]
             kwargs['position_ids'] = position_ids
             kwargs['position_embeddings'] = None
-            pruning_pars['attention_mask'] = causal_mask
-            pruning_pars['cache_position'] = cache_position[:new_seq_length]
-            pruning_pars['position_ids'] = position_ids
-            pruning_pars['position_embeddings'] = None
+            pruning_paras['attention_mask'] = causal_mask
+            pruning_paras['cache_position'] = cache_position[:new_seq_length]
+            pruning_paras['position_ids'] = position_ids
+            pruning_paras['position_embeddings'] = None
 
             return (hidden_states,), kwargs
 
         @prefill_wrapper
-        def read_parameter_hook(module, args, kwargs, pruning_pars):
-            kwargs['attention_mask'] = pruning_pars['attention_mask']
-            kwargs['cache_position'] = pruning_pars['cache_position']
-            kwargs['position_ids'] = pruning_pars['position_ids']
-            kwargs['position_embeddings'] = pruning_pars['position_embeddings']
+        def read_parameter_hook(module, args, kwargs, pruning_paras):
+            kwargs['attention_mask'] = pruning_paras['attention_mask']
+            kwargs['cache_position'] = pruning_paras['cache_position']
+            kwargs['position_ids'] = pruning_paras['position_ids']
+            kwargs['position_embeddings'] = pruning_paras['position_embeddings']
 
             return args, kwargs
 
-        self.model.embed_tokens.register_forward_pre_hook(
-            functools.partial(input_hook, pruning_pars=self.model.model.parameters)
-        )
+        if self.model.__class__.__name__ == 'LlavaHf':
+            self.model.embed_tokens.register_forward_pre_hook(
+                functools.partial(input_hook, pruning_paras=self.pruning_paras)
+            )
+        elif self.model.__class__.__name__ == 'Llava':
+            hook_fn = make_hook_prepare_inputs_labels_for_multimodal(self.pruning_paras)
+            self.model.vlm_model._original_prepare_inputs_labels_for_multimodal = (
+                self.model.vlm_model.prepare_inputs_labels_for_multimodal
+            )
+            self.model.vlm_model.prepare_inputs_labels_for_multimodal = MethodType(
+                hook_fn, self.model.vlm_model
+            )
 
         self.blocks[self.pruning_loc - 1].register_forward_pre_hook(
             update_output_attentions_hook,
@@ -124,16 +156,16 @@ class FastV(TokenReductionModule):
         )
 
         self.blocks[self.pruning_loc - 1].register_forward_hook(
-            functools.partial(store_attention_hook, pruning_pars=self.model.model.parameters),
+            functools.partial(store_attention_hook, pruning_paras=self.pruning_paras),
         )
 
         self.blocks[self.pruning_loc].register_forward_pre_hook(
-            functools.partial(fastv_pruning_hook, pruning_pars=self.model.model.parameters),
+            functools.partial(fastv_pruning_hook, pruning_paras=self.pruning_paras),
             with_kwargs=True
         )
 
         for idx in range(self.pruning_loc + 1, len(self.blocks)):
             self.blocks[idx].register_forward_pre_hook(
-                functools.partial(read_parameter_hook, pruning_pars=self.model.model.parameters),
+                functools.partial(read_parameter_hook, pruning_paras=self.pruning_paras),
                 with_kwargs=True
             )
