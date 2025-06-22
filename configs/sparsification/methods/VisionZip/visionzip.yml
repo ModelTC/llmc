@@ -13,11 +13,12 @@ eval:
     bs: 1
     inference_per_block: False
 sparse:
-    method: TokenReduction
-    special:
-        method: VisionZip
-        dominant: 191
-        contextual: 30
+    vision:
+        method: TokenReduction
+        special:
+            method: VisionZip
+            dominant: 191       # visual_tokens = dominan_tokens + 1(cls_token)
+            contextual: 30
 save:
     save_trans: False
     save_fake: False

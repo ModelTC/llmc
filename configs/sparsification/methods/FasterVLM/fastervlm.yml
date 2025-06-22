@@ -16,7 +16,7 @@ sparse:
     method: TokenReduction
     special:
         method: FasterVLM
-        rate: 0.75
+        rate: 0.778
 save:
     save_trans: False
     save_fake: False

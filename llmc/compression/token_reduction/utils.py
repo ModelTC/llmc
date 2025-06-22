@@ -93,6 +93,7 @@ def apply_info(model, dominant_num, contextual_num):
     for module in model.modules():
         if isinstance(module, CLIPEncoderLayer):
             module.self_attn.k_proj._info = model._info
+            module.self_attn.k_proj.metric = None
 
 
 def add_post_hook_to_get_2dPool(model, post_hook_fn, pruning_paras):

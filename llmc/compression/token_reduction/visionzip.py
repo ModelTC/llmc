@@ -231,128 +231,55 @@ def visionzip_forward(
     )
 
 
-class CLIPVisionTower_VisionZip(nn.Module):
+def CLIP_EncoderLayer_forward(
+    self,
+    hidden_states: torch.Tensor,
+    attention_mask: torch.Tensor,
+    causal_attention_mask: torch.Tensor,
+    output_attentions: Optional[bool] = False,
+) -> Tuple[torch.FloatTensor]:
+    # docformatter: off
+    """
+    Args:
+        hidden_states (`torch.FloatTensor`): input to the layer
+            `(batch, seq_len, embed_dim)`
+        attention_mask (`torch.FloatTensor`): attention mask of size
+            `(batch, 1, tgt_len, src_len)`
+            `(config.encoder_attention_heads,)`.
+        output_attentions (`bool`, *optional*):
+            Whether or not to return the attentions tensors of all attention layers.
+            See `attentions` under
+            returned tensors for more detail.
+    """
+    # docformatter: on
+    residual = hidden_states
 
-    @torch.no_grad()
-    def forward(self, images):
+    hidden_states = self.layer_norm1(hidden_states)
 
-        if type(images) is list:
-            image_features = []
-            for image in images:
-                image_forward_out = self.vision_tower(
-                    image.to(device=self.device, dtype=self.dtype).unsqueeze(0),
-                    output_hidden_states=True,
-                    output_attentions=True,
-                )
-                image_feature = self.feature_select(image_forward_out).to(image.dtype)
-                image_features.append(image_feature)
-        else:
+    hidden_states, attn_weights = self.self_attn(
+        hidden_states=hidden_states,
+        attention_mask=attention_mask,
+        causal_attention_mask=causal_attention_mask,
+        output_attentions=output_attentions,
+    )
+    metric = self.self_attn.k_proj.metric
 
-            image_forward_outs = self.vision_tower(
-                images.to(device=self.device, dtype=self.dtype),
-                output_hidden_states=True,
-                output_attentions=True,
-            )
-            attn_weights = image_forward_outs.attentions[-2]
-            hidden_states = image_forward_outs.hidden_states[-2]
-            metric = self.vision_tower.vision_model.encoder.layers[-2].metric
-            dominant_num = self.vision_tower._info['dominant']
-            contextual_num = self.vision_tower._info['contextual']
+    hidden_states = residual + hidden_states
 
-            # Dominant Visual Tokens
-            cls_idx = 0
-            cls_attention = attn_weights[:, :, cls_idx, cls_idx + 1:]
-            cls_attention_sum = cls_attention.sum(dim=1)
-            topk_indices = cls_attention_sum.topk(dominant_num, dim=1).indices + 1
-            all_indices = torch.cat(
-                [
-                    torch.zeros(
-                        (hidden_states.shape[0], 1),
-                        dtype=topk_indices.dtype,
-                        device=topk_indices.device,
-                    ),
-                    topk_indices,
-                ],
-                dim=1,
-            )
+    r = self.self_attn.k_proj._info['r'].pop(0)
+    if r > 0:
+        self.metric = metric
+    residual = hidden_states
+    hidden_states = self.layer_norm2(hidden_states)
+    hidden_states = self.mlp(hidden_states)
+    hidden_states = residual + hidden_states
 
-            mask = torch.ones_like(
-                hidden_states[:, :, 0], dtype=torch.bool, device=metric.device
-            ).scatter_(1, all_indices, False)
-            dominant_tokens = hidden_states.masked_select(~mask.unsqueeze(-1)).view(
-                hidden_states.shape[0], dominant_num + 1, hidden_states.shape[2]
-            )
+    outputs = (hidden_states,)
 
-            # Filter
-            metric_filtered = metric[mask].view(
-                hidden_states.shape[0],
-                hidden_states.shape[1] - (dominant_num + 1),
-                metric.shape[2],
-            )
+    if output_attentions:
+        outputs += (attn_weights,)
 
-            hidden_states_filtered = hidden_states.masked_select(
-                mask.unsqueeze(-1)
-            ).view(
-                hidden_states.shape[0],
-                hidden_states.shape[1] - (dominant_num + 1),
-                hidden_states.shape[2],
-            )
-
-            metric_normalized = metric_filtered / metric_filtered.norm(
-                dim=-1, keepdim=True
-            )
-
-            # Contextual Visual Tokens
-            step = max(1, metric_normalized.shape[1] // contextual_num)
-            target_indices = torch.arange(
-                0, metric_normalized.shape[1], step, device=metric_normalized.device
-            )[:contextual_num]
-            target_tokens = metric_normalized[:, target_indices, :]
-
-            tokens_to_merge = metric_normalized[
-                :,
-                ~torch.isin(
-                    torch.arange(
-                        metric_normalized.shape[1], device=metric_normalized.device
-                    ),
-                    target_indices,
-                ),
-                :,
-            ]
-            similarity = torch.bmm(tokens_to_merge, target_tokens.transpose(1, 2))
-            assign_one_hot = torch.zeros(
-                tokens_to_merge.shape[0],
-                tokens_to_merge.shape[1],
-                contextual_num,
-                dtype=hidden_states_filtered.dtype,
-                device=metric_normalized.device,
-            )
-            assign_one_hot.scatter_(2, similarity.argmax(dim=2).unsqueeze(-1), 1)
-            counts = assign_one_hot.sum(dim=1).clamp(min=1).unsqueeze(-1)
-            hidden_to_merge = hidden_states_filtered[
-                :,
-                ~torch.isin(
-                    torch.arange(
-                        hidden_states_filtered.shape[1],
-                        device=hidden_states_filtered.device,
-                    ),
-                    target_indices,
-                ),
-                :,
-            ]
-            aggregated_hidden = (
-                torch.bmm(assign_one_hot.transpose(1, 2), hidden_to_merge) / counts
-            )
-            target_hidden = hidden_states_filtered[:, target_indices, :]
-
-            contextual_tokens = target_hidden + aggregated_hidden
-
-            # Merge with target hidden states and concatenate
-            hidden_states_save = torch.cat(
-                [dominant_tokens, contextual_tokens], dim=1
-            ).to(images.dtype)
-
-        return hidden_states_save, all_indices
+    return outputs
 
 
 @TOKEN_REDUCTION_REGISTRY.register('VisionZip')
@@ -487,23 +414,32 @@ class VisionZip(TokenReductionModule):
             kwargs['output_attentions'] = True
             return args, kwargs
 
+        if self.model.__class__.__name__ == 'LlavaHf':
+            vision_tower = self.model.vlm_model.vision_tower
+        elif self.model.__class__.__name__ == 'Llava':
+            vision_tower = self.model.vlm_model.model.vision_tower.vision_tower
+
         apply_info(
-            self.model.vlm_model.vision_tower,
+            vision_tower,
             dominant_num=self.dominant,
             contextual_num=self.contextual,
         )
 
-        self.model.vlm_model.__class__.forward = visionzip_forward
-        self.model.vlm_model.vision_tower.register_forward_pre_hook(
+        if self.model.__class__.__name__ == 'LlavaHf':
+            self.model.vlm_model.__class__.forward = visionzip_forward
+        elif self.model.__class__.__name__ == 'Llava':
+            from transformers.models.clip.modeling_clip import CLIPEncoderLayer
+            CLIPEncoderLayer.forward = CLIP_EncoderLayer_forward
+
+        vision_tower.register_forward_pre_hook(
             update_output_attentions_hook, with_kwargs=True
         )
 
-        self.blocks = self.model.vlm_model.vision_tower.vision_model.encoder.layers
-        r = self.model.vlm_model.vision_tower.r
+        r = vision_tower.r
         for idx, block in enumerate(self.blocks):
             if r[idx]:
                 block.self_attn.k_proj.num_heads = block.self_attn.num_heads
                 block.self_attn.k_proj.head_dim = block.self_attn.head_dim
                 block.self_attn.k_proj.register_forward_hook(store_key_hook)
 
-        self.model.vlm_model.vision_tower.register_forward_hook(visionzip_hook)
+        vision_tower.register_forward_hook(visionzip_hook)
