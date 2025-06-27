@@ -3,6 +3,7 @@ from .dycoke import DyCoke
 from .fastervlm import FasterVLM
 from .fastv import FastV
 from .fastvid import FastVID
+from .holitom import HoliTom
 from .prunevid import PruneVid
 from .pyramiddrop import PyramidDrop
 from .sparsevlm import SparseVLM
