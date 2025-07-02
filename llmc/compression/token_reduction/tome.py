@@ -43,7 +43,7 @@ class ToMe(TokenReductionModule):
         else:
             raise ValueError('Invalid r format. Expected int or (start, step) tuple.')
 
-        self.model.model.parameters = special_config
+        self.pruning_paras = special_config
 
     def patch_layer(self):
         for idx, block in enumerate(self.blocks):

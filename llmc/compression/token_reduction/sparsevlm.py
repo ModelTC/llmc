@@ -1,4 +1,6 @@
 import functools
+from functools import wraps
+from types import MethodType
 
 import einops as ein
 import torch
@@ -27,7 +29,7 @@ class SparseVLM(TokenReductionModule):
         special_config['token_length_list'] = []
         special_config['image_shape'] = self.model.pruning_config['image_token_length']
         special_config['image_token_index'] = self.model.pruning_config['image_token_index']
-        self.model.model.parameters = special_config
+        self.pruning_paras = special_config
 
     def register_reduction_modules(self):
         @prefill_wrapper
@@ -52,16 +54,48 @@ class SparseVLM(TokenReductionModule):
 
             return input_args
 
+        def input_hook_llava(fn, pruning_paras):
+            @wraps(fn)
+            def wrapper(self, *args, **kwargs):
+                if len(args) == 0:
+                    return fn(*args, **kwargs)
+                input_args = args[0]
+                if hasattr(input_args[0], 'shape') and input_args[0].shape[0] == 1:
+                    return fn(*args, **kwargs)
+
+                input_ids = args[0]
+                attention_mask = args[2]
+
+                pre_prompt_length_list = []
+                for cur_input_ids, cur_attention_mask in zip(input_ids, attention_mask):
+                    seq = cur_input_ids[cur_attention_mask]
+                    image_token_index = torch.where(seq == IMAGE_TOKEN_INDEX)[0].tolist()
+                    if len(image_token_index) > 0:
+                        pre_prompt_length_list.append(image_token_index[0])
+                    else:
+                        pre_prompt_length_list.append(0)
+                pruning_paras['pre_prompt_length_list'] = pre_prompt_length_list
+
+                outputs = fn(*args, **kwargs)
+
+                token_length_list = []
+                for cur_attention_mask in outputs[2]:
+                    token_length_list.append(cur_attention_mask.sum().item())
+                pruning_paras['token_length_list'] = token_length_list
+
+                return outputs
+            return wrapper
+
         @prefill_wrapper_model
         def register_module_pars(module, args, kwargs, pruning_pars):
             pre_prompt_length_list = pruning_pars['pre_prompt_length_list']
             inputs_embeds = kwargs['inputs_embeds']
             if inputs_embeds is None:
-                inputs_embeds = self.embed_tokens(kwargs['input_ids'])
+                inputs_embeds = module.embed_tokens(kwargs['input_ids'])
             hidden_states = inputs_embeds  # shape: (B, L, C)
 
-            pruning_pars['B'], L, _ = hidden_states.shape
-            B = pruning_pars['B']
+            B, L, _ = hidden_states.shape
+            pruning_pars['B'] = B
             init_n = pruning_pars['init_token_total_shape'] + \
                 pruning_pars['generate_process_count']    # 668
             pruning_pars['prev_decision'] = torch.ones(
@@ -80,7 +114,7 @@ class SparseVLM(TokenReductionModule):
             if (len(pre_prompt_length_list) != 0 and hidden_states.shape[1] != 1):
                 v_t = hidden_states[:, v_token_start: text_token_start, :]
                 t_t = hidden_states[:, text_token_start:, :]
-                m_v_t = v_t @ t_t.transpose(1, 2)  # [1, 576, 53]
+                m_v_t = v_t @ t_t.transpose(1, 2)  # [1, 576, 53]  # 52?
                 m_v_t = m_v_t.softmax(2).mean(1)  # [1, 53]
                 pruning_pars['t_token_idx'] = torch.where(m_v_t > m_v_t.mean())
 
@@ -206,17 +240,31 @@ class SparseVLM(TokenReductionModule):
 
             return args, kwargs
 
-        self.model.embed_tokens.register_forward_pre_hook(
-            functools.partial(
-                input_hook,
-                pruning_pars=self.model.model.parameters
+        if self.model.__class__.__name__ == 'LlavaHf':
+            self.model.embed_tokens.register_forward_pre_hook(
+                functools.partial(
+                    input_hook,
+                    pruning_pars=self.pruning_paras
+                )
             )
-        )
+        elif self.model.__class__.__name__ == 'Llava':
+            from llava.constants import IMAGE_TOKEN_INDEX
+            hook_fn = input_hook_llava(
+                self.model.vlm_model.prepare_inputs_labels_for_multimodal,
+                self.pruning_paras
+            )
+            self.model.vlm_model.prepare_inputs_labels_for_multimodal = MethodType(
+                hook_fn, self.model.vlm_model
+            )
 
-        self.model.model.register_forward_pre_hook(
+        if self.model.__class__.__name__ == 'LlavaHf':
+            llama_model = self.model.model
+        elif self.model.__class__.__name__ == 'Llava':
+            llama_model = self.model.model.model
+        llama_model.register_forward_pre_hook(
             functools.partial(
                 register_module_pars,
-                pruning_pars=self.model.model.parameters),
+                pruning_pars=self.pruning_paras),
             with_kwargs=True
         )
 
@@ -228,7 +276,7 @@ class SparseVLM(TokenReductionModule):
                 self.blocks[block_idx].register_forward_pre_hook(
                     functools.partial(
                         update_output_attentions_hook,
-                        pruning_pars=self.model.model.parameters,
+                        pruning_pars=self.pruning_paras,
                         layer_idx=block_idx,
                     ),
                     with_kwargs=True
@@ -236,7 +284,7 @@ class SparseVLM(TokenReductionModule):
                 self.blocks[block_idx].register_forward_hook(
                     functools.partial(
                         decoder_attn_hook,
-                        pruning_pars=self.model.model.parameters,
+                        pruning_pars=self.pruning_paras,
                         layer_idx=block_idx,
                     ),
                     with_kwargs=True
@@ -245,7 +293,7 @@ class SparseVLM(TokenReductionModule):
                 self.blocks[block_idx].register_forward_pre_hook(
                     functools.partial(
                         read_parameter_hook,
-                        pruning_pars=self.model.model.parameters
+                        pruning_pars=self.pruning_paras
                     ),
                     with_kwargs=True
                 )
@@ -278,6 +326,7 @@ def attn_postprocess_topk(
     self_attn_weights = self_attn_weights.mean(1)  # B, L[Q], L[K]
 
     t_token_idx = t_token_idx[1] + text_token_start
+
     relation_vis_text = self_attn_weights[:, t_token_idx,
                                           v_token_start: v_token_start + v_token_num]  # B, L2, L1
 
