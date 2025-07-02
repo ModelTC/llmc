@@ -1,5 +1,7 @@
 import functools
 import math
+from functools import wraps
+from types import MethodType
 
 import torch
 from torch import nn
@@ -26,13 +28,17 @@ class PyramidDrop(TokenReductionModule):
         image_token_ratio_list = self.special_config['image_token_ratio_list']
         image_token_ratio_list.insert(0, 1.0)
         self.special_config['image_token_ratio_list'] = image_token_ratio_list
+        if self.model.__class__.__name__ == 'LlavaHf':
+            llama_model = self.model.vlm_model.language_model.model
+        elif self.model.__class__.__name__ == 'Llava':
+            llama_model = self.model.vlm_model.model
         self.special_config['tokenizer_padding_side'] = getattr(
-            self.model.vlm_model.language_model.model.config,
+            llama_model.config,
             'tokenizer_padding_side',
             'right',
         )
 
-        self.model.model.parameters = self.special_config
+        self.pruning_paras = self.special_config
 
     def register_reduction_modules(self):
         @prefill_wrapper
@@ -214,8 +220,12 @@ class PyramidDrop(TokenReductionModule):
                     attention_mask_list.append(new_attention_mask)
 
                 # Truncate sequences to max length as image embeddings can make the sequence longer
+                if self.model.__class__.__name__ == 'LlavaHf':
+                    llama_model = self.model.vlm_model.language_model.model
+                elif self.model.__class__.__name__ == 'Llava':
+                    llama_model = self.model.vlm_model.model
                 tokenizer_model_max_length = getattr(
-                    self.model.vlm_model.language_model.model.config,
+                    llama_model.config,
                     'tokenizer_model_max_length',
                     2048,
                 )
@@ -321,6 +331,39 @@ class PyramidDrop(TokenReductionModule):
 
             return input_args
 
+        def input_hook_llava(fn, pruning_paras):
+            @wraps(fn)
+            def wrapper(self, *args, **kwargs):
+                if len(args) == 0:
+                    return fn(*args, **kwargs)
+                input_args = args[0]
+                if hasattr(input_args[0], 'shape') and input_args[0].shape[0] == 1:
+                    return fn(*args, **kwargs)
+
+                input_ids = args[0]
+                attention_mask = args[2]
+
+                image_token_posi = []
+                prompt_len = []
+                vision_tokens = []
+                for cur_input_ids, cur_attention_mask in zip(input_ids, attention_mask):
+                    seq = cur_input_ids[cur_attention_mask]
+                    image_index = torch.where(seq == IMAGE_TOKEN_INDEX)[0].tolist()
+                    if image_index == []:
+                        image_token_posi.append(-1)
+                        prompt_len.append(cur_input_ids.shape[0])
+                    else:
+                        image_token_posi.append(image_index[0])
+                        prompt_len.append(cur_input_ids.shape[0] - 1)
+                    vision_tokens.append(pruning_paras['vision_token_length'])
+
+                pruning_paras['image_token_posi'] = image_token_posi
+                pruning_paras['prompt_len'] = prompt_len
+                pruning_paras['image_tokens'] = vision_tokens
+
+                return fn(*args, **kwargs)
+            return wrapper
+
         @prefill_wrapper
         def read_parameter_hook(module, args, kwargs, pruning_pars):
             kwargs['attention_mask'] = pruning_pars['attention_mask']
@@ -330,9 +373,19 @@ class PyramidDrop(TokenReductionModule):
 
             return args, kwargs
 
-        self.model.embed_tokens.register_forward_pre_hook(
-            functools.partial(input_hook, pruning_pars=self.model.model.parameters)
-        )
+        if self.model.__class__.__name__ == 'LlavaHf':
+            self.model.embed_tokens.register_forward_pre_hook(
+                functools.partial(input_hook, pruning_pars=self.pruning_paras)
+            )
+        elif self.model.__class__.__name__ == 'Llava':
+            from llava.constants import IMAGE_TOKEN_INDEX
+            hook_fn = input_hook_llava(
+                self.model.vlm_model.prepare_inputs_labels_for_multimodal,
+                self.pruning_paras
+            )
+            self.model.vlm_model.prepare_inputs_labels_for_multimodal = MethodType(
+                hook_fn, self.model.vlm_model
+            )
 
         for layer_idx in range(self.pruning_loc[0], len(self.blocks)):
             if layer_idx in self.pruning_loc:
@@ -340,7 +393,7 @@ class PyramidDrop(TokenReductionModule):
                 self.blocks[layer_idx].register_forward_pre_hook(
                     functools.partial(
                         pruning_hook,
-                        pruning_pars=self.model.model.parameters,
+                        pruning_pars=self.pruning_paras,
                         cur_num=stage,
                         layer_idx=layer_idx,
                     ),
@@ -349,7 +402,7 @@ class PyramidDrop(TokenReductionModule):
             else:
                 self.blocks[layer_idx].register_forward_pre_hook(
                     functools.partial(
-                        read_parameter_hook, pruning_pars=self.model.model.parameters
+                        read_parameter_hook, pruning_pars=self.pruning_paras
                     ),
                     with_kwargs=True,
                 )

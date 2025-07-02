@@ -35,7 +35,7 @@ def SigLipEncoder_forward(
     output_attentions: Optional[bool] = None,
     output_hidden_states: Optional[bool] = None,
     return_dict: Optional[bool] = None,
-) -> Union[Tuple, BaseModelOutput]:
+) -> Union[Tuple]:
     output_attentions = (
         output_attentions
         if output_attentions is not None
