@@ -1,4 +1,5 @@
 import random
+import time
 from typing import List, Optional, Union
 
 import numpy as np
@@ -20,9 +21,39 @@ class VQAEval:
         self.model_path = config.model.path
         self.eval_dataset_name = self.eval_config['name']
         if not isinstance(self.eval_dataset_name, list):
-            self.eval_dataset_name = [self.eval_dataset_name, ]
+            self.eval_dataset_name = [
+                self.eval_dataset_name,
+            ]
         self.eval_dataset_path = self.eval_config['path']
         self.eval_bs = self.eval_config['bs']
+
+        self.statistics = self.eval_config.get('statistics', False)
+
+    def set_statistics_modules(self, model):
+
+        def start_time_hook(module, args, kwargs):
+            torch.cuda.synchronize()
+            module.start_time = time.time()
+            return args, kwargs
+
+        def end_time_hook(module, inputs, kwargs, layer_outputs):
+            torch.cuda.synchronize()
+            elapsed_prefill = time.time() - module.start_time
+            if kwargs['inputs_embeds'] is not None:
+                module.prefill_count += 1
+                module.prefill_time += elapsed_prefill
+            else:
+                model.decode_count += 1
+                model.decode_time += elapsed_prefill
+
+        model.prefill_count = 0
+        model.prefill_time = 0
+        model.decode_time = 0
+        model.decode_count = 0
+
+        model.register_forward_pre_hook(start_time_hook, with_kwargs=True)
+
+        model.register_forward_hook(end_time_hook, with_kwargs=True)
 
     def eval(
         self,
@@ -82,7 +113,9 @@ class VQAEval:
         if seed_message:
             logger.info(' | '.join(seed_message))
 
-        assert tasks != [], 'No tasks specified, or no tasks found. Please verify the task names.'
+        assert (
+            tasks != []
+        ), 'No tasks specified, or no tasks found. Please verify the task names.'
 
         if gen_kwargs:
             gen_kwargs = simple_parse_args_string(gen_kwargs)
@@ -97,6 +130,10 @@ class VQAEval:
             task_manager = TaskManager(verbosity, model_name=model)
 
         task_dict = get_task_dict(tasks, task_manager)
+
+        if self.statistics:
+            self.set_statistics_modules(llmc_model.vlm_model)
+            torch.cuda.reset_peak_memory_stats()
 
         lm = MODEL_REGISTRY[model].create_from_arg_string(
             model_args,
@@ -128,12 +165,15 @@ class VQAEval:
                     lm.task_dict[task_name] = task_obj.dataset
                     if 'generate_until' in task_obj.get_config('output_type'):
                         if gen_kwargs is not None:
-                            task_obj.set_config(key='generation_kwargs',
-                                                value=gen_kwargs, update=True)
+                            task_obj.set_config(
+                                key='generation_kwargs', value=gen_kwargs, update=True
+                            )
 
                     if predict_only:
-                        logger.info(f'Processing {task_name} in output-only mode. \
-                                    Metrics will not be calculated!')
+                        logger.info(
+                            f'Processing {task_name} in output-only mode. \
+                                    Metrics will not be calculated!'
+                        )
                         # we have to change the class properties post-hoc. This is pretty hacky.
                         task_obj.override_metric(metric_name='bypass')
 
@@ -142,17 +182,25 @@ class VQAEval:
                     # except if tasks have it set to 0 manually in their configs--then
                     # we should never overwrite that
                     if num_fewshot is not None:
-                        if (default_num_fewshot := task_obj.get_config('num_fewshot')) == 0:
-                            logger.info(f'num_fewshot has been set to 0 for {task_name} \
-                                        in its config. Manual configuration will be ignored.')
+                        if (
+                            default_num_fewshot := task_obj.get_config('num_fewshot')
+                        ) == 0:
+                            logger.info(
+                                f'num_fewshot has been set to 0 for {task_name} \
+                                        in its config. Manual configuration will be ignored.'
+                            )
                         else:
-                            logger.warning(f'Overwriting default num_fewshot of {task_name} \
-                                           from {default_num_fewshot} to {num_fewshot}')
+                            logger.warning(
+                                f'Overwriting default num_fewshot of {task_name} \
+                                           from {default_num_fewshot} to {num_fewshot}'
+                            )
                             task_obj.set_config(key='num_fewshot', value=num_fewshot)
                     else:
                         # if num_fewshot not provided, and the task does not define a default one,
                         # default to 0
-                        if (default_num_fewshot := task_obj.get_config('num_fewshot')) is None:
+                        if (
+                            default_num_fewshot := task_obj.get_config('num_fewshot')
+                        ) is None:
                             task_obj.set_config(key='num_fewshot', value=0)
                     # fewshot_random_seed set for tasks, even with a default num_fewshot
                     # (e.g. in the YAML file)
@@ -193,6 +241,19 @@ class VQAEval:
             cli_args=cli_args,
         )
 
+        if self.statistics:
+            prefill = (
+                llmc_model.vlm_model.prefill_time / llmc_model.vlm_model.prefill_count
+            )
+            decode = (
+                llmc_model.vlm_model.decode_time / llmc_model.vlm_model.decode_count
+            )
+            gen_max_mem = torch.cuda.max_memory_allocated() / 1024 / 1024
+
+            logger.info(f'peak memory: {gen_max_mem:.1f} MB.')
+            logger.info(f'prefill average time: {prefill *1000:.1f} ms.')
+            logger.info(f'decode average time: {decode *1000:.1f} ms.')
+
         if hasattr(lm, '_model'):
             del lm._model
             torch.cuda.empty_cache()
@@ -217,8 +278,11 @@ class VQAEval:
             results['config'].update(
                 {
                     'batch_size': batch_size,
-                    'batch_sizes': (list(lm.batch_sizes.values())
-                                    if hasattr(lm, 'batch_sizes') else []),
+                    'batch_sizes': (
+                        list(lm.batch_sizes.values())
+                        if hasattr(lm, 'batch_sizes')
+                        else []
+                    ),
                     'device': device,
                     'use_cache': use_cache,
                     'limit': limit,
