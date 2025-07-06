@@ -44,46 +44,13 @@ class Llava(Llama):
         self.llava_config.use_cache = True
         self.vlm_model_config.use_cache = True
         logger.info(f'self.vlm_model_config : {self.vlm_model_config}')
+
         self.tokenizer, self.vlm_model, image_processor, context_len = load_pretrained_model(
             self.model_path,
             None,
             get_model_name_from_path(self.model_path),
-            load_8bit=False,
-            load_4bit=False,
-            device='cpu',
-            torch_dtype=self.torch_dtype,
-            config=self.llava_config,
-        )
-
-        # llava forward not support "cache_position"
-        ori_forward = self.vlm_model.forward
-
-        def safe_forward(*args, **kwargs):
-            kwargs.pop('cache_position', None)
-            return ori_forward(*args, **kwargs)
-        self.vlm_model.forward = safe_forward
-
-        # llava generate use "inputs" instead of "input_ids"
-        ori_generate = self.vlm_model.generate
-
-        def safe_generate(*args, **kwargs):
-            if 'input_ids' in kwargs:
-                kwargs['inputs'] = kwargs.pop('input_ids')
-            return ori_generate(*args, **kwargs)
-        self.vlm_model.generate = safe_generate
-
-        # "attention_mask" is passed via kwargs rather than as an explicit keyword argument.
-        ori_prepare_inputs_for_generation = self.vlm_model.prepare_inputs_for_generation
-
-        def safe_prepare_inputs_for_generation(
-                self, input_ids, past_key_values=None,
-                inputs_embeds=None, attention_mask=None, **kwargs):
-            if attention_mask is not None:
-                kwargs['attention_mask'] = attention_mask
-            return ori_prepare_inputs_for_generation(
-                input_ids, past_key_values, inputs_embeds, **kwargs)
-        self.vlm_model.prepare_inputs_for_generation = types.MethodType(
-            safe_prepare_inputs_for_generation, self.vlm_model
+            device_map='cpu',
+            attn_implementation='sdpa'
         )
 
         self.eval_name = 'LlavaEval'
