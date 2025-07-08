@@ -20,7 +20,8 @@ from llmc.eval.utils import eval_model, get_eval_list
 from llmc.models import *
 from llmc.utils import (check_config, deploy_all_modality, get_modality,
                         mkdirs, print_important_package_version, seed_all,
-                        update_autoawq_quant_config, update_vllm_quant_config)
+                        update_autoawq_quant_config,
+                        update_lightx2v_quant_config, update_vllm_quant_config)
 from llmc.utils.registry_factory import ALGO_REGISTRY, MODEL_REGISTRY
 
 
@@ -158,6 +159,7 @@ def main(config):
             elif config.save.get('save_lightx2v', False):
                 deploy_all_modality(blockwise_opts, 'lightx2v_quant')
                 blockwise_opt.save_model(save_quant_path)
+                update_lightx2v_quant_config(save_quant_path)
 
         if 'opencompass' in config:
             assert config.save.get('save_trans', False)
