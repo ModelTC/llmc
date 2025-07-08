@@ -1,4 +1,5 @@
 import functools
+from functools import wraps
 from types import MethodType
 
 import torch
@@ -39,26 +40,23 @@ class FastV(TokenReductionModule):
 
             return input_args
 
-        def make_hook_prepare_inputs_labels_for_multimodal(pruning_paras):
-            def hook_prepare_inputs_labels_for_multimodal(
-                self,
-                input_ids,
-                position_ids,
-                attention_mask,
-                past_key_values,
-                labels,
-                images,
-                modalities=['image'],
-                image_sizes=None,
-            ):
-                if 'image_token_start_index' not in pruning_paras:
-                    token_indices = input_ids[0][attention_mask[0]] == IMAGE_TOKEN_INDEX
-                    pruning_paras['image_token_start_index'] = torch.where(token_indices)[0].item()
-                return self._original_prepare_inputs_labels_for_multimodal(
-                    input_ids, position_ids, attention_mask,
-                    past_key_values, labels, images, modalities, image_sizes
-                )
-            return hook_prepare_inputs_labels_for_multimodal
+        def input_hook_llava(fn, pruning_paras):
+            @wraps(fn)
+            def wrapper(self, *args, **kwargs):
+                if len(args) == 0:
+                    return fn(*args, **kwargs)
+                input_args = args[0]
+                if hasattr(input_args[0], 'shape') and input_args[0].shape[0] == 1:
+                    return fn(*args, **kwargs)
+
+                input_ids = args[0]
+                attention_mask = args[2]
+                token_indices = input_ids[0][attention_mask[0]] == IMAGE_TOKEN_INDEX
+                pruning_paras['image_token_start_index'] = torch.where(token_indices)[0].item()
+
+                outputs = fn(*args, **kwargs)
+                return outputs
+            return wrapper
 
         def update_output_attentions_hook(module, args, kwargs, pruning_paras):
             kwargs['output_attentions'] = True
@@ -129,9 +127,10 @@ class FastV(TokenReductionModule):
                 functools.partial(input_hook, pruning_paras=self.pruning_paras)
             )
         elif self.model.__class__.__name__ == 'Llava':
-            hook_fn = make_hook_prepare_inputs_labels_for_multimodal(self.pruning_paras)
-            self.model.vlm_model._original_prepare_inputs_labels_for_multimodal = (
-                self.model.vlm_model.prepare_inputs_labels_for_multimodal
+            from llava.constants import IMAGE_TOKEN_INDEX
+            hook_fn = input_hook_llava(
+                self.model.vlm_model.prepare_inputs_labels_for_multimodal,
+                self.pruning_paras
             )
             self.model.vlm_model.prepare_inputs_labels_for_multimodal = MethodType(
                 hook_fn, self.model.vlm_model
