@@ -25,6 +25,9 @@ class PyramidDrop(TokenReductionModule):
     def add_sparse_config(self):
 
         self.pruning_loc = self.special_config['layer_list']
+        self.special_config['IMAGE_TOKEN_INDEX'] = \
+            self.model.pruning_config['IMAGE_TOKEN_INDEX']
+
         image_token_ratio_list = self.special_config['image_token_ratio_list']
         image_token_ratio_list.insert(0, 1.0)
         self.special_config['image_token_ratio_list'] = image_token_ratio_list
@@ -348,7 +351,7 @@ class PyramidDrop(TokenReductionModule):
                 vision_tokens = []
                 for cur_input_ids, cur_attention_mask in zip(input_ids, attention_mask):
                     seq = cur_input_ids[cur_attention_mask]
-                    image_index = torch.where(seq == IMAGE_TOKEN_INDEX)[0].tolist()
+                    image_index = torch.where(seq == pruning_paras['IMAGE_TOKEN_INDEX'])[0].tolist()
                     if image_index == []:
                         image_token_posi.append(-1)
                         prompt_len.append(cur_input_ids.shape[0])
@@ -378,7 +381,6 @@ class PyramidDrop(TokenReductionModule):
                 functools.partial(input_hook, pruning_pars=self.pruning_paras)
             )
         elif self.model.__class__.__name__ == 'Llava':
-            from llava.constants import IMAGE_TOKEN_INDEX
             hook_fn = input_hook_llava(
                 self.model.vlm_model.prepare_inputs_labels_for_multimodal,
                 self.pruning_paras
