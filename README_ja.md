@@ -1,8 +1,7 @@
-# LLMC: 正確で効率的なLLM圧縮に向けて
+<div align="center" style="font-family: charter;">
+<h1> LLMC: 正確で効率的な LLM 圧縮に向けて </h1>
 
-<img src="./imgs/llmc.png" alt="llmc" style="zoom:35%;" />
-
-<div align="center">
+<img src="./imgs/llmc.png" alt="llmc" width="75%" />
 
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![arXiv](https://img.shields.io/badge/LLMC-2405.06001-b31b1b)](https://arxiv.org/abs/2405.06001)
@@ -11,7 +10,7 @@
 [![Discord Banner](https://img.shields.io/discord/1139835312592392214?logo=discord&logoColor=white)](https://discord.com/invite/NfJzbkK3jY)
 [![QQ](https://img.shields.io/badge/QQ-EB1923?logo=tencent-qq&logoColor=white)](http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=I9IGPWWj8uuRXWH3_ELWjouf6gkIMgUl&authKey=GA3WbFAsm90ePJf%2FCbc7ZyXXq4ShQktlBaLxgqS5yuSPAsr3%2BDKMRdosUiLYoilO&noverify=0&group_code=526192592)
 [![Doc](https://img.shields.io/badge/docs-English-99cc2)](https://llmc-en.readthedocs.io/en/latest/)
-[![Doc](https://img.shields.io/badge/文档-中文-99cc2)](https://llmc-zhcn.readthedocs.io/en/latest/)
+[![Doc](https://img.shields.io/badge/ドキュメント-日本語-99cc2)](https://llmc-zhcn.readthedocs.io/en/latest/)&#160;
 
 **\[ [English](README.md) | [中文](README_zh.md) | 日本語 \]**
 
@@ -20,24 +19,18 @@
 **LLMC** は、大規模言語モデル（LLM）の圧縮を目的とした、最新の圧縮アルゴリズムを活用して、パフォーマンスを損なうことなく効率を向上させ、モデルサイズを削減するためのツールです。以下のコマンドを使用して、llmcを実行できるDockerイメージをダウンロードできます。中国大陸のユーザーは、阿里云Dockerを使用することを推奨します。
 
 ```shell
-# docker hub: https://hub.docker.com/r/llmcompression/llmc
+# Docker Hub: https://hub.docker.com/r/llmcompression/llmc
 docker pull llmcompression/llmc:pure-latest
 
-# 阿里云Docker: registry.cn-hangzhou.aliyuncs.com/yongyang/llmcompression:[tag]
+# Aliyun Docker: registry.cn-hangzhou.aliyuncs.com/yongyang/llmcompression:[tag]
 docker pull registry.cn-hangzhou.aliyuncs.com/yongyang/llmcompression:pure-latest
 ```
 
-**コミュニティ**:
+**コミュニティ**: [Discord サーバー](https://discord.com/invite/NfJzbkK3jY)、[Tencent QQ グループ](http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=I9IGPWWj8uuRXWH3_ELWjouf6gkIMgUl&authKey=GA3WbFAsm90ePJf%2FCbc7ZyXXq4ShQktlBaLxgqS5yuSPAsr3%2BDKMRdosUiLYoilO&noverify=0&group_code=526192592)。
 
-- [Discordサーバー](https://discord.com/invite/NfJzbkK3jY)
-- [Tencent QQグループ](http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=I9IGPWWj8uuRXWH3_ELWjouf6gkIMgUl&authKey=GA3WbFAsm90ePJf%2FCbc7ZyXXq4ShQktlBaLxgqS5yuSPAsr3%2BDKMRdosUiLYoilO&noverify=0&group_code=526192592)
+**ドキュメント**: [English](https://llmc-en.readthedocs.io/en/latest/)、[中文](https://llmc-zhcn.readthedocs.io/en/latest/)。
 
-**ドキュメント**:
-
-- [英語](https://llmc-en.readthedocs.io/en/latest/)
-- [中国語](https://llmc-zhcn.readthedocs.io/en/latest/)
-
-## 最新情報
+## :fire: 最新ニュース
 
 - **2025年5月12日：** 🔥 **`Wan2.1`** シリーズのビデオ生成モデルの量子化を完全にサポートし、実際に量子化された **INT8/FP8** 重みのエクスポートにも対応しました。これらは [lightx2v](https://github.com/ModelTC/lightx2v) 推論フレームワークと互換性があります。詳細は [lightx2v ドキュメント](https://llmc-en.readthedocs.io/en/latest/backend/lightx2v.html) をご参照ください。
 
@@ -48,6 +41,9 @@ docker pull registry.cn-hangzhou.aliyuncs.com/yongyang/llmcompression:pure-lates
 - **2024年11月12日:** 🔥 私たちは💥`アクティベーション静的per-tensor`量子化のサポートを、様々なモデルやアルゴリズムに追加しました。これにより、✅整数量子化および✅浮動小数点量子化をカバーし、性能と効率をさらに最適化します。また、✨`真の量子化モデル`のエクスポートをサポートし、[VLLM](https://github.com/vllm-project/vllm)および[SGLang](https://github.com/sgl-project/sglang)バックエンドを使用した推論の高速化も可能です。詳細は[VLLMドキュメント](https://llmc-en.readthedocs.io/en/latest/backend/vllm.html)および[SGLangドキュメント](https://llmc-en.readthedocs.io/en/latest/backend/sglang.html)をご参照ください。
 
 - **2024年9月26日:** 🔥 `LLMC`からの✨ `FP8量子化（E4M3、E5M2）`モデルを、VLLMやSGLangのような高度な推理バックエンドにエクスポートできるようになりました。🚀 詳細な使用方法については、[VLLMのドキュメント](https://llmc-en.readthedocs.io/en/latest/backend/vllm.html)と[SGLangのドキュメント](https://llmc-en.readthedocs.io/en/latest/backend/sglang.html)を参照してください。
+
+<details close>
+<summary>以前のニュース</summary>
 
 - **2024年9月24日:** 🔥 私たちは正式に ✨`Llama-3.1-405B` の ✅INT4 と ✅INT8 モデルをリリースしました。これらは 🚀`LLMC` の `save_lightllm` モードを使用して量子化されています。モデルパラメータは[こちら](https://huggingface.co/Dongz/llama31-405b-quant)からダウンロードできます。
 
@@ -69,9 +65,6 @@ docker pull registry.cn-hangzhou.aliyuncs.com/yongyang/llmcompression:pure-lates
   [Ruihao Gong\*](https://xhplus.github.io/), [Yang Yong\*](https://github.com/helloyongyang), [Shiqiao Gu\*](https://github.com/gushiqiao), [Yushi Huang\*](https://github.com/Harahan), [Chengtao Lv](https://scholar.google.com/citations?user=r8vseSUAAAAJ&hl=en), [Yunchen Zhang](https://scholar.google.com/citations?user=glkWFyUAAAAJ&hl=en), [Xianglong Liu📧](https://xlliu-beihang.github.io/), [Dacheng Tao](https://scholar.google.com/citations?user=RwlJNLcAAAAJ&hl=en)
 
   (\*は同等の貢献を示し、📧は対応する著者を示します。)
-
-<details close>
-<summary>過去のニュース</summary>
 
 - **2024年7月16日:** 🔥私たちはLLMの疎化のためのWanda/Naive（マグニチュード）および層ごとの混合ビット量子化のサポートを追加しました！
 
@@ -97,7 +90,7 @@ docker pull registry.cn-hangzhou.aliyuncs.com/yongyang/llmcompression:pure-lates
 
 </details>
 
-## 主要機能
+## 🚀 特徴
 
 - 💥**包括的なアルゴリズムサポート**: 広範な ✨`SOTA圧縮アルゴリズム` をサポートし、✅量子化、✅混合精度量子化、✅疎性を含み、元のリポジトリと同じ精度を維持します。✨`量子化ベストプラクティス`（ベストプラクティスは[こちら](https://llmc-en.readthedocs.io/en/latest/)をご覧ください）も提供されており、最適なパフォーマンスと効率を確保します。
 
@@ -109,175 +102,129 @@ docker pull registry.cn-hangzhou.aliyuncs.com/yongyang/llmcompression:pure-lates
 
 - 💥**パフォーマンス効率**: ✨`Llama3.1-405B` や ✨`DeepSeek-R1-671B` などの大規模LLMの量子化をサポートし、`単一の A100/H100/H800 GPU` でPPL評価を可能にします。
 
-## 使用方法
+## ⚙️ 使い方
 
 使用ガイドは 🚀`Quick Start`セクション[こちら](https://llmc-en.readthedocs.io/en/latest/)をご覧ください。
 
-## サポートされているモデルリスト
+## :robot: 対応モデル
 
-✅ [BLOOM](https://huggingface.co/bigscience/bloom)
+- ✅ [BLOOM](https://huggingface.co/bigscience/bloom)
+- ✅ [LLaMA](https://github.com/facebookresearch/llama)
+- ✅ [LLaMA V2](https://huggingface.co/meta-llama)
+- ✅ [StarCoder](https://github.com/bigcode-project/starcoder)
+- ✅ [OPT](https://huggingface.co/docs/transformers/model_doc/opt)
 
-✅ [LLaMA](https://github.com/facebookresearch/llama)
+<details>
+<summary>その他のモデル</summary>
 
-✅ [LLaMA V2](https://huggingface.co/meta-llama)
+- ✅ [Falcon](https://huggingface.co/docs/transformers/model_doc/falcon)
+- ✅ [InternLM2](https://huggingface.co/internlm)
+- ✅ [Mistral](https://huggingface.co/docs/transformers/model_doc/mistral)
+- ✅ [LLaMA V3](https://huggingface.co/meta-llama)
+- ✅ [Mixtral](https://huggingface.co/docs/transformers/model_doc/mixtral)
+- ✅ [Qwen V2](https://github.com/QwenLM/Qwen2)
+- ✅ [LLaVA](https://github.com/haotian-liu/LLaVA)
+- ✅ [InternLM2.5](https://huggingface.co/internlm)
+- ✅ [StableLM](https://github.com/Stability-AI/StableLM)
+- ✅ [Gemma2](https://huggingface.co/docs/transformers/main/en/model_doc/gemma2)
+- ✅ [Phi2](https://huggingface.co/microsoft/phi-2)
+- ✅ [Phi 1.5](https://huggingface.co/microsoft/phi-1_5)
+- ✅ [MiniCPM](https://github.com/OpenBMB/MiniCPM)
+- ✅ [SmolLM](https://huggingface.co/collections/HuggingFaceTB/smollm-6695016cad7167254ce15966)
+- ✅ [DeepSeekv2.5](https://huggingface.co/deepseek-ai/DeepSeek-V2.5)
+- ✅ [LLaMA V3.2 Vision](https://huggingface.co/meta-llama/Llama-3.2-11B-Vision)
+- ✅ [Qwen MOE](https://huggingface.co/Qwen/Qwen1.5-MoE-A2.7B)
+- ✅ [Qwen2-VL](https://huggingface.co/Qwen/Qwen2-VL-7B-Instruct)
+- ✅ [InternVL2](https://huggingface.co/OpenGVLab/InternVL2-2B)
 
-✅ [StarCoder](https://github.com/bigcode-project/starcoder)
+</details>
 
-✅ [OPT](https://huggingface.co/docs/transformers/model_doc/opt)
+独自モデルを追加する場合は `llmc/models/*.py` を参照してください。
 
-✅ [Falcon](https://huggingface.co/docs/transformers/model_doc/falcon)
+## :bus: 対応バックエンド
 
-✅ [InternLM2](https://huggingface.co/internlm)
+- ✅ [VLLM](https://github.com/vllm-project/vllm)
+- ✅ [LightLLM](https://github.com/ModelTC/lightllm)
+- ✅ [Sglang](https://github.com/sgl-project/sglang)
+- ✅ [MLC-LLM](https://github.com/mlc-ai/mlc-llm)
+- ✅ [AutoAWQ](https://github.com/casper-hansen/AutoAWQ)
 
-✅ [Mistral](https://huggingface.co/docs/transformers/model_doc/mistral)
-
-✅ [LLaMA V3](https://huggingface.co/meta-llama)
-
-✅ [Mixtral](https://huggingface.co/docs/transformers/model_doc/mixtral)
-
-✅ [Qwen V2](https://github.com/QwenLM/Qwen2)
-
-✅ [LLaVA](https://github.com/haotian-liu/LLaVA)
-
-✅ [InternLM2.5](https://huggingface.co/internlm)
-
-✅ [StableLM](https://github.com/Stability-AI/StableLM)
-
-✅ [Gemma2](https://huggingface.co/docs/transformers/main/en/model_doc/gemma2)
-
-✅ [Phi2](https://huggingface.co/microsoft/phi-2)
-
-✅ [Phi 1.5](https://huggingface.co/microsoft/phi-1_5)
-
-✅ [MiniCPM](https://github.com/OpenBMB/MiniCPM)
-
-✅ [SmolLM](https://huggingface.co/collections/HuggingFaceTB/smollm-6695016cad7167254ce15966)
-
-✅ [DeepSeekv2.5](https://huggingface.co/deepseek-ai/DeepSeek-V2.5)
-
-✅ [LLaMA V3.2 Vision](https://huggingface.co/meta-llama/Llama-3.2-11B-Vision)
-
-✅ [Qwen MOE](https://huggingface.co/Qwen/Qwen1.5-MoE-A2.7B)
-
-✅ [Qwen2-VL](https://huggingface.co/Qwen/Qwen2-VL-7B-Instruct)
-
-✅ [InternVL2](https://huggingface.co/OpenGVLab/InternVL2-2B)
-
-独自のモデルタイプを追加するには、`llmc/models/*.py` ファイルを参照してください。
-
-## サポートされているバックエンドリスト
-
-✅ [VLLM](https://github.com/vllm-project/vllm)
-
-✅ [LightLLM](https://github.com/ModelTC/lightllm)
-
-✅ [Sglang](https://github.com/sgl-project/sglang)
-
-✅ [MLC-LLM](https://github.com/mlc-ai/mlc-llm)
-
-✅ [AutoAWQ](https://github.com/casper-hansen/AutoAWQ)
-
-## サポートされているアルゴリズムリスト
+## 💡 対応アルゴリズム
 
 ### 量子化
 
-✅ Naive
+- ✅ Naive
+- ✅ [AWQ](https://arxiv.org/abs/2306.00978)
+- ✅ [GPTQ](https://arxiv.org/abs/2210.17323)
+- ✅ [SmoothQuant](https://arxiv.org/abs/2211.10438)
+- ✅ [OS+](https://arxiv.org/abs/2304.09145)
 
-✅ [AWQ](https://arxiv.org/abs/2306.00978)
+<details>
+<summary>その他のアルゴリズム</summary>
 
-✅ [GPTQ](https://arxiv.org/abs/2210.17323)
+- ✅ [OmniQuant](https://arxiv.org/abs/2308.13137)
+- ✅ [NormTweaking](https://arxiv.org/abs/2309.02784)
+- ✅ [AdaDim](https://arxiv.org/pdf/2309.15531.pdf)
+- ✅ [QUIK](https://arxiv.org/abs/2310.09259)
+- ✅ [SpQR](https://arxiv.org/abs/2306.03078)
+- ✅ [DGQ](https://arxiv.org/abs/2310.04836)
+- ✅ [OWQ](https://arxiv.org/abs/2306.02272)
+- ✅ [LLM.int8()](https://arxiv.org/abs/2208.07339)
+- ✅ [HQQ](https://mobiusml.github.io/hqq_blog/)
+- ✅ [QuaRot](https://arxiv.org/abs/2404.00456)
+- ✅ [SpinQuant](https://arxiv.org/abs/2405.16406) **([このブランチを参照してください](https://github.com/ModelTC/llmc/tree/dev_spinquant))**
+- ✅ [TesseraQ](https://arxiv.org/abs/2410.19103)
 
-✅ [SmoothQuant](https://arxiv.org/abs/2211.10438)
+</details>
 
-✅ [OS+](https://arxiv.org/abs/2304.09145)
+### プルーニング
 
-✅ [OmniQuant](https://arxiv.org/abs/2308.13137)
+- ✅ Naive(Magnitude)
+- ✅ [Wanda](https://arxiv.org/abs/2306.11695)
+- ✅ [ShortGPT](https://arxiv.org/abs/2403.03853)
 
-✅ [NormTweaking](https://arxiv.org/abs/2309.02784)
+## 🤝 謝辞
 
-✅ [AdaDim](https://arxiv.org/pdf/2309.15531.pdf)
+本プロジェクトは以下のリポジトリを参考にしています：
 
-✅ [QUIK](https://arxiv.org/abs/2310.09259)
+- [mit-han-lab/llm-awq](https://github.com/mit-han-lab/llm-awq)
+- [mit-han-lab/smoothquant](https://github.com/mit-han-lab/smoothquant)
+- [OpenGVLab/OmniQuant](https://github.com/OpenGVLab/OmniQuant)
+- [IST-DASLab/gptq](https://github.com/IST-DASLab/gptq)
+- [ModelTC/Outlier_Suppression_Plus](https://github.com/ModelTC/Outlier_Suppression_Plus)
 
-✅ [SpQR](https://arxiv.org/abs/2306.03078)
+<details>
+<summary>その他の実装</summary>
 
-✅ [DGQ](https://arxiv.org/abs/2310.04836)
+- [IST-DASLab/QUIK](https://github.com/IST-DASLab/QUIK)
+- [Vahe1994/SpQR](https://github.com/Vahe1994/SpQR)
+- [ilur98/DGQ](https://github.com/ilur98/DGQ)
+- [xvyaward/owq](https://github.com/xvyaward/owq)
+- [TimDettmers/bitsandbytes](https://github.com/TimDettmers/bitsandbytes)
+- [mobiusml/hqq](https://github.com/mobiusml/hqq)
+- [spcl/QuaRot](https://github.com/spcl/QuaRot)
+- [locuslab/wanda](https://github.com/locuslab/wanda)
+- [EleutherAI/lm-evaluation-harness](https://github.com/EleutherAI/lm-evaluation-harness)
+- [facebookresearch/SpinQuant](https://github.com/facebookresearch/SpinQuant)
+- [Intelligent-Computing-Lab-Yale/TesseraQ](https://github.com/Intelligent-Computing-Lab-Yale/TesseraQ)
 
-✅ [OWQ](https://arxiv.org/abs/2306.02272)
+</details>
 
-✅ [LLM.int8()](https://arxiv.org/abs/2208.07339)
+## 🌟 Star 履歴
 
-✅ [HQQ](https://mobiusml.github.io/hqq_blog/)
+[![Star History Chart](https://api.star-history.com/svg?repos=ModelTC/llmc&type=Timeline)](https://star-history.com/#ModelTC/llmc&Timeline)
 
-✅ [QuaRot](https://arxiv.org/abs/2404.00456)
+## ✏️ 引用
 
-✅ [SpinQuant](https://arxiv.org/abs/2405.16406) **([このブランチを参照してください](https://github.com/ModelTC/llmc/tree/dev_spinquant))**
-
-✅ [TesseraQ](https://arxiv.org/abs/2410.19103)
-
-### プルーニング（剪定）
-
-✅ Naive（マグニチュード）
-
-✅ [Wanda](https://arxiv.org/abs/2306.11695)
-
-✅ [ShortGPT](https://arxiv.org/abs/2403.03853)
-
-## 謝辞
-
-以下のリポジトリを参考にしてコードを開発しました：
-
-- https://github.com/mit-han-lab/llm-awq
-- https://github.com/mit-han-lab/smoothquant
-- https://github.com/OpenGVLab/OmniQuant
-- https://github.com/IST-DASLab/gptq
-- https://github.com/ModelTC/Outlier_Suppression_Plus
-- https://github.com/IST-DASLab/QUIK
-- https://github.com/Vahe1994/SpQR
-- https://github.com/ilur98/DGQ
-- https://github.com/xvyaward/owq
-- https://github.com/TimDettmers/bitsandbytes
-- https://github.com/mobiusml/hqq
-- [https://github.com/spcl/QuaRot](https://github.com/spcl/QuaRot)
-- [https://github.com/locuslab/wanda](https://github.com/locuslab/wanda)
-- [https://github.com/EleutherAI/lm-evaluation-harness](https://github.com/EleutherAI/lm-evaluation-harness)
-- [https://github.com/facebookresearch/SpinQuant](https://github.com/facebookresearch/SpinQuant)
-- [https://github.com/Intelligent-Computing-Lab-Yale/TesseraQ](https://github.com/Intelligent-Computing-Lab-Yale/TesseraQ)
-
-## スター履歴
-
-[![スター履歴チャート](https://api.star-history.com/svg?repos=ModelTC/llmc&type=Timeline)](https://star-history.com/#ModelTC/llmc&Timeline)
-
-## 引用
-
-LLM-QBench論文/llmcツールキットが研究に役立つまたは関連している場合は、論文を引用してください：
+本ツールキットまたは論文が参考になった場合は、以下を引用してください：
 
 ```
-@misc{llmc,
-   author = {llmc contributors},
-   title = {llmc: Towards Accurate and Efficient LLM Compression},
-   year = {2024},
-   publisher = {GitHub},
-   journal = {GitHub repository},
-   howpublished = {\url{https://github.com/ModelTC/llmc}},
-}
-
-@misc{gong2024llmqbench,
-      title={LLM-QBench: A Benchmark Towards the Best Practice for Post-training Quantization of Large Language Models},
-      author={Ruihao Gong and Yang Yong and Shiqiao Gu and Yushi Huang and Yunchen Zhang and Xianglong Liu and Dacheng Tao},
-      year={2024},
-      eprint={2405.06001},
-      archivePrefix={arXiv},
-      primaryClass={cs.LG}
-}
-
-@misc{gong2024llmcbenchmarkinglargelanguage,
-      title={LLMC: Benchmarking Large Language Model Quantization with a Versatile Compression Toolkit},
-      author={Ruihao Gong and Yang Yong and Shiqiao Gu and Yushi Huang and Chentao Lv and Yunchen Zhang and Xianglong Liu and Dacheng Tao},
-      year={2024},
-      eprint={2405.06001},
-      archivePrefix={arXiv},
-      primaryClass={cs.LG},
-      url={https://arxiv.org/abs/2405.06001},
+@inproceedings{DBLP:conf/emnlp/GongYGHLZT024,
+  author    = {Ruihao Gong and Yang Yong and Shiqiao Gu and Yushi Huang and Chengtao Lv and Yunchen Zhang and Dacheng Tao and Xianglong Liu},
+  title     = {LLMC: Benchmarking Large Language Model Quantization with a Versatile Compression Toolkit},
+  booktitle = {EMNLP (Industry Track)},
+  year      = {2024},
+  pages     = {132--152},
+  url       = {https://aclanthology.org/2024.emnlp-industry.12}
 }
 ```

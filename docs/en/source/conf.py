@@ -1,17 +1,26 @@
 # Configuration file for the Sphinx documentation builder.
 #
-# For the full list of built-in configuration values, see the documentation:
-# https://www.sphinx-doc.org/en/master/usage/configuration.html
+# This file adopts the theme and basic settings used by the Lightx2v docs
+# but keeps the llmc-specific information from the original configuration.
+# -----------------------------------------------------------------------------
+
+import os
+import sys
+from typing import List
+
+# -- Path setup --------------------------------------------------------------
+# Add project root (two levels up) so autodoc can find the modules.
+ROOT_DIR = os.path.abspath(os.path.join(__file__, "../../.."))
+sys.path.append(ROOT_DIR)
 
 # -- Project information -----------------------------------------------------
-# https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
-
 project = "llmc"
 copyright = "2024, llmc contributors"
 author = "ModelTC"
 release = "1.0.0"
 
-github_url = f"https://github.com/ModelTC/llmc"
+# GitHub repository ----------------------------------------------------------
+github_url = "https://github.com/ModelTC/llmc"
 
 html_context = {
     "display_github": True,
@@ -20,50 +29,86 @@ html_context = {
     "github_version": "main",
     "conf_py_path": "/docs/en/source/",  # Path in the checkout to the docs root
 }
+
+# -- General configuration ---------------------------------------------------
+
+extensions = [
+    "sphinx.ext.napoleon",
+    "sphinx.ext.viewcode",
+    "sphinx.ext.intersphinx",
+    "sphinx.ext.autodoc",
+    "sphinx.ext.autosummary",
+    "myst_parser",
+    "sphinx_copybutton",
+    "sphinx.ext.doctest",
+    "sphinx.ext.mathjax",
+    "sphinx.ext.ifconfig",
+    "sphinx.ext.githubpages",
+    "sphinx.ext.autosectionlabel",
+    "sphinxcontrib.katex",
+    "sphinxcontrib.contentui",
+]
+
+templates_path: List[str] = ["_templates"]
+exclude_patterns: List[str] = []
+
+language = "en"
+
+# Exclude the prompt "$" when copying code blocks --------------------------
+copybutton_prompt_text = r"\$ "
+copybutton_prompt_is_regexp = True
+
+# -- Options for HTML output -------------------------------------------------
+html_title = project
+html_theme = "sphinx_book_theme"
+html_logo = "images/logo/llmc.svg"
+html_static_path = ["_static"]
+
+# Theme options compatible with sphinx_book_theme / pydata-sphinx-theme
 html_theme_options = {
-    "github_url": github_url,
+    "path_to_docs": "docs/en/source",
+    "repository_url": github_url,
+    "use_repository_button": True,
+    "logo": {
+        "text": "LLMC",
+        "image_light": "images/logo/llmc.svg",
+        "image_dark": "images/logo/llmc.svg",
+    },
     "doc_items": {
         "paper": "https://arxiv.org/abs/2405.06001",
         "institution": "https://github.com/ModelTC",
     },
-    "logo": "images/logo/llmc.svg",
-    "logo_dark": "images/logo/llmc.svg",
-    "logo_icon": "images/logo/llmc.svg",
 }
 
+# -- Intersphinx mapping (optional) -----------------------------------------
+intersphinx_mapping = {
+    "python": ("https://docs.python.org/3", {}),
+    "sphinx": ("https://www.sphinx-doc.org/en/master", {}),
+}
 
-# -- General configuration ---------------------------------------------------
-# https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
-
-extensions = [
-    "myst_parser",
-    "sphinx.ext.autodoc",
-    "sphinx.ext.viewcode",
-    "sphinx.ext.napoleon",
-    "sphinxcontrib.contentui",
-    "sphinx.ext.doctest",
-    "sphinx.ext.mathjax",
-    "sphinx.ext.ifconfig",
-    "sphinx-prompt",
-    "sphinxcontrib.jquery",
-    "sphinx.ext.autosectionlabel",
-    "sphinx.ext.githubpages",
-    "sphinx.ext.intersphinx",
-    "sphinxcontrib.katex",
-    "sphinx_copybutton",
+# -- Mock heavy external dependencies ---------------------------------------
+autodoc_mock_imports = [
+    "torch",
+    "transformers",
+    "sentencepiece",
+    "tensorizer",
 ]
 
-templates_path = ["_templates"]
-exclude_patterns = []
+# Remove base-class note in generated docs ----------------------------------
+from sphinx.ext import autodoc  # noqa: E402, isort: skip
 
-language = "en"
+class MockedClassDocumenter(autodoc.ClassDocumenter):
+    """Remove note about base class when a class is derived from object."""
 
-# -- Options for HTML output -------------------------------------------------
-# https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
+    def add_line(self, line: str, source: str, *lineno: int) -> None:
+        if line == "   Bases: :py:class:`object`":
+            return
+        super().add_line(line, source, *lineno)
 
+autodoc.ClassDocumenter = MockedClassDocumenter
 
-html_theme = "trojanzoo_sphinx_theme"
+# -- Customisation hooks -----------------------------------------------------
 
-html_static_path = ["_static"]
-
-source_suffix = [".rst", ".md"]
+def setup(app):
+    """Optional Sphinx setup hooks."""
+    pass
