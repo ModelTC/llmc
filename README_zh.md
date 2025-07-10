@@ -1,8 +1,7 @@
-# LLMC: 准确高效的LLM压缩工具
+<div align="center" style="font-family: charter;">
+<h1> LLMC：迈向准确且高效的大语言模型压缩 </h1>
 
-<img src="./imgs/llmc.png" alt="llmc" style="zoom:35%;" />
-
-<div align="center">
+<img src="./imgs/llmc.png" alt="llmc" width="75%" />
 
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![arXiv](https://img.shields.io/badge/LLMC-2405.06001-b31b1b)](https://arxiv.org/abs/2405.06001)
@@ -11,7 +10,7 @@
 [![Discord Banner](https://img.shields.io/discord/1139835312592392214?logo=discord&logoColor=white)](https://discord.com/invite/NfJzbkK3jY)
 [![QQ](https://img.shields.io/badge/QQ-EB1923?logo=tencent-qq&logoColor=white)](http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=I9IGPWWj8uuRXWH3_ELWjouf6gkIMgUl&authKey=GA3WbFAsm90ePJf%2FCbc7ZyXXq4ShQktlBaLxgqS5yuSPAsr3%2BDKMRdosUiLYoilO&noverify=0&group_code=526192592)
 [![Doc](https://img.shields.io/badge/docs-English-99cc2)](https://llmc-en.readthedocs.io/en/latest/)
-[![Doc](https://img.shields.io/badge/文档-中文-99cc2)](https://llmc-zhcn.readthedocs.io/en/latest/)
+[![Doc](https://img.shields.io/badge/文档-中文-99cc2)](https://llmc-zhcn.readthedocs.io/en/latest/)&#160;
 
 **\[ [English](README.md) | 中文 | [日本語](README_ja.md) \]**
 
@@ -20,24 +19,18 @@
 **LLMC** 是一个开箱即用的工具，专为压缩LLM设计，利用最先进的压缩算法提高效率并减少模型体积，同时不影响预测精度。你可以通过以下命令下载可以运行llmc的docker镜像，中国大陆用户推荐使用阿里云docker。
 
 ```shell
-# docker hub: https://hub.docker.com/r/llmcompression/llmc
+# Docker Hub: https://hub.docker.com/r/llmcompression/llmc
 docker pull llmcompression/llmc:pure-latest
 
-# 阿里云docker: registry.cn-hangzhou.aliyuncs.com/yongyang/llmcompression:[tag]
+# 阿里云镜像: registry.cn-hangzhou.aliyuncs.com/yongyang/llmcompression:[tag]
 docker pull registry.cn-hangzhou.aliyuncs.com/yongyang/llmcompression:pure-latest
 ```
 
-**社区**:
+**社区**： [Discord 服务器](https://discord.com/invite/NfJzbkK3jY)、[腾讯 QQ 群](http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=I9IGPWWj8uuRXWH3_ELWjouf6gkIMgUl&authKey=GA3WbFAsm90ePJf%2FCbc7ZyXXq4ShQktlBaLxgqS5yuSPAsr3%2BDKMRdosUiLYoilO&noverify=0&group_code=526192592)。
 
-- [Discord 服务器](https://discord.com/invite/NfJzbkK3jY)
-- [腾讯QQ群](http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=I9IGPWWj8uuRXWH3_ELWjouf6gkIMgUl&authKey=GA3WbFAsm90ePJf%2FCbc7ZyXXq4ShQktlBaLxgqS5yuSPAsr3%2BDKMRdosUiLYoilO&noverify=0&group_code=526192592)
+**文档**： [English](https://llmc-en.readthedocs.io/en/latest/)、[中文](https://llmc-zhcn.readthedocs.io/en/latest/)。
 
-**文档**:
-
-- [英文](https://llmc-en.readthedocs.io/en/latest/)
-- [中文](https://llmc-zhcn.readthedocs.io/en/latest/)
-
-## 最新消息
+## :fire: 最新动态
 
 - **2025年5月12日：** 🔥 我们现已全面支持 **`Wan2.1`** 系列视频生成模型的量化，并支持导出真实量化的 **INT8/FP8** 权重，兼容 [lightx2v](https://github.com/ModelTC/lightx2v) 推理框架。详情请参考 [lightx2v 使用文档](https://llmc-zhcn.readthedocs.io/en/latest/backend/lightx2v.html)。
 
@@ -48,6 +41,9 @@ docker pull registry.cn-hangzhou.aliyuncs.com/yongyang/llmcompression:pure-lates
 - **2024年11月12日:** 🔥 我们新增对各种模型和算法的💥`激活静态 per-tensor量化`支持，涵盖✅整型量化和✅浮点量化，进一步优化性能和效率。同时支持导出`✨真实量化模型`，并使用 [VLLM](https://github.com/vllm-project/vllm)和[SGLang](https://github.com/sgl-project/sglang)后端进行推理加速，具体请参阅[VLLM文档](https://llmc-zhcn.readthedocs.io/en/latest/backend/vllm.html)和[SGLang文档](https://llmc-zhcn.readthedocs.io/en/latest/backend/sglang.html)。
 
 - **2024年9月26日:** 🔥 我们现在支持从🚀 `LLMC`导出💥 `FP8 量化（E4M3，E5M2）`模型到一些先进的推理后端，例如[VLLM](https://github.com/vllm-project/vllm)和[SGLang](https://github.com/sgl-project/sglang)。关于详细使用方法，请参阅[VLLM文档](https://llmc-zhcn.readthedocs.io/en/latest/backend/vllm.html)和[SGLang文档](https://llmc-zhcn.readthedocs.io/en/latest/backend/sglang.html)。
+
+<details close>
+<summary>更早动态</summary>
 
 - **2024年9月24日:** 🔥 我们正式发布了 ✨`Llama-3.1-405B` 的 ✅INT4 和 ✅INT8 模型，这些模型通过 🚀`LLMC` 使用 `save_lightllm` 模式进行量化。你可以在[此处](https://huggingface.co/Dongz/llama31-405b-quant)下载模型参数。
 
@@ -69,9 +65,6 @@ docker pull registry.cn-hangzhou.aliyuncs.com/yongyang/llmcompression:pure-lates
   [Ruihao Gong\*](https://xhplus.github.io/), [Yang Yong\*](https://github.com/helloyongyang), [Shiqiao Gu\*](https://github.com/gushiqiao), [Yushi Huang\*](https://github.com/Harahan), [Chengtao Lv](https://scholar.google.com/citations?user=r8vseSUAAAAJ&hl=en), [Yunchen Zhang](https://scholar.google.com/citations?user=glkWFyUAAAAJ&hl=en), [Xianglong Liu📧](https://xlliu-beihang.github.io/), [Dacheng Tao](https://scholar.google.com/citations?user=RwlJNLcAAAAJ&hl=en)
 
   (\* 表示同等贡献，📧 表示通讯作者。)
-
-<details close>
-<summary>历史消息</summary>
 
 - **2024年7月16日:** 🔥我们现在支持 Wanda/Naive（幅度）进行 LLM 稀疏化和逐层混合比特量化！
 
@@ -97,7 +90,7 @@ docker pull registry.cn-hangzhou.aliyuncs.com/yongyang/llmcompression:pure-lates
 
 </details>
 
-## 亮点功能
+## 🚀 亮点功能
 
 - 💥**综合算法支持**: 提供广泛的 ✨`SOTA压缩算法` 支持，包括 ✅量化、✅混合精度量化 和 ✅稀疏化，同时保持与原始仓库一致的精度。我们还提供 ✨`量化最佳实践`（参见✨`最佳实践` 章节[此处](https://llmc-zhcn.readthedocs.io/en/latest/)），确保最佳性能和效率。
 
@@ -109,177 +102,129 @@ docker pull registry.cn-hangzhou.aliyuncs.com/yongyang/llmcompression:pure-lates
 
 - 💥**性能效率**: 支持大规模LLM的量化，例如 ✨`Llama3.1-405B` 和 ✨`DeepSeek-R1-671B`，并可在 `单个 A100/H100/H800 GPU` 上评估 PPL。
 
-## 使用指南
+## ⚙️ 快速上手
 
 请参阅 🚀`快速入门`章节[此处](https://llmc-zhcn.readthedocs.io/en/latest/)。
 
-## 支持的模型列表
+## :robot: 支持的模型
 
-✅ [BLOOM](https://huggingface.co/bigscience/bloom)
+- ✅ [BLOOM](https://huggingface.co/bigscience/bloom)
+- ✅ [LLaMA](https://github.com/facebookresearch/llama)
+- ✅ [LLaMA V2](https://huggingface.co/meta-llama)
+- ✅ [StarCoder](https://github.com/bigcode-project/starcoder)
+- ✅ [OPT](https://huggingface.co/docs/transformers/model_doc/opt)
 
-✅ [LLaMA](https://github.com/facebookresearch/llama)
+<details>
+<summary>更多模型</summary>
 
-✅ [LLaMA V2](https://huggingface.co/meta-llama)
+- ✅ [Falcon](https://huggingface.co/docs/transformers/model_doc/falcon)
+- ✅ [InternLM2](https://huggingface.co/internlm)
+- ✅ [Mistral](https://huggingface.co/docs/transformers/model_doc/mistral)
+- ✅ [LLaMA V3](https://huggingface.co/meta-llama)
+- ✅ [Mixtral](https://huggingface.co/docs/transformers/model_doc/mixtral)
+- ✅ [Qwen V2](https://github.com/QwenLM/Qwen2)
+- ✅ [LLaVA](https://github.com/haotian-liu/LLaVA)
+- ✅ [InternLM2.5](https://huggingface.co/internlm)
+- ✅ [StableLM](https://github.com/Stability-AI/StableLM)
+- ✅ [Gemma2](https://huggingface.co/docs/transformers/main/en/model_doc/gemma2)
+- ✅ [Phi2](https://huggingface.co/microsoft/phi-2)
+- ✅ [Phi 1.5](https://huggingface.co/microsoft/phi-1_5)
+- ✅ [MiniCPM](https://github.com/OpenBMB/MiniCPM)
+- ✅ [SmolLM](https://huggingface.co/collections/HuggingFaceTB/smollm-6695016cad7167254ce15966)
+- ✅ [DeepSeekv2.5](https://huggingface.co/deepseek-ai/DeepSeek-V2.5)
+- ✅ [LLaMA V3.2 Vision](https://huggingface.co/meta-llama/Llama-3.2-11B-Vision)
+- ✅ [Qwen MOE](https://huggingface.co/Qwen/Qwen1.5-MoE-A2.7B)
+- ✅ [Qwen2-VL](https://huggingface.co/Qwen/Qwen2-VL-7B-Instruct)
+- ✅ [InternVL2](https://huggingface.co/OpenGVLab/InternVL2-2B)
 
-✅ [StarCoder](https://github.com/bigcode-project/starcoder)
+</details>
 
-✅ [OPT](https://huggingface.co/docs/transformers/model_doc/opt)
+您可参考 `llmc/models/*.py` 添加自定义模型。
 
-✅ [Falcon](https://huggingface.co/docs/transformers/model_doc/falcon)
+## :bus: 支持的后端
 
-✅ [InternLM2](https://huggingface.co/internlm)
+- ✅ [VLLM](https://github.com/vllm-project/vllm)
+- ✅ [LightLLM](https://github.com/ModelTC/lightllm)
+- ✅ [Sglang](https://github.com/sgl-project/sglang)
+- ✅ [MLC-LLM](https://github.com/mlc-ai/mlc-llm)
+- ✅ [AutoAWQ](https://github.com/casper-hansen/AutoAWQ)
 
-✅ [Mistral](https://huggingface.co/docs/transformers/model_doc/mistral)
-
-✅ [LLaMA V3](https://huggingface.co/meta-llama)
-
-✅ [Mixtral](https://huggingface.co/docs/transformers/model_doc/mixtral)
-
-✅ [Qwen V2](https://github.com/QwenLM/Qwen2)
-
-✅ [LLaVA](https://github.com/haotian-liu/LLaVA)
-
-✅ [InternLM2.5](https://huggingface.co/internlm)
-
-✅ [StableLM](https://github.com/Stability-AI/StableLM)
-
-✅ [Gemma2](https://huggingface.co/docs/transformers/main/en/model_doc/gemma2)
-
-✅ [Phi2](https://huggingface.co/microsoft/phi-2)
-
-✅ [Phi 1.5](https://huggingface.co/microsoft/phi-1_5)
-
-✅ [MiniCPM](https://github.com/OpenBMB/MiniCPM)
-
-✅ [SmolLM](https://huggingface.co/collections/HuggingFaceTB/smollm-6695016cad7167254ce15966)
-
-✅ [DeepSeekv2.5](https://huggingface.co/deepseek-ai/DeepSeek-V2.5)
-
-✅ [LLaMA V3.2 Vision](https://huggingface.co/meta-llama/Llama-3.2-11B-Vision)
-
-✅ [Qwen MOE](https://huggingface.co/Qwen/Qwen1.5-MoE-A2.7B)
-
-✅ [Qwen2-VL](https://huggingface.co/Qwen/Qwen2-VL-7B-Instruct)
-
-✅ [InternVL2](https://huggingface.co/OpenGVLab/InternVL2-2B)
-
-你可以参考 `llmc/models/*.py` 文件添加自己的模型类型。
-
-## 支持的后端列表
-
-✅ [VLLM](https://github.com/vllm-project/vllm)
-
-✅ [LightLLM](https://github.com/ModelTC/lightllm)
-
-✅ [Sglang](https://github.com/sgl-project/sglang)
-
-✅ [MLC-LLM](https://github.com/mlc-ai/mlc-llm)
-
-✅ [AutoAWQ](https://github.com/casper-hansen/AutoAWQ)
-
-## 支持的算法列表
+## 💡 支持的算法
 
 ### 量化
 
-✅ Naive
+- ✅ Naive
+- ✅ [AWQ](https://arxiv.org/abs/2306.00978)
+- ✅ [GPTQ](https://arxiv.org/abs/2210.17323)
+- ✅ [SmoothQuant](https://arxiv.org/abs/2211.10438)
+- ✅ [OS+](https://arxiv.org/abs/2304.09145)
 
-✅ [AWQ](https://arxiv.org/abs/2306.00978)
+<details>
+<summary>更多算法</summary>
 
-✅ [GPTQ](https://arxiv.org/abs/2210.17323)
+- ✅ [OmniQuant](https://arxiv.org/abs/2308.13137)
+- ✅ [NormTweaking](https://arxiv.org/abs/2309.02784)
+- ✅ [AdaDim](https://arxiv.org/pdf/2309.15531.pdf)
+- ✅ [QUIK](https://arxiv.org/abs/2310.09259)
+- ✅ [SpQR](https://arxiv.org/abs/2306.03078)
+- ✅ [DGQ](https://arxiv.org/abs/2310.04836)
+- ✅ [OWQ](https://arxiv.org/abs/2306.02272)
+- ✅ [LLM.int8()](https://arxiv.org/abs/2208.07339)
+- ✅ [HQQ](https://mobiusml.github.io/hqq_blog/)
+- ✅ [QuaRot](https://arxiv.org/abs/2404.00456)
+- ✅ [SpinQuant](https://arxiv.org/abs/2405.16406) **([见此分支](https://github.com/ModelTC/llmc/tree/dev_spinquant))**
+- ✅ [TesseraQ](https://arxiv.org/abs/2410.19103)
 
-✅ [SmoothQuant](https://arxiv.org/abs/2211.10438)
-
-✅ [OS+](https://arxiv.org/abs/2304.09145)
-
-✅ [OmniQuant](https://arxiv.org/abs/2308.13137)
-
-✅ [NormTweaking](https://arxiv.org/abs/2309.02784)
-
-✅ [AdaDim](https://arxiv.org/pdf/2309.15531.pdf)
-
-✅ [QUIK](https://arxiv.org/abs/2310.09259)
-
-✅ [SpQR](https://arxiv.org/abs/2306.03078)
-
-✅ [DGQ](https://arxiv.org/abs/2310.04836)
-
-✅ [OWQ](https://arxiv.org/abs/2306.02272)
-
-✅ [LLM.int8()](https://arxiv.org/abs/2208.07339)
-
-✅ [HQQ](https://mobiusml.github.io/hqq_blog/)
-
-✅ [QuaRot](https://arxiv.org/abs/2404.00456)
-
-✅ [SpinQuant](https://arxiv.org/abs/2405.16406) **([见此分支](https://github.com/ModelTC/llmc/tree/dev_spinquant))**
-
-✅ [TesseraQ](https://arxiv.org/abs/2410.19103)
+</details>
 
 ### 剪枝
 
-✅ Naive（Magnitude）
+- ✅ Naive(Magnitude)
+- ✅ [Wanda](https://arxiv.org/abs/2306.11695)
+- ✅ [ShortGPT](https://arxiv.org/abs/2403.03853)
 
-✅ [Wanda](https://arxiv.org/abs/2306.11695)
+## 🤝 致谢
 
-✅ [ShortGPT](https://arxiv.org/abs/2403.03853)
+本项目参考了以下仓库：
 
-## 鸣谢
+- [mit-han-lab/llm-awq](https://github.com/mit-han-lab/llm-awq)
+- [mit-han-lab/smoothquant](https://github.com/mit-han-lab/smoothquant)
+- [OpenGVLab/OmniQuant](https://github.com/OpenGVLab/OmniQuant)
+- [IST-DASLab/gptq](https://github.com/IST-DASLab/gptq)
+- [ModelTC/Outlier_Suppression_Plus](https://github.com/ModelTC/Outlier_Suppression_Plus)
 
-我们的代码参考了以下仓库：
+<details>
+<summary>更多相关实现</summary>
 
-- https://github.com/mit-han-lab/llm-awq
-- https://github.com/mit-han-lab/smoothquant
-- https://github.com/OpenGVLab/OmniQuant
-- https://github.com/IST-DASLab/gptq
-- https://github.com/ModelTC/Outlier_Suppression_Plus
-- https://github.com/IST-DASLab/QUIK
-- https://github.com/Vahe1994/SpQR
-- https://github.com/ilur98/DGQ
-- https://github.com/xvyaward/owq
-- https://github.com/TimDettmers/bitsandbytes
-- https://github.com/mobiusml/hqq
-- [https://github.com/spcl/QuaRot](https://github.com/spcl/QuaRot)
-- [https://github.com/locuslab/wanda](https://github.com/locuslab/wanda)
-- [https://github.com/EleutherAI/lm-evaluation-harness](https://github.com/EleutherAI/lm-evaluation-harness)
-- [https://github.com/facebookresearch/SpinQuant](https://github.com/facebookresearch/SpinQuant)
-- [https://github.com/Intelligent-Computing-Lab-Yale/TesseraQ](https://github.com/Intelligent-Computing-Lab-Yale/TesseraQ)
+- [IST-DASLab/QUIK](https://github.com/IST-DASLab/QUIK)
+- [Vahe1994/SpQR](https://github.com/Vahe1994/SpQR)
+- [ilur98/DGQ](https://github.com/ilur98/DGQ)
+- [xvyaward/owq](https://github.com/xvyaward/owq)
+- [TimDettmers/bitsandbytes](https://github.com/TimDettmers/bitsandbytes)
+- [mobiusml/hqq](https://github.com/mobiusml/hqq)
+- [spcl/QuaRot](https://github.com/spcl/QuaRot)
+- [locuslab/wanda](https://github.com/locuslab/wanda)
+- [EleutherAI/lm-evaluation-harness](https://github.com/EleutherAI/lm-evaluation-harness)
+- [facebookresearch/SpinQuant](https://github.com/facebookresearch/SpinQuant)
+- [Intelligent-Computing-Lab-Yale/TesseraQ](https://github.com/Intelligent-Computing-Lab-Yale/TesseraQ)
 
-## Star 历史
+</details>
+
+## 🌟 Star 历史
 
 [![Star History Chart](https://api.star-history.com/svg?repos=ModelTC/llmc&type=Timeline)](https://star-history.com/#ModelTC/llmc&Timeline)
 
-## 引用
+## ✏️ 引用
 
-## 引用
-
-如果您认为我们的 LLM-QBench 论文/llmc 工具对您的研究有用或相关，请务必引用我们的论文：
+如果您觉得本工具包或相关论文对您的研究有帮助，请引用：
 
 ```
-@misc{llmc,
-   author = {llmc contributors},
-   title = {llmc: Towards Accurate and Efficient LLM Compression},
-   year = {2024},
-   publisher = {GitHub},
-   journal = {GitHub repository},
-   howpublished = {\url{https://github.com/ModelTC/llmc}},
-}
-
-@misc{gong2024llmqbench,
-      title={LLM-QBench: A Benchmark Towards the Best Practice for Post-training Quantization of Large Language Models},
-      author={Ruihao Gong and Yang Yong and Shiqiao Gu and Yushi Huang and Yunchen Zhang and Xianglong Liu and Dacheng Tao},
-      year={2024},
-      eprint={2405.06001},
-      archivePrefix={arXiv},
-      primaryClass={cs.LG}
-}
-
-@misc{gong2024llmcbenchmarkinglargelanguage,
-      title={LLMC: Benchmarking Large Language Model Quantization with a Versatile Compression Toolkit},
-      author={Ruihao Gong and Yang Yong and Shiqiao Gu and Yushi Huang and Chentao Lv and Yunchen Zhang and Xianglong Liu and Dacheng Tao},
-      year={2024},
-      eprint={2405.06001},
-      archivePrefix={arXiv},
-      primaryClass={cs.LG},
-      url={https://arxiv.org/abs/2405.06001},
+@inproceedings{DBLP:conf/emnlp/GongYGHLZT024,
+  author    = {Ruihao Gong and Yang Yong and Shiqiao Gu and Yushi Huang and Chengtao Lv and Yunchen Zhang and Dacheng Tao and Xianglong Liu},
+  title     = {LLMC: Benchmarking Large Language Model Quantization with a Versatile Compression Toolkit},
+  booktitle = {EMNLP (Industry Track)},
+  year      = {2024},
+  pages     = {132--152},
+  url       = {https://aclanthology.org/2024.emnlp-industry.12}
 }
 ```
