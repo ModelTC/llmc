@@ -17,7 +17,7 @@ from .llama import Llama
 
 try:
     from llava.constants import (DEFAULT_IM_END_TOKEN, DEFAULT_IM_START_TOKEN,
-                                 DEFAULT_IMAGE_PATCH_TOKEN)
+                                 DEFAULT_IMAGE_PATCH_TOKEN, IMAGE_TOKEN_INDEX)
     from llava.mm_utils import get_model_name_from_path
     from llava.model.builder import load_pretrained_model
     from llava.model.language_model.llava_llama import LlavaConfig
@@ -66,7 +66,8 @@ class Llava(Llama):
             'image_token_length': self.vlm_model_config.image_seq_length,
             'select_layer': self.vlm_model_config.vision_feature_layer,
             'select_feature': self.vlm_model_config.vision_feature_select_strategy,
-            'image_token_index': self.vlm_model_config.image_token_index
+            'image_token_index': self.vlm_model_config.image_token_index,
+            'IMAGE_TOKEN_INDEX': IMAGE_TOKEN_INDEX,  # for llava
         }
         self.processor = None
 

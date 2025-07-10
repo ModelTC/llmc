@@ -4,13 +4,10 @@ from types import MethodType
 
 import torch
 
-from llmc.compression.sparsification.attn_utils import _update_causal_mask
 from llmc.utils.registry_factory import TOKEN_REDUCTION_REGISTRY
 
 from .token_reduction_module import TokenReductionModule
 from .utils import prefill_wrapper
-
-IMAGE_TOKEN_INDEX = -200
 
 
 @TOKEN_REDUCTION_REGISTRY.register('FastV')
@@ -25,6 +22,8 @@ class FastV(TokenReductionModule):
         self.pruning_loc = self.special_config['pruning_loc']
         self.special_config['image_token_length'] = \
             self.model.pruning_config['image_token_length']
+        self.special_config['IMAGE_TOKEN_INDEX'] = \
+            self.model.pruning_config['IMAGE_TOKEN_INDEX']
         self.special_config['attn_scores'] = None
 
         self.pruning_paras = self.special_config
@@ -51,7 +50,8 @@ class FastV(TokenReductionModule):
 
                 input_ids = args[0]
                 attention_mask = args[2]
-                token_indices = input_ids[0][attention_mask[0]] == IMAGE_TOKEN_INDEX
+                token_indices = \
+                    input_ids[0][attention_mask[0]] == pruning_paras['IMAGE_TOKEN_INDEX']
                 pruning_paras['image_token_start_index'] = torch.where(token_indices)[0].item()
 
                 outputs = fn(*args, **kwargs)
@@ -127,7 +127,6 @@ class FastV(TokenReductionModule):
                 functools.partial(input_hook, pruning_paras=self.pruning_paras)
             )
         elif self.model.__class__.__name__ == 'Llava':
-            from llava.constants import IMAGE_TOKEN_INDEX
             hook_fn = input_hook_llava(
                 self.model.vlm_model.prepare_inputs_labels_for_multimodal,
                 self.pruning_paras
