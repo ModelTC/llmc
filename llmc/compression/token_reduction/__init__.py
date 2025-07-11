@@ -1,5 +1,6 @@
 from .base_blockwise_token_reduction import TokenReduction
 from .dart import DART
+from .divprune import DivPrune
 from .dycoke import DyCoke
 from .fastervlm import FasterVLM
 from .fastv import FastV
