@@ -5,3 +5,5 @@ myst-parser == 2.0.0
 sphinx-argparse
 sphinxcontrib.redoc
 sphinxcontrib.openapi
+sphinxcontrib-katex
+sphinxcontrib.contentui
