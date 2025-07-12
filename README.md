@@ -1,5 +1,5 @@
 <div align="center" style="font-family: charter;">
-<h1> LLMC: Towards Accurate and Efficient LLM Compression </h1>
+<h1> LightCompress: Towards Accurate and Efficient AIGC Model Compression </h1>
 
 <img src="./imgs/llmc.png" alt="llmc" width="75%" />
 
@@ -11,11 +11,13 @@
 [![Doc](https://img.shields.io/badge/docs-English-99cc2)](https://llmc-en.readthedocs.io/en/latest/)
 [![Doc](https://img.shields.io/badge/文档-中文-99cc2)](https://llmc-zhcn.readthedocs.io/en/latest/)&#160;
 
-**\[ English | [中文](README_zh.md) | [日本語](README_ja.md) \]**
+**\[ English | [中文](README_zh.md) \]**
 
 </div>
 
-**LLMC** is an off-the-shell tool designed for compressing LLM, leveraging state-of-the-art compression algorithms to enhance efficiency and reduce model size without compromising performance. You can download the Docker image that can run llmc with the following command. Users in mainland China are recommended to use Alibaba Cloud Docker.
+> **📢 Notice**: This repository was formerly known as **LLMC** and has been renamed to **LightCompress**.
+
+**LightCompress** is an off-the-shell tool designed for compressing aigc models(LLM, VLM, Diffusion ...), leveraging state-of-the-art compression algorithms to enhance efficiency and reduce model size without compromising performance. You can download the Docker image that can run LightCompress with the following command. Users in mainland China are recommended to use Alibaba Cloud Docker.
 
 ```shell
 # docker hub: https://hub.docker.com/r/llmcompression/llmc

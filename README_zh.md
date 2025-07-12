@@ -1,5 +1,5 @@
 <div align="center" style="font-family: charter;">
-<h1> LLMC：迈向准确且高效的大语言模型压缩 </h1>
+<h1> LightCompress：迈向准确且高效的AIGC大模型压缩 </h1>
 
 <img src="./imgs/llmc.png" alt="llmc" width="75%" />
 
@@ -11,11 +11,13 @@
 [![Doc](https://img.shields.io/badge/docs-English-99cc2)](https://llmc-en.readthedocs.io/en/latest/)
 [![Doc](https://img.shields.io/badge/文档-中文-99cc2)](https://llmc-zhcn.readthedocs.io/en/latest/)&#160;
 
-**\[ [English](README.md) | 中文 | [日本語](README_ja.md) \]**
+**\[ [English](README.md) | 中文 \]**
 
 </div>
 
-**LLMC** 是一个开箱即用的工具，专为压缩LLM设计，利用最先进的压缩算法提高效率并减少模型体积，同时不影响预测精度。你可以通过以下命令下载可以运行llmc的docker镜像，中国大陆用户推荐使用阿里云docker。
+> **📢 提示**: 本仓库原名为 **LLMC**，现已更名为 **LightCompress**。
+
+**LightCompress** 是一个开箱即用的工具，专为压缩AIGC大模型(LLM, VLM, Diffusion ...)设计，利用最先进的压缩算法提高效率并减少模型体积，同时不影响预测精度。你可以通过以下命令下载可以运行LightCompress的docker镜像，中国大陆用户推荐使用阿里云docker。
 
 ```shell
 # Docker Hub: https://hub.docker.com/r/llmcompression/llmc
