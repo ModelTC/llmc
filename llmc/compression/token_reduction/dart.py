@@ -44,7 +44,7 @@ class DART(TokenReductionModule):
                 token_indices = (
                     input_ids[0][attention_mask[0]] == pruning_paras['IMAGE_TOKEN_INDEX']
                 )
-                pruning_paras['image_token_start_index'] = torch.where(token_indices)[0].item()
+                pruning_paras['image_token_start_index'] = torch.where(token_indices)[0][0].item()
 
                 outputs = fn(*args, **kwargs)
                 return outputs
@@ -67,7 +67,7 @@ class DART(TokenReductionModule):
             hidden_states = kwargs['hidden_states']
             position_embeddings = kwargs['position_embeddings']
             position_ids = kwargs['position_ids']
-            past_key_value = kwargs['past_key_value']
+            past_key_value = layer_outs[2]
 
             bsz, q_len, _ = hidden_states.size()
             query_states = module.q_proj(hidden_states)
@@ -193,10 +193,8 @@ def get_retained_image_token(pruning_paras, last_layer_state, any_states):
         ) // (pivot_image_token + pivot_text_token))
     device = last_layer_state.device
 
-    any_states = (
-        any_states.permute(0, 2, 1, 3)
-        .reshape(any_states.shape[0], any_states.shape[1], -1)
-    )
+    any_states = any_states.permute(0, 2, 1, 3)
+    any_states = any_states.reshape(any_states.shape[0], any_states.shape[1], -1)
 
     k_states_image_token = any_states[0][
         image_token_start_index:image_token_start_index + image_token_length, :

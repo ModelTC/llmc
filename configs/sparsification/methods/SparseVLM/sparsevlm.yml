@@ -19,6 +19,7 @@ sparse:
         pruning_loc: [2] # [2, 6, 15]
         retained_tokens: 192
         init_token_total_shape: 668
+        merge_flag: False
 save:
     save_trans: False
     save_fake: False

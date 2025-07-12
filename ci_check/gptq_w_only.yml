@@ -2,13 +2,13 @@ base:
     seed: &seed 0
 model:
     type: Opt
-    path: /home/runner/work/llmc/llmc/ci_check/opt-125m
+    path: /home/runner/work/LightCompress/LightCompress/ci_check/opt-125m
     torch_dtype: auto
 calib:
     name: wikitext2
     download: False
     n_samples: 4
-    path: /home/runner/work/llmc/llmc/check/datasets/eval/wikitext2
+    path: /home/runner/work/LightCompress/LightCompress/check/datasets/eval/wikitext2
     bs: 1
     seq_len: 16
     preproc: wikitext2_gptq
@@ -17,7 +17,7 @@ eval:
     eval_pos: [fake_quant]
     name: wikitext2
     download: False
-    path: /home/runner/work/llmc/llmc/check/datasets/eval/wikitext2
+    path: /home/runner/work/LightCompress/LightCompress/check/datasets/eval/wikitext2
     bs: 1
     seq_len: 16
     inference_per_block: False
@@ -40,4 +40,4 @@ quant:
     quant_out: True
 save:
     save_fake: False
-    save_path: /home/runner/work/llmc/llmc/save/opt-125m_gptq_w4a16
+    save_path: /home/runner/work/LightCompress/LightCompress/save/opt-125m_gptq_w4a16
