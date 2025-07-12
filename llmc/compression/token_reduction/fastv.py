@@ -52,7 +52,7 @@ class FastV(TokenReductionModule):
                 attention_mask = args[2]
                 token_indices = \
                     input_ids[0][attention_mask[0]] == pruning_paras['IMAGE_TOKEN_INDEX']
-                pruning_paras['image_token_start_index'] = torch.where(token_indices)[0].item()
+                pruning_paras['image_token_start_index'] = torch.where(token_indices)[0][0].item()
 
                 outputs = fn(*args, **kwargs)
                 return outputs

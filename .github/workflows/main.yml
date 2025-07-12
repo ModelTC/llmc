@@ -30,7 +30,7 @@ jobs:
 
       - name: Download dataset
         run: |
-          # pwd  # /home/runner/work/llmc/llmc
+          # pwd  # /home/runner/work/LightCompress/LightCompress
           cd tools
           python download_calib_dataset.py --save_path ../check/datasets/calib --dataset_name pileval
           python download_eval_dataset.py --save_path ../check/datasets/eval --dataset_name wikitext2
@@ -46,17 +46,17 @@ jobs:
 
       - name: Preparation for check.
         run: |
-          cd ci_check    # /home/runner/work/llmc/llmc/ci_check
+          cd ci_check    # /home/runner/work/LightCompress/LightCompress/ci_check
           python change_files.py
 
       - name: Run awq check
         run: |
-          cd ci_check    # /home/runner/work/llmc/llmc/ci_check
+          cd ci_check    # /home/runner/work/LightCompress/LightCompress/ci_check
           bash run_awq.sh
 
       - name: Run gptq check
         run: |
-          cd ci_check    # /home/runner/work/llmc/llmc/ci_check
+          cd ci_check    # /home/runner/work/LightCompress/LightCompress/ci_check
           bash run_gptq.sh
 
       - name: Check success
